@@ -1,0 +1,49 @@
+[user]
+  name = Jess Telford
+  email = {{ .gitemail }}
+[rerere]
+  enabled = true
+[core]
+  pager = delta
+	editor = oni2 --nofork --silent
+[delta]
+  syntax-theme = Coldark-Dark
+  line-numbers = true
+  hunk-header-style = file line-number syntax
+  hunk-header-line-number-style = dim magenta
+  hunk-header-decoration-style = omit
+  file-style = omit
+  zero-style = dim syntax
+  whitespace-error-style = reverse red
+[diff]
+  colorMoved = dimmed_zebra
+[interactive]
+  diffFilter = delta --color-only
+[color]
+  ui = true
+  diff = auto
+  status = auto
+  branch = auto
+[alias]
+  lg = log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cd) %C(bold blue)<%an>%Creset' --abbrev-commit --date=relative
+  lgs = log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cd) %C(bold blue)<%an>%Creset' --abbrev-commit --date=relative --stat
+  lgp = log --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cd) %C(bold blue)<%an>%Creset' --abbrev-commit --date=relative --patch --ignore-space-change
+  st = status
+  sts = status -sb
+  co = checkout
+  ci = commit
+  unstage = reset HEAD
+  pr = pull-request
+[web]
+  browser = brave
+[browser "brave"]
+  cmd = open -a "/Applications/Brave\\ Browser.app"
+[filter "lfs"]
+	clean = git-lfs clean -- %f
+	smudge = git-lfs smudge -- %f
+	process = git-lfs filter-process
+	required = true
+[pull]
+	ff = only
+[init]
+	defaultBranch = main
