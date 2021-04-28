@@ -1,0 +1,7 @@
+{{- $gitemail := promptString "Enter your git email" -}}
+[data]
+  gitemail = {{ $gitemail | quote }}
+ 
+[git]
+  autoCommit = true
+  autoPush = true
