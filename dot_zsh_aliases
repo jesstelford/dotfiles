@@ -1,0 +1,59 @@
+# Detect which `ls` flavor is in use
+if ls --color > /dev/null 2>&1; then # GNU `ls`
+	colorflag="--color"
+else # OS X `ls`
+	colorflag="-G"
+fi
+
+alias ls="ls -hAl ${colorflag}"
+alias ff='find ./ -type f -name'
+alias fd='find ./ -type d -name'
+alias fif='find ./ -type f -iname'
+alias fid='find ./ -type d -iname'
+alias ack='ack-grep'
+alias tmux="TERM=screen-256color-bce tmux"
+alias recent='for k in `git branch|sed s/^..//`;do echo -e `git log -1 --pretty=format:"%Cgreen%ci %Cblue%cr%Creset" "$k"`\\t"$k";done|sort'
+alias ag='ag --pager="less" --hidden --ignore ".git"'
+alias rgv='rg --no-ignore-vcs --hidden --glob "!**/.git"'
+
+
+# See: https://unix.stackexchange.com/a/273658/94874
+case `uname` in
+  Darwin)
+    # commands for OS X go here
+  ;;
+  Linux)
+    # commands for Linux go here
+    alias oni2='/usr/local/bin/Onivim2-x86_64-master.AppImage'
+  ;;
+esac
+
+# From https://github.com/BurntSushi/ripgrep/issues/86#issuecomment-425744884
+function rg(){
+    # If outputting (fd 1 = stdout) directly to a terminal, page automatically:
+    if [ -t 1 ]; then
+        command rg --pretty "$@" | less
+    else
+        command rg "$@"
+    fi
+}
+
+function nvim() {
+  if test $# -gt 0; then
+    env nvim "$@"
+  elif test -f Session.vim; then
+    env nvim -S
+  else
+    env nvim -c Obsession
+  fi
+}
+
+function vim() {
+  if test $# -gt 0; then
+    env vim "$@"
+  elif test -f Session.vim; then
+    env vim -S
+  else
+    env vim -c Obsession
+  fi
+}

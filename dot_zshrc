@@ -1,0 +1,81 @@
+# Enable Powerlevel10k instant prompt. Should stay close to the top of ~/.zshrc.
+# Initialization code that may require console input (password prompts, [y/n]
+# confirmations, etc.) must go above this block; everything else may go below.
+if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]; then
+  source "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh"
+fi
+
+if [[ -v ZSH_PROF ]]; then
+  zmodload zsh/zprof
+fi
+
+fpath=( "$HOME/.zsh/site-functions" $fpath )
+fpath=( "$HOME/.zsh_functions" $fpath )
+
+[ -f $HOME/.zsh_aliases ] && source $HOME/.zsh_aliases
+
+# If you come from bash you might have to change your $PATH.
+export PATH=$HOME/bin:/usr/local/bin:$PATH
+
+PY_USER_BIN=$(python -c 'import site; print(site.USER_BASE + "/bin")')
+PY3_USER_BIN=$(python3 -c 'import site; print(site.USER_BASE + "/bin")')
+
+if [ -d "$PY_USER_BIN" ] ; then
+  export PATH="$PY_USER_BIN:$PATH"
+fi
+
+if [ -d "$PY3_USER_BIN" ] ; then
+  export PATH="$PY3_USER_BIN:$PATH"
+fi
+
+if [ -d "$HOME/adb-fastboot/platform-tools" ] ; then
+   export PATH="$HOME/adb-fastboot/platform-tools:$PATH"
+fi
+
+export PATH="$HOME/.cargo/bin:$PATH"
+export PATH="$HOME/.yarn/bin:$PATH"
+export PATH="$HOME/.config/yarn/global/node_modules/.bin:$PATH"
+export PATH="/usr/local/opt/python/libexec/bin:$PATH"
+
+export FZF_DEFAULT_COMMAND='rg --files --hidden --glob "!**/node_modules" --glob "!**/.git"'
+export EDITOR='oni2'
+
+export LSCOLORS=gxfxbEaEBxxEhEhBaDaCaD # For OSX ls?
+
+# Nicer less defaults for our modern terminal
+export LESS='--tabs=2 --chop-long-lines --RAW-CONTROL-CHARS --quit-if-one-screen --no-init'
+
+# Node version management with fnm
+# Output redirected to avoid complaints from powerlevel10k
+eval "$(fnm env)" >/dev/null 2>&1
+
+# Auto-switch node versions.
+# From: https://github.com/Schniz/fnm/issues/144#issuecomment-734387810
+FNM_USING_LOCAL_VERSION=0
+autoload -U add-zsh-hook
+_fnm_autoload_hook() {
+	if [[ -f .nvmrc && -r .nvmrc || -f .node-version && -r .node-version ]]; then
+		FNM_USING_LOCAL_VERSION=1
+		fnm use --install-if-missing
+	elif [ $FNM_USING_LOCAL_VERSION -eq 1 ]; then
+		FNM_USING_LOCAL_VERSION=0
+		fnm use default
+	fi
+}
+# Output redirected to avoid complaints from powerlevel10k
+add-zsh-hook chpwd _fnm_autoload_hook &&
+	_fnm_autoload_hook >/dev/null 2>&1
+# END: Auto-switch node versions.
+
+[ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
+
+# Get Alt-c working for FZF (NOTE: Can also Type ESC-c)
+# From: https://github.com/junegunn/fzf/issues/164#issuecomment-581837757
+bindkey "ç" fzf-cd-widget
+
+[ -f ~/.zsh/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh ] && source ~/.zsh/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+
+[ -f ~/.zsh/powerlevel10k/powerlevel10k.zsh-theme ] && source ~/.zsh/powerlevel10k/powerlevel10k.zsh-theme
+
+# To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
+[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
