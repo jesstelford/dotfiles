@@ -209,6 +209,23 @@ find ~/.fonts/ -maxdepth 1 -name 'InputMono*.ttf' | parallel -j $(nproc) fontfor
 fc-cache -f -v
 {{- end }}
 
+# fnm (node version manager)
+{{- if (eq .chezmoi.os "darwin") }}
+brew install fnm
+{{- else if (eq .chezmoi.os "linux") }}
+curl -fsSL https://fnm.vercel.app/install | bash -s -- --skip-shell
+{{- end }}
+eval "$($HOME/.fnm/fnm env)"
+mkdir -p ~/.zsh/completion
+$HOME/.fnm/fnm completions --shell zsh > ~/.zsh/completion/_fnm
+
+# node
+$HOME/.fnm/fnm install v14
+$HOME/.fnm/fnm default v14
+
+# yarn
+npm install --global yarn
+
 # powerlevel10k
 git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ~/.zsh/powerlevel10k
 
@@ -240,16 +257,12 @@ sudo ln -s /usr/local/bin/Onivim2-x86_64-master.AppImage /usr/local/bin/oni2
 
 # TODO
 # - Install:
-#   - fonts (Input Mono)
 #.  - delta: https://github.com/dandavison/delta
 #.    - And theme: Coldark-Dark
-#.  - git (latest version)
 #.  - git-lfs
 #.  - GitHub's cli tool
 #   - bat
 #   - tmux
-#   - fnm
-#   - node
 #   - onivim2 extensions
 # - Install 
 # - Replace `~` with `$HOME`
