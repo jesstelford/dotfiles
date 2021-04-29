@@ -1,0 +1,26 @@
+#!/bin/sh
+
+# IMPORTANT: This file must be idempotent because we don't know when/if it'll
+# be re-run.
+
+{{- /* Use for doing different things on different machines
+
+{{- if .codespaces }}
+# Setup for codespaces
+{{- else if (eq .chezmoi.os "darwin") }}
+# Setup for MacOS
+{{- else if (eq .chezmoi.os "linux") }}
+# Setup for linux
+{{- end }}
+
+*/}}
+
+{{- /* Use for doing different things on different machines
+
+{{- if (or (.codespaces) (eq .chezmoi.os "linux")) }}
+# Setup for Linux or codespaces
+{{- else if (eq .chezmoi.os "darwin") }}
+# Setup for MacOS
+{{- end }}
+
+*/}}
