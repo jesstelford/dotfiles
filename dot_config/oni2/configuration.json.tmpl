@@ -1,5 +1,9 @@
 {
+{{- if (eq .chezmoi.os "darwin") }}
   "ui.zoom": 1.0,
+{{- else if (eq .chezmoi.os "linux") }}
+  "ui.zoom": 1.3,
+{{- end }}
   "workbench.colorTheme": "Coldark - Dark",
   "editor.detectIndentation": true,
   "//editor.fontFamily": "Fira Code",
