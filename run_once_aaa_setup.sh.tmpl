@@ -211,8 +211,6 @@ fc-cache -f -v
 
 # powerlevel10k
 git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ~/.zsh/powerlevel10k
-# restart zsh properly to load powerlevel10k
-exec ~/.zshrc
 
 # 1password
 {{- if (eq .chezmoi.os "darwin") }}
