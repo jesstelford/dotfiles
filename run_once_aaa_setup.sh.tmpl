@@ -38,8 +38,9 @@ brew install git
 {{- else if (eq .chezmoi.os "linux") }}
 # Setup for linux
 # update git
-add-apt-repository ppa:git-core/ppa
-apt update; apt install git
+sudo add-apt-repository ppa:git-core/ppa
+sudo apt update
+sudo apt install git
 {{- end }}
 
 # Some prep for ZSH
