@@ -57,9 +57,8 @@ eval $(op signin my.1password.com {{ $opemail | quote }})
 {{- if (eq .chezmoi.os "darwin") }}
 brew install ripgrep
 {{- else if (eq .chezmoi.os "linux") }}
-# TODO
-# browse here and install the .deb
-xdg-open https://github.com/BurntSushi/ripgrep/releases/latest
+curl -LO https://github.com/BurntSushi/ripgrep/releases/download/12.1.1/ripgrep_12.1.1_amd64.deb
+sudo dpkg -i ripgrep_12.1.1_amd64.deb
 {{- end }}
 
 # fzf
