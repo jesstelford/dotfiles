@@ -2,6 +2,17 @@
 
 ## Install
 
+```sh
+# Install chezmoi & dotfiles
+sh -c "$(curl -fsLS git.io/chezmoi)" -- init jesstelford
+
+# See what'll get run
+chezmoi -vn apply
+
+# Actually run it
+chezmoi -v apply
+```
+
 One liner:
 
 ```sh
