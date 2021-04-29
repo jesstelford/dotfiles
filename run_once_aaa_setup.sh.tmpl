@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-{{- /* Completely disable this script in Codespaces for now */}}
-{{- if not .codespaces }}
+{{- /* Completely disable this script in Codespaces and CI for now */}}
+{{- if (and (not .codespaces) (not .ci)) }}
 
 # IMPORTANT: This file must be idempotent because we don't know when/if it'll
 # be re-run.
