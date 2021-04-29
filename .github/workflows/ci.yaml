@@ -1,0 +1,32 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test-ubuntu:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - run: ./install.sh
+      - name: chezmoi data
+        run: '"$HOME/.local/bin/chezmoi" data'
+  test-codespaces:
+    runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/vscode/devcontainers/base:ubuntu
+      env:
+        CODESPACES: true
+    steps:
+      - uses: actions/checkout@v2
+      - run: ./install.sh
+      - name: chezmoi data
+        run: '"$HOME/.local/bin/chezmoi" data'
+  test-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v2
+      - run: ./install.sh
+      - name: chezmoi data
+        run: '"$HOME/.local/bin/chezmoi" data'
