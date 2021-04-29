@@ -198,6 +198,8 @@ mkdir -p ~/Library/Fonts/InputMono-NerdFont/
 # Patch the fonts
 find ~/Library/Fonts/ -maxdepth 1 -name 'InputMono*.ttf' | parallel -j $(nproc) /Applications/FontForge.app/Contents/MacOS/FontForge -script font-patcher --no-progressbars --careful --complete --outputdir ~/Library/Fonts/InputMono-NerdFont {} \;
 {{- else if (eq .chezmoi.os "linux") }}
+# Install some build deps
+sudo apt-get install parallel
 # Prepare the output folder
 mkdir -p ~/.fonts/InputMono-NerdFont/
 # Patch the fonts
