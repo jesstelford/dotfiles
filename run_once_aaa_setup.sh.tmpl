@@ -146,14 +146,21 @@ sudo snap install emote
 {{- end }}
 
 # Install some custom fonts
+
+# Get InputMono
+curl "https://input.djr.com/build/?fontSelection=whole&a=0&g=0&i=0&l=0&zero=0&asterisk=0&braces=0&preset=default&line-height=1.2&accept=I+do&email=" -Lo InputMono-Font.zip 
+unzip InputMono-Font.zip -d InputMono-Font
+
 {{- if (eq .chezmoi.os "darwin") }}
 mkdir -p ~/Library/Fonts
-# TODO: InputMono font
+# InputMono font
+cp -r InputMono-Font/Input_Fonts/InputMono/InputMono/InputMono-*.ttf ~/Library/Fonts
 {{- else if (eq .chezmoi.os "linux") }}
 mkdir -p ~/.fonts
 # Get the latest emoji font for Ubuntu
 wget https://github.com/googlefonts/noto-emoji/raw/main/fonts/NotoColorEmoji.ttf -P ~/.fonts
-# TODO: InputMono font
+# InputMono font
+cp -r InputMono-Font/Input_Fonts/InputMono/InputMono/InputMono-*.ttf ~/.fonts
 {{- end }}
 
 
