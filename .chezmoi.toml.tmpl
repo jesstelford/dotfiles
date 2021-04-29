@@ -1,7 +1,22 @@
-{{- $gitemail := promptString "Enter your git email" -}}
+{{- /* Detect GitHub Codespaces and store presence in $codespaces */}}
+{{- $codespaces:= env "CODESPACES" | not | not }}
+
+{{- /* Set sourceDir to the --source CLI arg if present */}}
+sourceDir = "{{ .chezmoi.sourceDir }}"
+
 [data]
-  gitemail = {{ $gitemail | quote }}
+  codespaces = {{ $codespaces }}
+{{- if $codespaces }}
+{{- /* Codespaces dotfiles setup is non-interactive, so set an email address */}}
+  email = "REDACTED"
+{{- else }}
+{{- /* Interactive setup, so prompt for an email address */}}
+  gitemail = {{ promptString "Enter your git email" | quote }}
+{{- end }}
  
 [git]
+{{- if not $codespaces }}
+{{- /* When not in a codespace, auto commit all the things */}}
   autoCommit = true
   autoPush = true
+{{- end }}
