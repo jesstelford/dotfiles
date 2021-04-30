@@ -269,6 +269,11 @@ echo "mongodb-org-server hold" | sudo dpkg --set-selections
 echo "mongodb-org-shell hold" | sudo dpkg --set-selections
 echo "mongodb-org-mongos hold" | sudo dpkg --set-selections
 echo "mongodb-org-tools hold" | sudo dpkg --set-selections
+
+# Mongo not working? Probably because there are old databases that can't be
+# upgraded directly to this version, so we have to either delete the physical
+# database file or rollback mongo version to oldver+1, run the daemon, then
+# upgrade to the next version etc. :(
 {{- end }}
 
 # 1password
