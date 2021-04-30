@@ -44,7 +44,7 @@ sudo apt install git
 {{- end }}
 
 # Some prep for ZSH
-mkdir -p ~/.zsh
+mkdir -p $HOME/.zsh
 
 # 1password CLI
 {{- if (eq .chezmoi.os "darwin") }}
@@ -68,8 +68,8 @@ sudo dpkg -i ripgrep_12.1.1_amd64.deb
 {{- end }}
 
 # fzf
-git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf
-~/.fzf/install --no-bash --no-fish --no-update-rc
+git clone --depth 1 https://github.com/junegunn/fzf.git $HOME/.fzf
+$HOME/.fzf/install --no-bash --no-fish --no-update-rc
 
 # neovim
 {{- if (eq .chezmoi.os "darwin") }}
@@ -99,7 +99,7 @@ xdg-settings set default-web-browser brave-browser.desktop
 {{- end }}
 
 # zsh-syntax-highliting
-git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ~/.zsh/zsh-syntax-highlighting
+git clone https://github.com/zsh-users/zsh-syntax-highlighting.git $HOME/.zsh/zsh-syntax-highlighting
 
 # rust via rustup
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
@@ -107,9 +107,9 @@ source $HOME/.cargo/env
 
 # alacritty, based on https://github.com/alacritty/alacritty/blob/master/INSTALL.md#prerequisites
 # Fetch the code
-mkdir -p ~/dev
-git clone https://github.com/alacritty/alacritty.git ~/dev/alacritty
-cd ~/dev/alacritty
+mkdir -p $HOME/dev
+git clone https://github.com/alacritty/alacritty.git $HOME/dev/alacritty
+cd $HOME/dev/alacritty
 # Setup rust
 rustup override set stable
 rustup update stable
@@ -136,8 +136,8 @@ sudo mkdir -p /usr/local/share/man/man1
 gzip -c extra/alacritty.man | sudo tee /usr/local/share/man/man1/alacritty.1.gz > /dev/null
 {{- end }}
 # Shell completion
-mkdir -p ~/.zsh_functions
-cp extra/completions/_alacritty ~/.zsh_functions/_alacritty
+mkdir -p $HOME/.zsh_functions
+cp extra/completions/_alacritty $HOME/.zsh_functions/_alacritty
 {{- if (eq .chezmoi.os "linux") }}
 # Use Alacritty as default terminal (Ctrl + Alt + T)
 gsettings set org.gnome.desktop.default-applications.terminal exec 'alacritty'
@@ -158,15 +158,15 @@ curl "https://input.djr.com/build/?fontSelection=whole&a=0&g=0&i=0&l=0&zero=0&as
 unzip InputMono-Font.zip -d InputMono-Font
 
 {{- if (eq .chezmoi.os "darwin") }}
-mkdir -p ~/Library/Fonts
+mkdir -p $HOME/Library/Fonts
 # InputMono font
-cp -r InputMono-Font/Input_Fonts/InputMono/InputMono/InputMono-*.ttf ~/Library/Fonts
+cp -r InputMono-Font/Input_Fonts/InputMono/InputMono/InputMono-*.ttf $HOME/Library/Fonts
 {{- else if (eq .chezmoi.os "linux") }}
-mkdir -p ~/.fonts
+mkdir -p $HOME/.fonts
 # Get the latest emoji font for Ubuntu
-wget https://github.com/googlefonts/noto-emoji/raw/main/fonts/NotoColorEmoji.ttf -P ~/.fonts
+wget https://github.com/googlefonts/noto-emoji/raw/main/fonts/NotoColorEmoji.ttf -P $HOME/.fonts
 # InputMono font
-cp -r InputMono-Font/Input_Fonts/InputMono/InputMono/InputMono-*.ttf ~/.fonts
+cp -r InputMono-Font/Input_Fonts/InputMono/InputMono/InputMono-*.ttf $HOME/.fonts
 {{- end }}
 
 
@@ -186,24 +186,24 @@ sudo apt-get install fontforge
 # Patch Input Mono font for use with powerlevel10k
 # https://github.com/ryanoasis/nerd-fonts/issues/400#issuecomment-687229777
 # Do a sparse-checkout of only the files we need
-git clone https://github.com/ryanoasis/nerd-fonts.git --depth 1 --filter=blob:none --sparse ~/dev/nerd-fonts
-cd ~/dev/nerd-fonts
+git clone https://github.com/ryanoasis/nerd-fonts.git --depth 1 --filter=blob:none --sparse $HOME/dev/nerd-fonts
+cd $HOME/dev/nerd-fonts
 git sparse-checkout set src/glyphs font-patcher
 sudo chmod a+x font-patcher
 {{- if (eq .chezmoi.os "darwin") }}
 # Grab some build depenencies
 brew install findutils coreutils parallel
 # Prepare the output folder
-mkdir -p ~/Library/Fonts/InputMono-NerdFont/
+mkdir -p $HOME/Library/Fonts/InputMono-NerdFont/
 # Patch the fonts
-find ~/Library/Fonts/ -maxdepth 1 -name 'InputMono*.ttf' | parallel -j $(nproc) /Applications/FontForge.app/Contents/MacOS/FontForge -script font-patcher --no-progressbars --careful --complete --outputdir ~/Library/Fonts/InputMono-NerdFont {} \;
+find $HOME/Library/Fonts/ -maxdepth 1 -name 'InputMono*.ttf' | parallel -j $(nproc) /Applications/FontForge.app/Contents/MacOS/FontForge -script font-patcher --no-progressbars --careful --complete --outputdir $HOME/Library/Fonts/InputMono-NerdFont {} \;
 {{- else if (eq .chezmoi.os "linux") }}
 # Install some build deps
 sudo apt-get install parallel
 # Prepare the output folder
-mkdir -p ~/.fonts/InputMono-NerdFont/
+mkdir -p $HOME/.fonts/InputMono-NerdFont/
 # Patch the fonts
-find ~/.fonts/ -maxdepth 1 -name 'InputMono*.ttf' | parallel -j $(nproc) fontforge -script font-patcher --no-progressbars --careful --complete --outputdir ~/.fonts/InputMono-NerdFont {} \;
+find $HOME/.fonts/ -maxdepth 1 -name 'InputMono*.ttf' | parallel -j $(nproc) fontforge -script font-patcher --no-progressbars --careful --complete --outputdir $HOME/.fonts/InputMono-NerdFont {} \;
 
 # NOTE: No sudo; we want to update the current user's font cache
 fc-cache -f -v
@@ -216,8 +216,8 @@ brew install fnm
 curl -fsSL https://fnm.vercel.app/install | bash -s -- --skip-shell
 {{- end }}
 eval "$($HOME/.fnm/fnm env)"
-mkdir -p ~/.zsh/completion
-$HOME/.fnm/fnm completions --shell zsh > ~/.zsh/completion/_fnm
+mkdir -p $HOME/.zsh/completion
+$HOME/.fnm/fnm completions --shell zsh > $HOME/.zsh/completion/_fnm
 
 # node
 $HOME/.fnm/fnm install v14
@@ -227,7 +227,7 @@ $HOME/.fnm/fnm default v14
 npm install --global yarn
 
 # powerlevel10k
-git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ~/.zsh/powerlevel10k
+git clone --depth=1 https://github.com/romkatv/powerlevel10k.git $HOME/.zsh/powerlevel10k
 
 # tmux
 {{- if (eq .chezmoi.os "darwin") }}
@@ -283,6 +283,4 @@ sudo ln -s /usr/local/bin/Onivim2-x86_64-master.AppImage /usr/local/bin/oni2
 #.  - git-lfs
 #.  - GitHub's cli tool
 #   - onivim2 extensions
-# - Install 
-# - Replace `~` with `$HOME`
 {{- end }}
