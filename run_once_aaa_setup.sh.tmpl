@@ -229,6 +229,13 @@ npm install --global yarn
 # powerlevel10k
 git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ~/.zsh/powerlevel10k
 
+# tmux
+{{- if (eq .chezmoi.os "darwin") }}
+brew install tmux
+{{- else if (eq .chezmoi.os "linux") }}
+sudo apt install tmux
+{{- end }}
+
 # 1password
 {{- if (eq .chezmoi.os "darwin") }}
 # TODO
