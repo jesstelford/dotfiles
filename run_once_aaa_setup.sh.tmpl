@@ -252,6 +252,25 @@ wget https://github.com/dandavison/delta/releases/download/0.7.1/git-delta_0.7.1
 sudo dpkg -i git-delta_0.7.1_amd64.deb
 {{- end }}
 
+# mongoDB
+{{- if (eq .chezmoi.os "darwin") }}
+{{- else if (eq .chezmoi.os "linux") }}
+# From  https://docs.mongodb.com/manual/tutorial/install-mongodb-on-ubuntu/
+sudo apt-get install gnupg
+wget -qO - https://www.mongodb.org/static/pgp/server-4.4.asc | sudo apt-key add -
+# NOTE: TODO: FIXME: Only for Ubuntu 20.04
+echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/4.4 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-4.4.list
+sudo apt-get update
+# Remove system-instaled mongo version
+sudo apt-get remove mongodb-org mongodb-org-tools mongodb-server-core mongo-tools
+sudo apt-get install -y mongodb-org=4.4.5 mongodb-org-server=4.4.5 mongodb-org-shell=4.4.5 mongodb-org-mongos=4.4.5 mongodb-org-tools=4.4.5
+echo "mongodb-org hold" | sudo dpkg --set-selections
+echo "mongodb-org-server hold" | sudo dpkg --set-selections
+echo "mongodb-org-shell hold" | sudo dpkg --set-selections
+echo "mongodb-org-mongos hold" | sudo dpkg --set-selections
+echo "mongodb-org-tools hold" | sudo dpkg --set-selections
+{{- end }}
+
 # 1password
 {{- if (eq .chezmoi.os "darwin") }}
 # TODO
