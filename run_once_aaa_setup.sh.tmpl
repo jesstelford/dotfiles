@@ -177,10 +177,10 @@ MOUNTDIR=$(echo `hdiutil mount FontForge-2020-11-07-21ad4a1.app.dmg | tail -1 \
 | awk '{$1=$2=""; print $0}'` | xargs -0 echo) \
 && sudo cp -R "${MOUNTDIR}/FontForge.app" /Applications
 {{- else if (eq .chezmoi.os "linux") }}
-sudo apt-get install software-properties-common
-sudo add-apt-repository ppa:fontforge/fontforge
-sudo apt-get update
-sudo apt-get install fontforge
+wget https://github.com/fontforge/fontforge/releases/download/20201107/FontForge-2020-11-07-21ad4a1-x86_64.AppImage
+sudo mv FontForge-2020-11-07-21ad4a1-x86_64.AppImage /usr/local/bin
+sudo chmod a+x /usr/local/bin/FontForge-2020-11-07-21ad4a1-x86_64.AppImage
+sudo ln -s /usr/local/bin/FontForge-2020-11-07-21ad4a1-x86_64.AppImage /usr/local/bin/fontforge
 {{- end }}
 
 # Patch Input Mono font for use with powerlevel10k
