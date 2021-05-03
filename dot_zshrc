@@ -39,7 +39,7 @@ export PATH="$HOME/.config/yarn/global/node_modules/.bin:$PATH"
 export PATH="/usr/local/opt/python/libexec/bin:$PATH"
 
 export FZF_DEFAULT_COMMAND='rg --files --hidden --glob "!**/node_modules" --glob "!**/.git"'
-export EDITOR='oni2'
+export EDITOR='oni2 --nofork --new-window --silent'
 
 export LSCOLORS=gxfxbEaEBxxEhEhBaDaCaD # For OSX ls?
 
