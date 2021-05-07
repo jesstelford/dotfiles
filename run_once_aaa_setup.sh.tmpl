@@ -151,25 +151,6 @@ gsettings set org.gnome.desktop.default-applications.terminal exec 'alacritty'
 sudo snap install emote
 {{- end }}
 
-# Install some custom fonts
-
-# Get InputMono
-curl "https://input.djr.com/build/?fontSelection=whole&a=0&g=0&i=0&l=0&zero=0&asterisk=0&braces=0&preset=default&line-height=1.2&accept=I+do&email=" -Lo InputMono-Font.zip 
-unzip InputMono-Font.zip -d InputMono-Font
-
-{{- if (eq .chezmoi.os "darwin") }}
-mkdir -p $HOME/Library/Fonts
-# InputMono font
-cp -r InputMono-Font/Input_Fonts/InputMono/InputMono/InputMono-*.ttf $HOME/Library/Fonts
-{{- else if (eq .chezmoi.os "linux") }}
-mkdir -p $HOME/.fonts
-# Get the latest emoji font for Ubuntu
-wget https://github.com/googlefonts/noto-emoji/raw/main/fonts/NotoColorEmoji.ttf -P $HOME/.fonts
-# InputMono font
-cp -r InputMono-Font/Input_Fonts/InputMono/InputMono/InputMono-*.ttf $HOME/.fonts
-{{- end }}
-
-
 # fontforge for patching Input Mono later
 {{- if (eq .chezmoi.os "darwin") }}
 wget https://github.com/fontforge/fontforge/releases/download/20201107/FontForge-2020-11-07-21ad4a1.app.dmg
@@ -183,7 +164,7 @@ sudo chmod a+x /usr/local/bin/FontForge-2020-11-07-21ad4a1-x86_64.AppImage
 sudo ln -s /usr/local/bin/FontForge-2020-11-07-21ad4a1-x86_64.AppImage /usr/local/bin/fontforge
 {{- end }}
 
-# Patch Input Mono font for use with powerlevel10k
+# Patch fonts for use with powerlevel10k
 # https://github.com/ryanoasis/nerd-fonts/issues/400#issuecomment-687229777
 # Do a sparse-checkout of only the files we need
 git clone https://github.com/ryanoasis/nerd-fonts.git --depth 1 --filter=blob:none --sparse $HOME/dev/nerd-fonts
@@ -193,17 +174,56 @@ sudo chmod a+x font-patcher
 {{- if (eq .chezmoi.os "darwin") }}
 # Grab some build depenencies
 brew install findutils coreutils parallel
-# Prepare the output folder
-mkdir -p $HOME/Library/Fonts/InputMono-NerdFont/
-# Patch the fonts
-find $HOME/Library/Fonts/ -maxdepth 1 -name 'InputMono*.ttf' | parallel -j $(nproc) /Applications/FontForge.app/Contents/MacOS/FontForge -script font-patcher --no-progressbars --careful --complete --outputdir $HOME/Library/Fonts/InputMono-NerdFont {} \;
 {{- else if (eq .chezmoi.os "linux") }}
 # Install some build deps
 sudo apt-get install parallel
+{{- end }}
+
+# Install some custom fonts
+
+# temporary directory to extract fonts to
+mkdir -p fonts
+
+# Lato Font (for RoamResearch theme)
+curl 'https://fonts.google.com/download?family=Lato' -Lo lato-font.zip
+unzip lato-font.zip -d fonts
+rm lato-font.zip
+
+# Open Sans Font (for RoamResearch theme)
+curl 'https://fonts.google.com/download?family=Open%20Sans' -Lo open-sans-font.zip
+unzip open-sans-font.zip -d fonts
+rm open-sans-font.zip
+
+# InputMono Font
+curl "https://input.djr.com/build/?fontSelection=whole&a=0&g=0&i=0&l=0&zero=0&asterisk=0&braces=0&preset=default&line-height=1.2&accept=I+do&email=" -Lo InputMono-Font.zip 
+unzip InputMono-Font.zip -d InputMono-Font
+mv InputMono-Font/Input_Fonts/InputMono/InputMono/InputMono-*.ttf fonts
+rm -rf InputMono-Font InputMono-Font.zip
+
+# Patch Input Mono font for use with powerlevel10k
+# https://github.com/ryanoasis/nerd-fonts/issues/400#issuecomment-687229777
 # Prepare the output folder
-mkdir -p $HOME/.fonts/InputMono-NerdFont/
+mkdir -p fonts/InputMono-NerdFont/
+{{- if (eq .chezmoi.os "darwin") }}
 # Patch the fonts
-find $HOME/.fonts/ -maxdepth 1 -name 'InputMono*.ttf' | parallel -j $(nproc) fontforge -script font-patcher --no-progressbars --careful --complete --outputdir $HOME/.fonts/InputMono-NerdFont {} \;
+find fonts/ -maxdepth 1 -name 'InputMono*.ttf' | parallel -j $(nproc) /Applications/FontForge.app/Contents/MacOS/FontForge -script font-patcher --no-progressbars --careful --complete --outputdir fonts/InputMono-NerdFont {} \;
+{{- else if (eq .chezmoi.os "linux") }}
+# Patch the fonts
+find fonts/ -maxdepth 1 -name 'InputMono*.ttf' | parallel -j $(nproc) fontforge -script font-patcher --no-progressbars --careful --complete --outputdir fonts/InputMono-NerdFont {} \;
+{{- end }}
+
+{{- if (eq .chezmoi.os "linux") }}
+# Get the latest emoji font for Ubuntu
+wget https://github.com/googlefonts/noto-emoji/raw/main/fonts/NotoColorEmoji.ttf -P fonts
+{{- end }}
+
+# Move all the fonts into the correct directory
+{{- if (eq .chezmoi.os "darwin") }}
+mkdir -p $HOME/Library/Fonts
+cp -r fonts/* $HOME/Library/Fonts
+{{- else if (eq .chezmoi.os "linux") }}
+mkdir -p $HOME/.fonts
+cp -r fonts/* $HOME/.fonts
 
 # NOTE: No sudo; we want to update the current user's font cache
 fc-cache -f -v
