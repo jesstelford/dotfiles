@@ -25,15 +25,16 @@
   status = auto
   branch = auto
 [alias]
-  lg = log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cd) %C(bold blue)<%an>%Creset' --abbrev-commit --date=relative
-  lgs = log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cd) %C(bold blue)<%an>%Creset' --abbrev-commit --date=relative --stat
-  lgp = log --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cd) %C(bold blue)<%an>%Creset' --abbrev-commit --date=relative --patch --ignore-space-change
+  lg = log --graph --pretty=format:'%Cred%h%Creset%C(yellow)%d%Creset %s %Cgreen(%cd) %C(bold blue)<%an>%Creset' --abbrev-commit --date=relative
+  lgs = log --graph --pretty=format:'%Cred%h%Creset%C(yellow)%d%Creset %s %Cgreen(%cd) %C(bold blue)<%an>%Creset' --abbrev-commit --date=relative --stat
+  lgp = log --pretty=format:'%Cred%h%Creset%C(yellow)%d%Creset %s %Cgreen(%cd) %C(bold blue)<%an>%Creset' --abbrev-commit --date=relative --patch --ignore-space-change
   st = status
   sts = status -sb
   co = checkout
   ci = commit
   unstage = reset HEAD
   pr = pull-request
+  latest = for-each-ref --sort=-committerdate refs/ --format='%(HEAD) %(color:red)%(objectname:short)%(color:reset) %(color:yellow)(%(refname:short))%(color:reset) %(contents:subject) %(color:green)(%(committerdate:relative))%(color:reset) %(color:bold blue)<%(authorname)>%(color:reset)'
 [web]
   browser = brave
 [browser "brave"]
