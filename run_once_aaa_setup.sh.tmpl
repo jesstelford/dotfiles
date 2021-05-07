@@ -272,6 +272,16 @@ wget https://github.com/dandavison/delta/releases/download/0.7.1/git-delta_0.7.1
 sudo dpkg -i git-delta_0.7.1_amd64.deb
 {{- end }}
 
+# GitHub CLI; gh
+{{- if (eq .chezmoi.os "darwin") }}
+brew install gh
+{{- else if (eq .chezmoi.os "linux") }}
+sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-key C99B11DEB97541F0
+sudo apt-add-repository https://cli.github.com/packages
+sudo apt update
+sudo apt install gh
+{{- end }}
+
 # mongoDB
 {{- if (eq .chezmoi.os "darwin") }}
 {{- else if (eq .chezmoi.os "linux") }}
@@ -325,6 +335,5 @@ sudo ln -s /usr/local/bin/Onivim2-x86_64-master.AppImage /usr/local/bin/oni2
 # TODO
 # - Install:
 #.  - git-lfs
-#.  - GitHub's cli tool
 #   - onivim2 extensions
 {{- end }}
