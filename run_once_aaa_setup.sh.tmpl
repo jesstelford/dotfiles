@@ -151,6 +151,14 @@ gsettings set org.gnome.desktop.default-applications.terminal exec 'alacritty'
 sudo snap install emote
 {{- end }}
 
+# Install RoamResearch
+{{- if (eq .chezmoi.os "darwin") }}
+# TODO 
+{{- else if (eq .chezmoi.os "linux") }}
+wget https://roam-electron-deploy.s3.us-east-2.amazonaws.com/roam-research_0.0.8_amd64.deb
+sudo dpkg -i roam-research_0.0.8_amd64.deb
+{{- end }}
+
 # fontforge for patching Input Mono later
 {{- if (eq .chezmoi.os "darwin") }}
 wget https://github.com/fontforge/fontforge/releases/download/20201107/FontForge-2020-11-07-21ad4a1.app.dmg
