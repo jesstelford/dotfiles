@@ -343,6 +343,10 @@ xdg-open "https://onivim.github.io/docs/getting-started/installation#linux-x64"
 sudo ln -s /usr/local/bin/Onivim2-x86_64-master.AppImage /usr/local/bin/oni2
 {{- end }}
 
+# Fix permissions of zsh folders if necessary
+# See https://stackoverflow.com/a/22753363/473961
+compaudit | xargs chmod g-w
+
 # TODO
 # - Install:
 #.  - git-lfs
