@@ -12,6 +12,9 @@ fi
 fpath=( "$HOME/.zsh/site-functions" $fpath )
 fpath=( "$HOME/.zsh_functions" $fpath )
 
+# Enable auto complete
+autoload -Uz compinit && compinit
+
 [ -f $HOME/.zsh_aliases ] && source $HOME/.zsh_aliases
 
 # If you come from bash you might have to change your $PATH.
