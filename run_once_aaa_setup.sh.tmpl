@@ -283,6 +283,13 @@ wget https://github.com/dandavison/delta/releases/download/0.7.1/git-delta_0.7.1
 sudo dpkg -i git-delta_0.7.1_amd64.deb
 {{- end }}
 
+# Keypress visualiser
+{{- if (eq .chezmoi.os "darwin") }}
+brew install --cask keycastr
+{{- else if (eq .chezmoi.os "linux") }}
+# TODO
+{{- end }}
+
 # GitHub CLI; gh
 {{- if (eq .chezmoi.os "darwin") }}
 brew install gh
