@@ -68,5 +68,41 @@
     "key": "<leader>b",
     "command": "workbench.action.quickOpenBuffer",
     "when": "!insertMode"
+  },
+
+  // Center the screen on the matched search term
+  {
+    "from": "n",
+    "to": "nzz",
+    "when": "editorTextFocus && normalMode"
+  },
+  {
+    "from": "N",
+    "to": "Nzz",
+    "when": "editorTextFocus && normalMode"
+  },
+
+  // Refresh the screen / clear any search highlights
+  // TODO: Can I use `vim.clearSearchHighlights` command instead?
+  // see: https://github.com/onivim/oni2/commit/02bff18d5ffc9ef5e5d1003e381ea723415ae762#diff-8499560a8402641121934ca768d21ea993ae85719fe8eb31246384c0e411993cR415
+  {
+    "from": "<c-m>",
+    "to": ":nohls<CR>",
+    "when": "editorTextFocus && !insertMode"
+  },
+
+  // Use the Rewrap plugin to format the current comment block on 'gq'
+  // NOTE: Not working: https://github.com/onivim/oni2/issues/3545
+  {
+    "key": "gq",
+    "command": "rewrap.rewrapComment",
+    "when": "editorTextFocus && !insertMode"
+  },
+
+  // Use `` to run eslint
+  {
+    "from": "``",
+    "to": ":!yarn<space>eslint<space>--fix<space>\"%\"<CR>:e!<CR>",
+    "when": "editorTextFocus && !insertMode"
   }
 ]

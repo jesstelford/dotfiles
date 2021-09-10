@@ -84,3 +84,6 @@ bindkey "ç" fzf-cd-widget
 # To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
 
+
+# Added by serverless binary installer
+export PATH="$HOME/.serverless/bin:$PATH"
