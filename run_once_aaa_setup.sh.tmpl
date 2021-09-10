@@ -147,7 +147,8 @@ gsettings set org.gnome.desktop.default-applications.terminal exec 'alacritty'
 {{- if (eq .chezmoi.os "darwin") }}
 # TODO Rocket emoji picker
 {{- else if (eq .chezmoi.os "linux") }}
-# Emote emoji picker (default shortcut is Ctrl-Alt-e)
+# Emote emoji picker
+# default shortcut is Ctrl-Alt-e, remapped to Ctrl-Super-Space)
 sudo snap install emote
 {{- end }}
 
