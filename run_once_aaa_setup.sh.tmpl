@@ -325,6 +325,13 @@ echo "mongodb-org-tools hold" | sudo dpkg --set-selections
 # upgrade to the next version etc. :(
 {{- end }}
 
+# DBeaver - PostgreSQL / MySQL / etc GUI
+{{- if (eq .chezmoi.os "darwin") }}
+brew install --cask dbeaver-community
+{{- else if (eq .chezmoi.os "linux") }}
+# TODO
+{{- end }}
+
 # 1password
 {{- if (eq .chezmoi.os "darwin") }}
 # TODO
