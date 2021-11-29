@@ -35,6 +35,7 @@
   unstage = reset HEAD
   pr = pull-request
   latest = for-each-ref --sort=-committerdate refs/ --format='%(HEAD) %(color:red)%(objectname:short)%(color:reset) %(color:yellow)(%(refname:short))%(color:reset) %(contents:subject) %(color:green)(%(committerdate:relative))%(color:reset) %(color:bold blue)<%(authorname)>%(color:reset)'
+  ignored = !find . -not -path './.git/*' -not -path '**/node_modules/*' | git check-ignore -v --stdin 
 [web]
   browser = brave
 [browser "brave"]
