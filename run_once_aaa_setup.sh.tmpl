@@ -366,6 +366,22 @@ xdg-open "https://onivim.github.io/docs/getting-started/installation#linux-x64"
 sudo ln -s /usr/local/bin/Onivim2-x86_64-master.AppImage /usr/local/bin/oni2
 {{- end }}
 
+# Signal messenger
+{{- if .codespaces }}
+# Not on Codespaces
+{{- else if (eq .chezmoi.os "darwin") }}
+# TODO
+{{- else if (eq .chezmoi.os "linux") }}
+wget -O- https://updates.signal.org/desktop/apt/keys.asc | gpg --dearmor > signal-desktop-keyring.gpg
+cat signal-desktop-keyring.gpg | sudo tee -a /usr/share/keyrings/signal-desktop-keyring.gpg > /dev/null
+
+echo "deb [arch=amd64 signed-by=/usr/share/keyrings/signal-desktop-keyring.gpg] https://updates.signal.org/desktop/apt `lsb_release -cs` main" | sudo tee -a /etc/apt/sources.list.d/signal-`lsb_release -cs`.list
+
+sudo apt update && sudo apt install signal-desktop
+{{- end }}
+
+*/}}
+
 # Fix permissions of zsh folders if necessary
 # See https://stackoverflow.com/a/22753363/473961
 compaudit | xargs chmod g-w
