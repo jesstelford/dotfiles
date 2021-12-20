@@ -296,12 +296,40 @@ wget https://github.com/sharkdp/bat/releases/download/v0.18.0/bat_0.18.0_amd64.d
 sudo dpkg -i bat_0.18.0_amd64.deb
 {{- end }}
 
+# fd
+{{- if (eq .chezmoi.os "darwin") }}
+brew install fd
+{{- else if (eq .chezmoi.os "linux") }}
+sudo apt install fd-find
+# Override the other `fd` binary that comes with Ubuntu
+sudo ln -s $(which fdfind) /usr/local/bin/fd
+{{- end }}
+
 # delta
 {{- if (eq .chezmoi.os "darwin") }}
 brew install git-delta
 {{- else if (eq .chezmoi.os "linux") }}
 wget https://github.com/dandavison/delta/releases/download/0.7.1/git-delta_0.7.1_amd64.deb
 sudo dpkg -i git-delta_0.7.1_amd64.deb
+{{- end }}
+
+# Diagnostic Languageserver (lsp for prettier, eslint, etc)
+yarn global add diagnostic-languageserver
+yarn global add vscode-langservers-extracted
+yarn global add graphql-language-service-cli
+yarn global add @tailwindcss/language-server
+yarn global add typescript typescript-language-server
+yarn global add @fsouza/prettierd
+
+{{- if (eq .chezmoi.os "darwin") }}
+brew install lua-language-server
+{{- else if (eq .chezmoi.os "linux") }}
+wget https://github.com/sumneko/lua-language-server/releases/download/2.5.5/lua-language-server-2.5.5-linux-x64.tar.gz
+sudo mkdir -p /usr/local/lib/lua-language-server
+sudo tar xzvf lua-language-server-2.5.5-linux-x64.tar.gz -C /usr/local/lib/lua-language-server
+sudo chmod a+x /usr/local/lib/lua-language-server/bin/lua-language-server
+sudo chmod a+w -R /usr/local/lib/lua-language-server
+sudo ln -s /usr/local/lib/lua-language-server/bin/lua-language-server /usr/local/bin/lua-language-server
 {{- end }}
 
 # Keypress visualiser
