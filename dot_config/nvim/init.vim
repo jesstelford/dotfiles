@@ -23,7 +23,9 @@ Plug 'christoomey/vim-tmux-navigator', { 'commit': 'd030f75' }
 Plug 'crusoexia/vim-monokai', { 'commit': '66f7dc9' }
 Plug 'digitaltoad/vim-pug', { 'commit': 'ea39cd9' }
 Plug 'EdenEast/nightfox.nvim', { 'commit': 'aaea945' }
+Plug 'ellisonleao/gruvbox.nvim', { 'commit': 'b0a1c4b' }
 Plug 'folke/lsp-colors.nvim', { 'commit': '517fe3a' }
+Plug 'folke/tokyonight.nvim', { 'commit': 'd561999' }
 " Mega list window thing for errors, hints, lsp diagnostics, etc
 Plug 'folke/trouble.nvim', { 'commit': 'aae12e7' }
 Plug 'honza/vim-snippets', { 'commit': 'e2156cd' }
@@ -40,7 +42,6 @@ Plug 'lewis6991/gitsigns.nvim', { 'commit': 'a451f97' }
 " hightlighted in red
 Plug 'lukas-reineke/indent-blankline.nvim', { 'commit': '0f8df7e' }
 Plug 'moll/vim-node', { 'commit': 'ede0477' }
-Plug 'morhetz/gruvbox', { 'commit': 'bf2885a' }
 " TODO: Find a modern version of this
 "Plug 'myusuf3/numbers.vim', { 'commit': '1867e76' }
 Plug 'NLKNguyen/papercolor-theme', { 'commit': 'd0d32dc' }
@@ -50,7 +51,11 @@ Plug 'nvim-telescope/telescope.nvim', { 'commit': '9aaaa0c' }
 " Add fzf as the sorter for telescope
 Plug 'nvim-telescope/telescope-fzf-native.nvim', { 'commit': 'b8662b0', 'do': 'make' }
 Plug 'nvim-treesitter/nvim-treesitter', { 'commit': 'c9db432', 'do': ':TSUpdate' }
+Plug 'nvim-treesitter/playground', { 'commit': '787a7a8' }
 Plug 'Pamplemousse/badWords', { 'commit': '467f330' }
+Plug 'projekt0n/github-nvim-theme', { 'commit': '335dc0e' }
+" required by ellisonleao/gruvbox.nvim
+Plug 'rktjmp/lush.nvim', { 'commit': '57e9f31' }
 " TODO: Is there a modern alternative (that uses devicons, etc), but still uses
 " the same commands I'm used to?
 " <F8> (or :e /path/to/dir) to open file browser
@@ -77,7 +82,6 @@ Plug 'tpope/vim-surround', { 'commit': 'aeb9332' }
 Plug 'tpope/vim-unimpaired', { 'commit': 'e4006d6' }
 Plug 'vim-airline/vim-airline-themes', { 'commit': 'e6f2332' }
 Plug 'windwp/nvim-ts-autotag', { 'commit': '0ceb4ef' }
-Plug 'wojciechkepka/vim-github-dark', { 'commit': '30142bd' }
 
 " NOTE: internally calls: filetype indent on, syntax on
 call plug#end()
@@ -245,6 +249,22 @@ require("indent_blankline").setup {}
 require("lsp-colors").setup {}
 require('gitsigns').setup {}
 require('nvim-ts-autotag').setup {}
+-- Sets the colorscheme
+--require('github-theme').setup {
+--  theme_style = "dimmed",
+--  -- Disable italics on keywords
+--  keyword_style = "NONE",
+--  colors = {
+--    syntax = {
+--      --func = '#ff0000'
+--    }
+--  }
+--}
+--require "nvim-treesitter.configs".setup {
+--  playground = {
+--    enable = true,
+--  }
+--}
 EOF
 
 set grepprg=rg
@@ -255,11 +275,16 @@ let g:gruvbox_sign_column = 'bg0'
 let g:gruvbox_contrast_light = 'hard'
 let g:gruvbox_contrast_dark = 'medium'
 let g:gruvbox_italic = '1'
+let g:gruvbox_undercurl = '1'
 
-let g:gh_color = "soft"
-" colorscheme gruvbox
-" colorscheme ghdark
-colorscheme nightfox
+" let g:gh_color = "soft"
+colorscheme gruvbox
+" colorscheme nightfox
+" colorscheme tokyonight
+
+" Force override the default colour for the < / > tag delimeters
+" See: https://github.com/ellisonleao/gruvbox.nvim/blob/b0a1c4bd71aa58e02809632fbc00fa6dce6d1213/lua/gruvbox/plugins/highlights.lua#L70
+hi! link TSTagDelimiter GruvboxOrange
 
 let g:NERDTreeWinSize = 27
 
@@ -317,18 +342,18 @@ match OverOneTwenty /\%>120v.\+/
 
 " Background colors for active vs inactive windows
 " From: https://medium.com/@caleb89taylor/customizing-individual-neovim-windows-4a08f2d02b4e
-hi InactiveWindow ctermbg=236
-
-" Call method on window enter
-augroup WindowManagement
-  autocmd!
-  autocmd WinEnter * call Handle_Win_Enter()
-augroup END
-
-" Change highlight group of active/inactive windows
-function! Handle_Win_Enter()
-  setlocal winhighlight=Normal:ActiveWindow,NormalNC:InactiveWindow
-endfunction
+"hi! InactiveWindow ctermbg=236
+"
+"" Call method on window enter
+"augroup WindowManagement
+"  autocmd!
+"  autocmd WinEnter * call Handle_Win_Enter()
+"augroup END
+"
+"" Change highlight group of active/inactive windows
+"function! Handle_Win_Enter()
+"  setlocal winhighlight=Normal:ActiveWindow,NormalNC:InactiveWindow
+"endfunction
 
 " automatically open and close the popup menu / preview window
 au CursorMovedI,InsertLeave * if pumvisible() == 0|silent! pclose|endif
@@ -454,8 +479,6 @@ nmap ga <Plug>(EasyAlign)
 set guicursor= " Disable neovim custom cursor styling
 set ofu=syntaxcomplete#Complete
 set completeopt=menuone,menu,longest
-let g:SuperTabDefaultCompletionType = "context"
-let Tlist_Exit_OnlyWindow=1
 set autoindent smartindent	" turn on auto/smart indenting
 set smarttab			" make <tab> and <backspace> smarter
 set backspace=eol,start,indent	" allow backspacing over indent, eol, & start
