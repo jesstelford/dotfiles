@@ -17,8 +17,6 @@ Plug 'ap/vim-css-color', { 'commit': '26ff274' }
 " Easily change word casing with motions, text objects or visual mode. This
 " plugin is largely inspired by Tim Pope's vim-abolish
 Plug 'arthurxavierx/vim-caser', { 'commit': '6bc9f41' }
-" TODO: More modern terminal line tool?
-Plug 'bling/vim-airline', { 'commit': '2db9b27' }
 Plug 'christoomey/vim-tmux-navigator', { 'commit': 'd030f75' }
 Plug 'crusoexia/vim-monokai', { 'commit': '66f7dc9' }
 Plug 'digitaltoad/vim-pug', { 'commit': 'ea39cd9' }
@@ -48,6 +46,7 @@ Plug 'moll/vim-node', { 'commit': 'ede0477' }
 Plug 'NLKNguyen/papercolor-theme', { 'commit': 'd0d32dc' }
 Plug 'neovim/nvim-lspconfig', { 'commit': 'c018b1e' }
 Plug 'nvim-lua/plenary.nvim', { 'commit': 'a672e11' }
+Plug 'nvim-lualine/lualine.nvim', { 'commit': '3a17c8f' }
 Plug 'nvim-telescope/telescope.nvim', { 'commit': '9aaaa0c' }
 " Add fzf as the sorter for telescope
 Plug 'nvim-telescope/telescope-fzf-native.nvim', { 'commit': 'b8662b0', 'do': 'make' }
@@ -80,7 +79,6 @@ Plug 'tpope/vim-speeddating', { 'commit': '95da3d7' }
 Plug 'tpope/vim-surround', { 'commit': 'aeb9332' }
 " common commands: :h unimpaired
 Plug 'tpope/vim-unimpaired', { 'commit': 'e4006d6' }
-Plug 'vim-airline/vim-airline-themes', { 'commit': 'e6f2332' }
 Plug 'windwp/nvim-ts-autotag', { 'commit': '0ceb4ef' }
 
 " NOTE: internally calls: filetype indent on, syntax on
@@ -473,50 +471,8 @@ nnoremap <F10> :TroubleToggle<CR>
 " <F11>
 " <F12>
 
-" show or hide bottom status bar. useful for egghead recordings
+" TODO: show or hide bottom status bar. useful for egghead recordings
 " see http://unix.stackexchange.com/questions/140898/vim-hide-status-line-in-the-bottom
-let s:egghead_mode = 0
-let s:pre_egghead_shortmess = &shortmess
-"let g:airline_exclude_filetypes = ['terminal']
-"augroup DisableAirlineInTerminal
-"  autocmd!
-"  autocmd TermOpen * set ft=terminal
-"augroup END
-let s:airline_sections = {
-      \ 'g:airline_section_a': 0,
-      \ 'g:airline_section_b': 0,
-      \ 'g:airline_section_x': 0,
-      \ 'g:airline_section_y': 0,
-      \ 'g:airline_section_z': 0,
-      \ }
-function! EggheadMode()
-  if s:egghead_mode == 0
-      let s:egghead_mode = 1
-      let s:pre_egghead_shortmess = &shortmess
-      set shortmess=F      set noruler
-      set noshowcmd
-      set norelativenumber              " supersceded by numbers plugin
-      set nonumber                      " Show current line's actual line number
-      set colorcolumn=10000             " Mark column 121
-      for option in keys(s:airline_sections)
-        execute 'let s:airline_sections[option] = '.option
-        execute "let ".option." = ''"
-      endfor
-  else
-      let s:egghead_mode = 0
-      for option in keys(s:airline_sections)
-        execute 'let '.option.' = s:airline_sections[option]'
-      endfor
-      set ruler
-      set laststatus=2
-      set showcmd
-      set relativenumber              " supersceded by numbers plugin
-      set number                      " Show current line's actual line number
-      set colorcolumn=121             " Mark column 121
-      let &shortmess = s:pre_egghead_shortmess
-  endif
-  :set nu!
-endfunction
 
 function! UseSpaces()
   set expandtab            " use spaces, not tabs
@@ -644,60 +600,6 @@ function! LinterWarnings() abort
     \)
 endfunction
 
-let g:airline_highlighting_cache = 1
-let g:airline_powerline_fonts = 1
-let g:airline_skip_empty_sections = 1
-let g:airline_theme = 'minimalist'
-let g:airline_detect_spell = 0
-let g:airline_mode_map = {
-    \ '__'     : '-',
-    \ 'i'      : '✏️',
-    \ 'ic'     : '✏️',
-    \ 'ix'     : '✏️',
-    \ 'n'      : ' ',
-    \ 'multi'  : ' ',
-    \ 'ni'     : ' ',
-    \ 'no'     : ' ',
-    \ 'R'      : '🔃',
-    \ 'Rv'     : '🔃',
-    \ 's'      : 'S',
-    \ 'S'      : 'S',
-    \ '^S'     : 'S',
-    \ 't'      : '💻',
-    \ 'v'      : '👀',
-    \ 'V'      : '👀',
-    \ '^V'     : '👀',
-    \ }
-let g:airline_section_a = g:airline#section#create_left(['mode', 'crypt', 'keymap', 'capslock', 'xkblayout', 'iminsert'])
-let g:airline_section_x = airline#section#create_right(['bookmark', 'tagbar', 'vista', 'gutentags', 'grepper'])
-let g:airline_section_z = airline#section#create(['windowswap', 'obsession', 'linenr', 'maxlinenr', g:airline_symbols.space.':%3v'])
-
-" Don't display the file encoding when it matches this (ie; most files)
-let g:airline#parts#ffenc#skip_expected_string='utf-8[unix]'
-" truncate sha1 commits at this number of characters  >
-let g:airline#extensions#branch#sha1_len = 10
-let g:airline#extensions#hunks#enabled = 0
-let g:airline#extensions#whitespace#enabled = 0
-let g:airline#extensions#branch#enabled = 0
-let g:airline#extensions#obsession#enabled = 1
-
-call airline#parts#define_function('lintingErrors', 'LinterErrors')
-call airline#parts#define_function('lintingWarnings', 'LinterWarnings')
-let g:airline_section_error = airline#section#create_right(['lintingErrors'])
-let g:airline_section_warning = airline#section#create_right(['lintingWarnings'])
-
-" Fix for slow airline: https://medium.com/usevim/powerline-escape-fix-e849fd07aad0
-if ! has('gui_running')
-  set ttimeoutlen=10
-  augroup FastEscape
-    autocmd!
-    au InsertEnter * set timeoutlen=0
-    au InsertLeave * set timeoutlen=1000
-  augroup END
-endif
-
-"call SetJavascriptLinterExec()
-"
 set foldlevelstart=99
 noremap zO m'[zzczO`'
 
