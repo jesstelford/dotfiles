@@ -36,6 +36,7 @@ Plug 'jparise/vim-graphql', { 'commit': '9a9fe18' }
 Plug 'junegunn/vim-easy-align', { 'commit': '12dd631' }
 " Vim help for vim-plug itself (e.g. :help plug-options)
 Plug 'junegunn/vim-plug', { 'commit': '68488fd' }
+Plug 'kyazdani42/nvim-tree.lua', { 'commit': '0aec64d' }
 Plug 'kyazdani42/nvim-web-devicons', { 'commit': '218658d' }
 Plug 'lewis6991/gitsigns.nvim', { 'commit': 'a451f97' }
 " <leader><leader><motion> then select from the a-z as shown on the screen
@@ -59,7 +60,6 @@ Plug 'rktjmp/lush.nvim', { 'commit': '57e9f31' }
 " TODO: Is there a modern alternative (that uses devicons, etc), but still uses
 " the same commands I'm used to?
 " <F8> (or :e /path/to/dir) to open file browser
-Plug 'scrooloose/nerdtree', { 'commit': 'eed488b' }
 " (F6 hotkey already setup) - Visual VIM Undo tree
 Plug 'sjl/gundo.vim', { 'commit': 'c5efef1' }
 Plug 'tikhomirov/vim-glsl', { 'commit': '25f9a7d' }
@@ -145,27 +145,56 @@ set foldexpr=nvim_treesitter#foldexpr()
 " ----------------
 " Mostly copied from https://github.com/neovim/nvim-lspconfig/blob/master/doc/server_configurations.md
 lua <<EOF
+local util = require'lspconfig.util'
+
 -- Enable (broadcasting) snippet capability for completion
 local capabilities = vim.lsp.protocol.make_client_capabilities()
 capabilities.textDocument.completion.completionItem.snippetSupport = true
 
 require'lspconfig'.cssls.setup {
   capabilities = capabilities,
+  -- Support monorepos by not checking for `package.json`s, instead check for `.git` or `yarn.lock`
+  root_dir = util.root_pattern('.git', 'yarn.lock', 'package-lock.json'),
 }
 
 -- Uses the vscode eslint language server, so it's not slow
 require'lspconfig'.eslint.setup{
-  format = false
+  format = false,
+  -- Support monorepos by not checking for `package.json`s, instead check for `.git` or `yarn.lock`
+  root_dir = util.root_pattern(
+    '.eslintrc.js',
+    '.eslintrc.cjs',
+    '.eslintrc.yaml',
+    '.eslintrc.yml',
+    '.eslintrc.json',
+    '.git',
+    'yarn.lock',
+    'package-lock.json'
+  ),
 }
 
-require'lspconfig'.graphql.setup{}
+require'lspconfig'.graphql.setup{
+  -- Support monorepos by not checking for `package.json`s, instead check for `.git` or `yarn.lock`
+  root_dir = util.root_pattern(
+    '.graphqlrc*',
+    '.graphql.config.*',
+    'graphql.config.*',
+    '.git',
+    'yarn.lock',
+    'package-lock.json'
+  ),
+}
 
 require'lspconfig'.html.setup {
   capabilities = capabilities,
+  -- Support monorepos by not checking for `package.json`s, instead check for `.git` or `yarn.lock`
+  root_dir = util.root_pattern('.git', 'yarn.lock', 'package-lock.json'),
 }
 
 require'lspconfig'.jsonls.setup {
   capabilities = capabilities,
+  -- Support monorepos by not checking for `package.json`s, instead check for `.git` or `yarn.lock`
+  root_dir = util.root_pattern('.git', 'yarn.lock', 'package-lock.json'),
 }
 
 local runtime_path = vim.split(package.path, ';')
@@ -195,12 +224,44 @@ require'lspconfig'.sumneko_lua.setup {
       },
     },
   },
+  -- Support monorepos by not checking for `package.json`s, instead check for `.git` or `yarn.lock`
+  root_dir = util.root_pattern('.git', 'yarn.lock', 'package-lock.json'),
 }
 
-require'lspconfig'.tailwindcss.setup{}
+require'lspconfig'.tailwindcss.setup{
+  -- Support monorepos by not checking for `package.json`s, instead check for `.git` or `yarn.lock`
+  root_dir = function(fname)
+    return util.root_pattern('tailwind.config.js', 'tailwind.config.ts')(fname)
+      or util.root_pattern(
+        'postcss.config.js',
+        'postcss.config.ts',
+        '.git',
+        'yarn.lock',
+        'package-lock.json'
+      )(fname)
+  end,
+}
+
+-- Get the global yarn bin directory
+local yarnGlobalBinDir = string.gsub(
+  -- Get the global yarn bin dir, but it includes a trailing `\n`
+  vim.fn.system('yarn global bin'),
+  -- So we match against the contents with leading/trailing spaces stripped
+  '^%s*(.-)%s*$',
+  '%1'
+)
 
 -- Requires a tsconfig.json or jsconfig.json in the root of your project.
 require'lspconfig'.tsserver.setup{
+  -- Forcibly use the globally installed `tsserver` version.
+  -- Otherwise, this will use... some other version? Even if there's not a
+  -- version installed in the local node_modules it somehow manages to find one
+  -- somewhere that is out of date (doesn't understand optional chaining).
+  cmd = {
+    'typescript-language-server',
+    '--stdio',
+    '--tsserver-path='..yarnGlobalBinDir..'/tsserver'
+  },
   init_options = require("nvim-lsp-ts-utils").init_options,
   on_attach = function(client)
     -- Let null-ls handle the formatting with the faster prettierd
@@ -212,7 +273,21 @@ require'lspconfig'.tsserver.setup{
     -- required to fix code action ranges and filter diagnostics
     ts_utils.setup_client(client)
   end,
+  -- Support monorepos by not checking for `package.json`s, instead check for `.git` or `yarn.lock`
+  root_dir = function(fname)
+    return util.root_pattern('tsconfig.json')(fname)
+      or util.root_pattern('jsconfig.json')(fname)
+      or util.root_pattern('.git', 'yarn.lock', 'package-lock.json')(fname)
+  end,
 }
+
+-- Use a circle instead of a square for diagnostics
+-- Taken from https://github.com/projekt0n/circles.nvim
+vim.lsp.handlers["textDocument/publishDiagnostics"] = vim.lsp.with(vim.lsp.diagnostic.on_publish_diagnostics, {
+  virtual_text = {prefix = ""},
+  signs = true,
+  update_in_insert = false
+})
 EOF
 " ----------------
 " end: lspconfig config
@@ -243,12 +318,33 @@ EOF
 " end: null-ls
 " ------------
 
+let g:nvim_tree_show_icons = {
+  \ 'git': 0,
+  \ 'files': 1,
+  \ 'folders': 1,
+  \ 'folder_arrows': 1,
+  \ }
+
+let g:nvim_tree_git_hl = 1
+
+let g:nvim_tree_icons = {
+  \ 'default': '',
+  \ }
+
 set termguicolors
 lua <<EOF
 require("indent_blankline").setup {}
 require("lsp-colors").setup {}
 require('gitsigns').setup {}
 require('nvim-ts-autotag').setup {}
+require('nvim-tree').setup {
+  diagnostics = {
+    enable = true,
+  },
+  git = {
+    enable = true,
+  },
+}
 -- Sets the colorscheme
 --require('github-theme').setup {
 --  theme_style = "dimmed",
@@ -286,7 +382,11 @@ colorscheme gruvbox
 " See: https://github.com/ellisonleao/gruvbox.nvim/blob/b0a1c4bd71aa58e02809632fbc00fa6dce6d1213/lua/gruvbox/plugins/highlights.lua#L70
 hi! link TSTagDelimiter GruvboxOrange
 
-let g:NERDTreeWinSize = 27
+" Tell the Directory highlight to calm down and stop yelling at me
+hi! link Directory Text
+
+" Less in-your-face folder icons in nvim-tree
+hi! link NvimTreeFolderIcon NonText
 
 hi! link CursorLineNr LineNr " Force cursorline number to be same as line number
 hi! link SignColumn CursorLineNr " Force sign column number to be same as line number
@@ -306,11 +406,7 @@ set statusline=
 set hlsearch
 set ignorecase
 set smartcase
-if has('nvim')
-  set undodir=stdpath('data').'/undodir'
-else
-  set undodir=~/.vim/undodir
-endif
+set undodir=~/.vim/undodir
 if filewritable(&undodir) == 0
   call mkdir(&undodir, "p")
 endif
@@ -370,8 +466,8 @@ nmap <leader>g <cmd>Telescope live_grep<cr>
 nnoremap <F2> :%s/<C-V><C-M>$//<CR>
 " <F5>
 nnoremap <F6> :GundoToggle<CR>
-nnoremap <F7> :NERDTreeFind<CR>
-nnoremap <F8> :NERDTreeToggle<CR>
+nnoremap <F7> <cmd>NvimTreeFindFile<cr>
+nnoremap <F8> <cmd>NvimTreeToggle<cr>
 nnoremap <F9> :call EggheadMode()<CR>
 nnoremap <F10> :TroubleToggle<CR>
 " <F11>
