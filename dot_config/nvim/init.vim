@@ -79,7 +79,8 @@ Plug 'tpope/vim-speeddating', { 'commit': '95da3d7' }
 Plug 'tpope/vim-surround', { 'commit': 'aeb9332' }
 " common commands: :h unimpaired
 Plug 'tpope/vim-unimpaired', { 'commit': 'e4006d6' }
-Plug 'windwp/nvim-ts-autotag', { 'commit': '0ceb4ef' }
+" I wish this workd better, but it's unreliable
+"Plug 'windwp/nvim-ts-autotag', { 'commit': '0ceb4ef' }
 
 " NOTE: internally calls: filetype indent on, syntax on
 call plug#end()
@@ -89,6 +90,20 @@ syntax off
 " -------------
 " end: vim-plug
 " -------------
+
+set background=dark
+set termguicolors
+
+let g:gruvbox_sign_column = 'bg0'
+let g:gruvbox_contrast_light = 'hard'
+let g:gruvbox_contrast_dark = 'medium'
+let g:gruvbox_italic = '1'
+let g:gruvbox_undercurl = '1'
+
+" let g:gh_color = "soft"
+colorscheme gruvbox
+" colorscheme nightfox
+" colorscheme tokyonight
 
 " ------------------
 " Tree sitter config
@@ -329,12 +344,11 @@ let g:nvim_tree_icons = {
   \ 'default': '',
   \ }
 
-set termguicolors
 lua <<EOF
 require("indent_blankline").setup {}
 require("lsp-colors").setup {}
 require('gitsigns').setup {}
-require('nvim-ts-autotag').setup {}
+--require('nvim-ts-autotag').setup {}
 require('nvim-tree').setup {
   diagnostics = {
     enable = true,
@@ -342,6 +356,19 @@ require('nvim-tree').setup {
   git = {
     enable = true,
   },
+}
+require('telescope').setup {
+  defaults = {
+    mappings = {
+      i = {
+        -- Use Trouble instead of Quick Fix for the files which is much nicer to browser, but doesn't have commands
+        ["<C-q>"] = require("trouble.providers.telescope").smart_open_with_trouble
+      },
+      n = {
+        ["<C-q>"] = require("trouble.providers.telescope").smart_open_with_trouble
+      }
+    }
+  }
 }
 -- Sets the colorscheme
 --require('github-theme').setup {
@@ -362,19 +389,6 @@ require('nvim-tree').setup {
 EOF
 
 set grepprg=rg
-
-set background=dark
-
-let g:gruvbox_sign_column = 'bg0'
-let g:gruvbox_contrast_light = 'hard'
-let g:gruvbox_contrast_dark = 'medium'
-let g:gruvbox_italic = '1'
-let g:gruvbox_undercurl = '1'
-
-" let g:gh_color = "soft"
-colorscheme gruvbox
-" colorscheme nightfox
-" colorscheme tokyonight
 
 " Force override the default colour for the < / > tag delimeters
 " See: https://github.com/ellisonleao/gruvbox.nvim/blob/b0a1c4bd71aa58e02809632fbc00fa6dce6d1213/lua/gruvbox/plugins/highlights.lua#L70
@@ -430,6 +444,32 @@ if !has('nvim')
 endif
 set lazyredraw
 
+" So that we can edit the quickfix list with `:set modifiable`, then reload it
+" with `:cgetbuf`
+setlocal errorformat=%f\|%l\ col\ %c\|%m
+
+function! GetFilenameFromQFLine(val)
+  let l:buf = bufname(a:val['bufnr'])
+  echo l:buf
+  return l:buf
+  "let l:matched = matchstr(l:buf, '\c^\zs.\{-}\ze|.*$')
+  "echo l:matched
+  "return l:matched
+endfunction
+
+function! UniqueQuickFix()
+  let l:list = getqflist()
+  call sort(l:list)
+  call uniq(l:list, {val1, val2 -> GetFilenameFromQFLine(val1) !=# GetFilenameFromQFLine(val2)})
+  "call filter(g:list, {idx, val -> index(g:list, matchstr(val, '\c^\zs.\{-}\ze\|.*$'), idx + 1) == -1})
+  call setqflist(l:list)
+endfunction
+
+augroup qf
+  autocmd!
+  nnoremap <leader>u :set modifiable<CR>:call UniqueQuickFix()<CR>
+augroup END
+
 " Show any text longer than 'textwidth' in red
 highlight OverOneTwenty ctermbg=DarkRed ctermfg=white guibg=#592929
 match OverOneTwenty /\%>120v.\+/
@@ -454,9 +494,10 @@ au CursorMovedI,InsertLeave * if pumvisible() == 0|silent! pclose|endif
 
 " Mappings
 nmap ,b :ls<CR>:b<Space>
-nmap <leader>f <cmd>Telescope find_files<cr>
 nmap <leader>b <cmd>Telescope buffers<cr>
-nmap <leader>g <cmd>Telescope live_grep<cr>
+nmap <leader>d <cmd>Telescope lsp_definitions<cr>
+nmap <leader>f <cmd>Telescope find_files<cr>
+nmap <leader>s <cmd>Telescope live_grep<cr>
 
 " <Fn> keys
 "
