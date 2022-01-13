@@ -32,15 +32,13 @@
 {{- if (eq .chezmoi.os "darwin") }}
 xcode-select --install
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-brew install wget
-# update git
-brew install git
+brew install wget git findutils coreutils parallel
 {{- else if (eq .chezmoi.os "linux") }}
 # Setup for linux
 # update git
 sudo add-apt-repository ppa:git-core/ppa
 sudo apt update
-sudo apt install git
+sudo apt install git parallel
 {{- end }}
 
 # Some prep for ZSH
@@ -203,13 +201,6 @@ git clone https://github.com/ryanoasis/nerd-fonts.git --depth 1 --filter=blob:no
 cd $HOME/dev/nerd-fonts
 git sparse-checkout set src/glyphs font-patcher
 sudo chmod a+x font-patcher
-{{- if (eq .chezmoi.os "darwin") }}
-# Grab some build depenencies
-brew install findutils coreutils parallel
-{{- else if (eq .chezmoi.os "linux") }}
-# Install some build deps
-sudo apt-get install parallel
-{{- end }}
 
 # Install some custom fonts
 
