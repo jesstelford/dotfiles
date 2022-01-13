@@ -73,17 +73,16 @@ $HOME/.fzf/install --no-bash --no-fish --no-update-rc
 # neovim
 {{- $nvimbinary := "" }}
 {{- if (eq .chezmoi.os "darwin") }}
-wget https://github.com/neovim/neovim/releases/download/v0.6.0/nvim-macos.tar.gz
+wget https://github.com/neovim/neovim/releases/download/v0.6.1/nvim-macos.tar.gz
 tar xzvf nvim-macos.tar.gz
-sudo mv ./nvim-osx64/bin/nvim /usr/local/bin/nvim-osx64
-rm -rf ./nvim-osx64
-{{- $nvimbinary = "nvim-osx64" }}
+sudo mv ./nvim-osx64 /usr/local/nvim-osx64-0.6.1
+{{- $nvimbinary = "/usr/local/nvim-osx64-0.6.1/bin/nvim" }}
 {{- else if (eq .chezmoi.os "linux") }}
-wget https://github.com/neovim/neovim/releases/download/v0.6.0/nvim.appimage
-sudo mv nvim.appimage /usr/local/bin
-{{- $nvimbinary = "nvim.appimage" }}
+wget https://github.com/neovim/neovim/releases/download/v0.6.1/nvim.appimage
+sudo mv nvim.appimage /usr/local/bin/nvim-0.6.1.appimage
+{{- $nvimbinary = "/usr/local/bin/nvim-0.6.1.appimage" }}
 {{- end }}
-sudo chmod a+x /usr/local/bin/{{ $nvimbinary }}
+sudo chmod a+x {{ $nvimbinary }}
 
 sudo tee -a /usr/local/bin/nvim > /dev/null <<EOF
 #!/usr/bin/env bash
