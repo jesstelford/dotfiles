@@ -81,6 +81,7 @@ Plug 'tpope/vim-surround', { 'commit': 'aeb9332' }
 Plug 'tpope/vim-unimpaired', { 'commit': 'e4006d6' }
 " I wish this workd better, but it's unreliable
 "Plug 'windwp/nvim-ts-autotag', { 'commit': '0ceb4ef' }
+Plug 'tami5/lspsaga.nvim', { 'commit': '9968d73' }
 
 " NOTE: internally calls: filetype indent on, syntax on
 call plug#end()
@@ -297,10 +298,23 @@ require'lspconfig'.tsserver.setup{
 -- Use a circle instead of a square for diagnostics
 -- Taken from https://github.com/projekt0n/circles.nvim
 vim.lsp.handlers["textDocument/publishDiagnostics"] = vim.lsp.with(vim.lsp.diagnostic.on_publish_diagnostics, {
-  virtual_text = {prefix = ""},
+  -- Disable inline virtual text, use lspsaga to show diagnostics instead
+  virtual_text = false,
+  -- Show signs in the gutter
   signs = true,
-  update_in_insert = false
+  update_in_insert = false,
+  -- High severity items always take precedence
+  severity_sort = true
 })
+
+-- lspsaga for nicer diagnostics and other commands
+require'lspsaga'.init_lsp_saga{
+  code_action_keys = {
+    quit = "<esc>",
+  },
+  border_style = "single",
+}
+
 EOF
 " ----------------
 " end: lspconfig config
@@ -402,6 +416,7 @@ hi! link NvimTreeFolderIcon NonText
 
 hi! link CursorLineNr LineNr " Force cursorline number to be same as line number
 hi! link SignColumn CursorLineNr " Force sign column number to be same as line number
+
 set textwidth=80
 set autowriteall
 if has('nvim')
@@ -498,11 +513,23 @@ nmap <leader>b <cmd>Telescope buffers<cr>
 nmap <leader>d <cmd>Telescope lsp_definitions<cr>
 nmap <leader>f <cmd>Telescope find_files<cr>
 nmap <leader>s <cmd>Telescope live_grep<cr>
+" Show all diagnostics on current line in floating window
+nnoremap <silent>? <cmd>lua require'lspsaga.diagnostic'.show_line_diagnostics()<CR>
+" Show documentation on the current method / variable / etc
+nnoremap <silent>K <cmd>Lspsaga hover_doc<cr>
+" Trigger code actions for the current line / range
+nnoremap <silent><leader>ca <cmd>lua require('lspsaga.codeaction').code_action()<CR>
+vnoremap <silent><leader>ca :<C-U>lua require('lspsaga.codeaction').range_code_action()<CR>
+" Rename symbol with lsp. Also mapped to <F2>
+nnoremap <silent>gr <cmd>Lspsaga rename<cr>
 
 " <Fn> keys
 "
 " <F1>
-nnoremap <F2> :%s/<C-V><C-M>$//<CR>
+" Rename symbol with lsp. Also mapped to gr
+nnoremap <silent><F2> <cmd>Lspsaga rename<cr>
+" <F3>
+" <F4>
 " <F5>
 nnoremap <F6> :GundoToggle<CR>
 nnoremap <F7> <cmd>NvimTreeFindFile<cr>

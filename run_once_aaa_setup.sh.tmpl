@@ -89,11 +89,11 @@ sudo tee -a /usr/local/bin/nvim > /dev/null <<EOF
 # Auto-load sessions when starting nvim
 # Requires https://github.com/tpope/vim-obsession
 if test \$# -gt 0; then
-  {{ $nvimbinary }} "\$@"
+  /usr/local/bin/nvim-0.6.1.appimage "\$@"
 elif test -f Session.vim; then
-  {{ $nvimbinary }} -S
+  /usr/local/bin/nvim-0.6.1.appimage -S
 else
-  {{ $nvimbinary }} -c Obsession
+  /usr/local/bin/nvim-0.6.1.appimage -c Obsession
 fi
 EOF
 sudo chmod a+x /usr/local/bin/nvim
