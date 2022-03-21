@@ -1,3 +1,6 @@
+" vim-go binary dir
+let g:go_bin_path = has('nvim') ? stdpath('data') . '/bin' : '~/.vim/bin'
+
 " --------
 " vim-plug
 " --------
@@ -81,7 +84,11 @@ Plug 'tpope/vim-surround', { 'commit': 'aeb9332' }
 Plug 'tpope/vim-unimpaired', { 'commit': 'e4006d6' }
 " I wish this workd better, but it's unreliable
 "Plug 'windwp/nvim-ts-autotag', { 'commit': '0ceb4ef' }
-Plug 'tami5/lspsaga.nvim', { 'commit': '9968d73' }
+" IDE-like commands for interacting with LSPs like code actions, diagnostics in
+" floats, etc
+Plug 'tami5/lspsaga.nvim', { 'commit': '3cd3c4b' }
+" golang syntaix higlighting support (also chezmoi .tmpl file highlighting)
+Plug 'fatih/vim-go', { 'commit': 'dcefd64', 'do': ':GoUpdateBinaries', 'frozen': 1 }
 
 " NOTE: internally calls: filetype indent on, syntax on
 call plug#end()
@@ -357,6 +364,9 @@ let g:nvim_tree_git_hl = 1
 let g:nvim_tree_icons = {
   \ 'default': '',
   \ }
+
+" Create new files within a closed folder when that folder is under cursor
+let g:nvim_tree_create_in_closed_folder = 1
 
 lua <<EOF
 require("indent_blankline").setup {}
