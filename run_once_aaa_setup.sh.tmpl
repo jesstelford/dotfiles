@@ -89,11 +89,13 @@ sudo tee -a /usr/local/bin/nvim > /dev/null <<EOF
 # Auto-load sessions when starting nvim
 # Requires https://github.com/tpope/vim-obsession
 if test \$# -gt 0; then
-  /usr/local/bin/nvim-0.6.1.appimage "\$@"
+  # Explicityly set the terminal here so nvim knows its running inside alacritty
+  # (necessary when running inside tmux)
+  TERM=alacritty /usr/local/bin/nvim-0.6.1.appimage "\$@"
 elif test -f Session.vim; then
-  /usr/local/bin/nvim-0.6.1.appimage -S
+  TERM=alacritty /usr/local/bin/nvim-0.6.1.appimage -S
 else
-  /usr/local/bin/nvim-0.6.1.appimage -c Obsession
+  TERM=alacritty /usr/local/bin/nvim-0.6.1.appimage -c Obsession
 fi
 EOF
 sudo chmod a+x /usr/local/bin/nvim
@@ -127,6 +129,7 @@ source $HOME/.cargo/env
 mkdir -p $HOME/dev
 git clone https://github.com/alacritty/alacritty.git $HOME/dev/alacritty
 cd $HOME/dev/alacritty
+git checkout f4bdf5f
 # Setup rust
 rustup override set stable
 rustup update stable
@@ -136,7 +139,7 @@ make app
 cp -r target/release/osx/Alacritty.app /Applications/
 {{- else if (eq .chezmoi.os "linux") }}
 # Install build deps
-apt-get install cmake pkg-config libfreetype6-dev libfontconfig1-dev libxcb-xfixes0-dev python3 python3-venv gzip
+apt-get install cmake pkg-config libfreetype6-dev libfontconfig1-dev libxcb-xfixes0-dev libxkbcommon-dev python3 python3-venv gzip
 # Build + install
 cargo build --release
 sudo cp target/release/alacritty /usr/local/bin # or anywhere else in $PATH
@@ -151,6 +154,7 @@ sudo update-desktop-database
 # Man pages
 sudo mkdir -p /usr/local/share/man/man1
 gzip -c extra/alacritty.man | sudo tee /usr/local/share/man/man1/alacritty.1.gz > /dev/null
+gzip -c extra/alacritty-msg.man | sudo tee /usr/local/share/man/man1/alacritty-msg.1.gz > /dev/null
 {{- end }}
 # Shell completion
 mkdir -p $HOME/.zsh_functions
@@ -368,6 +372,15 @@ echo "mongodb-org-tools hold" | sudo dpkg --set-selections
 brew install --cask dbeaver-community
 {{- else if (eq .chezmoi.os "linux") }}
 # TODO
+{{- end }}
+
+# golang
+{{- if (eq .chezmoi.os "darwin") }}
+wget https://go.dev/dl/go1.18.darwin-amd64.pkg
+open -nW go1.18.darwin-amd64.pkg
+{{- else if (eq .chezmoi.os "linux") }}
+wget https://go.dev/dl/go1.18.linux-amd64.tar.gz
+sudo tar -C /usr/local -xzf go1.18.linux-amd64.tar.gz
 {{- end }}
 
 # 1password
