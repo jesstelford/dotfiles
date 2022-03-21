@@ -373,6 +373,7 @@ require("indent_blankline").setup {}
 require("lsp-colors").setup {}
 require('gitsigns').setup {}
 --require('nvim-ts-autotag').setup {}
+vim.g.nvim_tree_indent_markers = 1
 require('nvim-tree').setup {
   diagnostics = {
     enable = true,
@@ -421,8 +422,9 @@ hi! link TSTagDelimiter GruvboxOrange
 " Tell the Directory highlight to calm down and stop yelling at me
 hi! link Directory Text
 
-" Less in-your-face folder icons in nvim-tree
+" Less in-your-face folder icons/lines in nvim-tree
 hi! link NvimTreeFolderIcon NonText
+hi! link NvimTreeIndentMarker NonText
 
 hi! link CursorLineNr LineNr " Force cursorline number to be same as line number
 hi! link SignColumn CursorLineNr " Force sign column number to be same as line number
