@@ -98,6 +98,7 @@ _G.eviline = function()
     blue      = '#51afef',
     red       = '#ec5f67',
     text      = '#ffffff',
+    textLight = darken('#ffffff', 50)
   }
 
   -- Config
@@ -127,7 +128,7 @@ _G.eviline = function()
     inactive_sections = {
       -- these are to remove the defaults
       lualine_a = {},
-      lualine_v = {},
+      lualine_b = {},
       lualine_y = {},
       lualine_z = {},
       lualine_c = {},
@@ -209,22 +210,34 @@ _G.eviline = function()
     {
       -- Lsp server name .
       function()
-        local msg = 'No Lsp'
         local buf_ft = vim.api.nvim_buf_get_option(0, 'filetype')
         local clients = vim.lsp.get_active_clients()
         if next(clients) == nil then
-          return msg
+          return 'No Active Lsp'
         end
+        local clientNames = {}
         for _, client in ipairs(clients) do
           local filetypes = client.config.filetypes
           if filetypes and vim.fn.index(filetypes, buf_ft) ~= -1 then
-            return client.name
+            table.insert(clientNames, client.name)
           end
+        end
+        if #clientNames == 0 then
+          return 'No Active Lsp'
+        end
+        local msg = ''
+        local maxClientsToPrint = 3
+        local separator = '·'
+        for i = 1, math.min(maxClientsToPrint, #clientNames) do
+          msg = msg..(i == 1 and '' or separator)..clientNames[i]
+        end
+        if #clientNames > maxClientsToPrint then
+          msg = msg..separator..'+'..(#clientNames - maxClientsToPrint)
         end
         return msg
       end,
       icon = ' ',
-      color = { fg = color(colors.text) },
+      color = { fg = color(colors.textLight) },
     },
     {
       color = { fg = color(colors.text, true) },
