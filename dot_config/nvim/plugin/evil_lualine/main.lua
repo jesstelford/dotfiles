@@ -1,8 +1,8 @@
 -- Eviline config for lualine
 -- Author: shadmansaleh
 -- Credit: glepnir
--- Modified from: https://github.com/nvim-lualine/lualine.nvim/blob/f4ab5b56dae695657cb15ae69e938038c0acfa62/examples/evil_lualine.lua
--- TODO: Handle if vim.o.background == "dark", like https://github.com/folke/tokyonight.nvim/blob/main/lua/tokyonight/util.lua
+-- Modified from: https://github.com/nvim-lualine/lualine.nvim/blob/37a314b9e3b65807c20ea6bbb5821efe45163af4/examples/evil_lualine.lua
+-- Handles if vim.o.background == "dark", like https://github.com/folke/tokyonight.nvim/blob/main/lua/tokyonight/util.lua
 local lualine = require 'lualine'
 local hsluv = require('lush').hsluv
 
@@ -55,18 +55,18 @@ end
 
 -- From https://github.com/norcalli/nvim_utils/blob/master/lua/nvim_utils.lua#L554-L567
 local function nvim_create_augroups(definitions)
-	for group_name, definition in pairs(definitions) do
-		vim.api.nvim_command('augroup '..group_name)
-		vim.api.nvim_command('autocmd!')
-		for _, def in ipairs(definition) do
-			-- if type(def) == 'table' and type(def[#def]) == 'function' then
-			-- 	def[#def] = lua_callback(def[#def])
-			-- end
-			local command = table.concat(vim.tbl_flatten{'autocmd', def}, ' ')
-			vim.api.nvim_command(command)
-		end
-		vim.api.nvim_command('augroup END')
-	end
+  for group_name, definition in pairs(definitions) do
+    vim.api.nvim_command('augroup '..group_name)
+    vim.api.nvim_command('autocmd!')
+    for _, def in ipairs(definition) do
+      -- if type(def) == 'table' and type(def[#def]) == 'function' then
+      -- 	def[#def] = lua_callback(def[#def])
+      -- end
+      local command = table.concat(vim.tbl_flatten{'autocmd', def}, ' ')
+      vim.api.nvim_command(command)
+    end
+    vim.api.nvim_command('augroup END')
+  end
 end
 
 local conditions = {
@@ -174,6 +174,9 @@ _G.eviline = function()
   ins_left {
     -- mode component
     function()
+      return ''
+    end,
+    color = function()
       -- auto change color according to neovims mode
       local mode_color = {
         n = colors.red,
@@ -197,10 +200,8 @@ _G.eviline = function()
         ['!'] = colors.red,
         t = colors.red,
       }
-      vim.api.nvim_command('hi! LualineMode guifg=' .. mode_color[vim.fn.mode()] .. ' guibg=' .. colors.bg)
-      return ''
+      return { fg = mode_color[vim.fn.mode()] }
     end,
-    color = 'LualineMode',
     padding = { right = 1 },
   }
 
