@@ -7,7 +7,7 @@ let g:go_bin_path = has('nvim') ? stdpath('data') . '/bin' : '~/.vim/bin'
 " Auto-install vim-plug if not already installed
 let data_dir = has('nvim') ? stdpath('data') . '/site' : '~/.vim'
 if empty(glob(data_dir . '/autoload/plug.vim'))
-  silent execute '!curl -fLo '.data_dir.'/autoload/plug.vim --create-dirs https://raw.githubusercontent.com/junegunn/vim-plug/68488fd/plug.vim'
+  silent execute '!curl -fLo '.data_dir.'/autoload/plug.vim --create-dirs https://raw.githubusercontent.com/junegunn/vim-plug/e300178/plug.vim'
   autocmd VimEnter * PlugInstall --sync | source $MYVIMRC
 endif
 
@@ -15,56 +15,56 @@ endif
 let plugin_dir = has('nvim') ? stdpath('data') . '/bundle' : '~/.vim/bundle'
 call plug#begin(plugin_dir)
 
-Plug 'andymass/vim-matchup', { 'commit': 'ef044ee' }
-Plug 'ap/vim-css-color', { 'commit': '26ff274' }
+Plug 'andymass/vim-matchup', { 'commit': '7fd8806' }
+Plug 'ap/vim-css-color', { 'commit': '0eb967a' }
 " Easily change word casing with motions, text objects or visual mode. This
 " plugin is largely inspired by Tim Pope's vim-abolish
 Plug 'arthurxavierx/vim-caser', { 'commit': '6bc9f41' }
-Plug 'christoomey/vim-tmux-navigator', { 'commit': 'd030f75' }
+Plug 'christoomey/vim-tmux-navigator', { 'commit': '9ca5bfe' }
 Plug 'crusoexia/vim-monokai', { 'commit': '66f7dc9' }
 Plug 'digitaltoad/vim-pug', { 'commit': 'ea39cd9' }
-Plug 'EdenEast/nightfox.nvim', { 'commit': 'aaea945' }
-Plug 'ellisonleao/gruvbox.nvim', { 'commit': 'b0a1c4b' }
+Plug 'EdenEast/nightfox.nvim', { 'commit': 'fce6585' }
+Plug 'ellisonleao/gruvbox.nvim', { 'commit': 'dc6bae9' }
 Plug 'folke/lsp-colors.nvim', { 'commit': '517fe3a' }
-Plug 'folke/tokyonight.nvim', { 'commit': 'd561999' }
+Plug 'folke/tokyonight.nvim', { 'commit': '8223c97' }
 " Mega list window thing for errors, hints, lsp diagnostics, etc
-Plug 'folke/trouble.nvim', { 'commit': 'aae12e7' }
-Plug 'honza/vim-snippets', { 'commit': 'e2156cd' }
-Plug 'jose-elias-alvarez/null-ls.nvim', { 'commit': '80e1c29' }
-Plug 'jose-elias-alvarez/nvim-lsp-ts-utils', { 'commit': '083c918' }
-Plug 'jparise/vim-graphql', { 'commit': '9a9fe18' }
+Plug 'folke/trouble.nvim', { 'commit': '691d490' }
+"Plug 'honza/vim-snippets', { 'commit': '3c40345' }
+Plug 'jose-elias-alvarez/null-ls.nvim', { 'commit': '4eb2fa8' }
+Plug 'jose-elias-alvarez/nvim-lsp-ts-utils', { 'commit': '1d2c585' }
+Plug 'jparise/vim-graphql', { 'commit': '15c5937' }
 " `ga` then some character to align text vertically by that character
 Plug 'junegunn/vim-easy-align', { 'commit': '12dd631' }
 " Vim help for vim-plug itself (e.g. :help plug-options)
-Plug 'junegunn/vim-plug', { 'commit': '68488fd' }
-Plug 'kyazdani42/nvim-tree.lua', { 'commit': '0aec64d' }
-Plug 'kyazdani42/nvim-web-devicons', { 'commit': '218658d' }
-Plug 'lewis6991/gitsigns.nvim', { 'commit': 'a451f97' }
+Plug 'junegunn/vim-plug', { 'commit': 'e300178' }
+Plug 'kyazdani42/nvim-tree.lua', { 'commit': 'e87ee0e' }
+Plug 'kyazdani42/nvim-web-devicons', { 'commit': '4415d1a' }
+Plug 'lewis6991/gitsigns.nvim', { 'commit': '3791dfa' }
 " <leader><leader><motion> then select from the a-z as shown on the screen
 " hightlighted in red
-Plug 'lukas-reineke/indent-blankline.nvim', { 'commit': '0f8df7e' }
+Plug 'lukas-reineke/indent-blankline.nvim', { 'commit': '9915d46' }
 Plug 'moll/vim-node', { 'commit': 'ede0477' }
 " TODO: Find a modern version of this
 "Plug 'myusuf3/numbers.vim', { 'commit': '1867e76' }
-Plug 'NLKNguyen/papercolor-theme', { 'commit': 'd0d32dc' }
-Plug 'neovim/nvim-lspconfig', { 'commit': 'c018b1e' }
-Plug 'nvim-lua/plenary.nvim', { 'commit': 'a672e11' }
-Plug 'nvim-lualine/lualine.nvim', { 'commit': '3a17c8f' }
-Plug 'nvim-telescope/telescope.nvim', { 'commit': '9aaaa0c' }
+Plug 'NLKNguyen/papercolor-theme', { 'commit': '5465702' }
+Plug 'neovim/nvim-lspconfig', { 'commit': '48e59a4' }
+Plug 'nvim-lua/plenary.nvim', { 'commit': '0d66015' }
+Plug 'nvim-lualine/lualine.nvim', { 'commit': '181b143' }
+Plug 'nvim-telescope/telescope.nvim', { 'commit': '1a72a92' }
 " Add fzf as the sorter for telescope
-Plug 'nvim-telescope/telescope-fzf-native.nvim', { 'commit': 'b8662b0', 'do': 'make' }
-Plug 'nvim-treesitter/nvim-treesitter', { 'commit': 'c9db432', 'do': ':TSUpdate' }
-Plug 'nvim-treesitter/playground', { 'commit': '787a7a8' }
+Plug 'nvim-telescope/telescope-fzf-native.nvim', { 'commit': '8ec164b', 'do': 'make' }
+Plug 'nvim-treesitter/nvim-treesitter', { 'commit': '9e8749f', 'do': ':TSUpdate' }
+Plug 'nvim-treesitter/playground', { 'commit': '9df82a2' }
 Plug 'Pamplemousse/badWords', { 'commit': '467f330' }
-Plug 'projekt0n/github-nvim-theme', { 'commit': '335dc0e' }
+Plug 'projekt0n/github-nvim-theme', { 'commit': 'e56b49e' }
 " required by ellisonleao/gruvbox.nvim
-Plug 'rktjmp/lush.nvim', { 'commit': '57e9f31' }
+Plug 'rktjmp/lush.nvim', { 'commit': '6984849' }
 " TODO: Is there a modern alternative (that uses devicons, etc), but still uses
 " the same commands I'm used to?
 " <F8> (or :e /path/to/dir) to open file browser
 " (F6 hotkey already setup) - Visual VIM Undo tree
 Plug 'sjl/gundo.vim', { 'commit': 'c5efef1' }
-Plug 'tikhomirov/vim-glsl', { 'commit': '25f9a7d' }
+Plug 'tikhomirov/vim-glsl', { 'commit': '28a6dfb' }
 " Plurals search / replace (:S), and: crs (coerce to snake_case), MixedCase
 " (crm), camelCase (crc), and UPPER_CASE (cru)
 Plug 'tpope/vim-abolish', { 'commit': '3f0c8fa' }
@@ -72,23 +72,25 @@ Plug 'tpope/vim-abolish', { 'commit': '3f0c8fa' }
 Plug 'tpope/vim-commentary', { 'commit': '627308e' }
 " Add %{fugitive#statusline()} to 'statusline' to get an indicator with the
 " current branch in (surprise!) your statusline.
-Plug 'tpope/vim-fugitive', { 'commit': '3652313' }
+Plug 'tpope/vim-fugitive', { 'commit': '46652a3' }
 Plug 'tpope/vim-jdaddy', { 'commit': '5cffddb' }
 Plug 'tpope/vim-obsession', { 'commit': '82c9ac5' }
 Plug 'tpope/vim-repeat', { 'commit': '24afe92' }
 " Date manipulation: Ctrl-A & Ctrl-X to Increment / Decrement a datetime
 Plug 'tpope/vim-speeddating', { 'commit': '95da3d7' }
 " Quoting / Parenthasising: cs"' to swap double quotes with single quotes
-Plug 'tpope/vim-surround', { 'commit': 'aeb9332' }
+Plug 'tpope/vim-surround', { 'commit': 'baf89ad' }
 " common commands: :h unimpaired
-Plug 'tpope/vim-unimpaired', { 'commit': 'e4006d6' }
+Plug 'tpope/vim-unimpaired', { 'commit': 'f992923' }
 " I wish this workd better, but it's unreliable
 "Plug 'windwp/nvim-ts-autotag', { 'commit': '0ceb4ef' }
 " IDE-like commands for interacting with LSPs like code actions, diagnostics in
 " floats, etc
-Plug 'tami5/lspsaga.nvim', { 'commit': '3cd3c4b' }
+Plug 'tami5/lspsaga.nvim', { 'commit': '5309d75' }
 " golang syntaix higlighting support (also chezmoi .tmpl file highlighting)
 Plug 'fatih/vim-go', { 'commit': 'dcefd64', 'do': ':GoUpdateBinaries', 'frozen': 1 }
+Plug 'rebelot/kanagawa.nvim', { 'commit': 'f5881a6' }
+Plug 'b0o/SchemaStore.nvim', { 'commit': '0a3f765' }
 
 " NOTE: internally calls: filetype indent on, syntax on
 call plug#end()
@@ -100,6 +102,8 @@ syntax off
 " -------------
 
 set background=dark
+
+" Enable 24bit colors
 set termguicolors
 
 let g:gruvbox_sign_column = 'bg0'
@@ -109,9 +113,10 @@ let g:gruvbox_italic = '1'
 let g:gruvbox_undercurl = '1'
 
 " let g:gh_color = "soft"
-colorscheme gruvbox
+" colorscheme gruvbox
 " colorscheme nightfox
 " colorscheme tokyonight
+colorscheme kanagawa
 
 " ------------------
 " Tree sitter config
@@ -125,7 +130,12 @@ require'nvim-treesitter.configs'.setup {
   sync_install = false,
 
   -- List of parsers to ignore installing
-  ignore_install = {},
+  ignore_install = {
+    -- Has some kind of error during install. Don't need it.
+    "fusion",
+    -- Has some kind of error during install. Don't need it.
+    "latex"
+  },
 
   highlight = {
     -- `false` will disable the whole extension
@@ -176,6 +186,11 @@ require'lspconfig'.cssls.setup {
   capabilities = capabilities,
   -- Support monorepos by not checking for `package.json`s, instead check for `.git` or `yarn.lock`
   root_dir = util.root_pattern('.git', 'yarn.lock', 'package-lock.json'),
+  on_attach = function(client)
+    -- Let null-ls handle the formatting with the faster prettierd
+    client.resolved_capabilities.document_formatting = false
+    client.resolved_capabilities.document_range_formatting = false
+  end,
 }
 
 -- Uses the vscode eslint language server, so it's not slow
@@ -204,18 +219,39 @@ require'lspconfig'.graphql.setup{
     'yarn.lock',
     'package-lock.json'
   ),
+  on_attach = function(client)
+    -- Let null-ls handle the formatting with the faster prettierd
+    client.resolved_capabilities.document_formatting = false
+    client.resolved_capabilities.document_range_formatting = false
+  end,
 }
 
 require'lspconfig'.html.setup {
   capabilities = capabilities,
   -- Support monorepos by not checking for `package.json`s, instead check for `.git` or `yarn.lock`
   root_dir = util.root_pattern('.git', 'yarn.lock', 'package-lock.json'),
+  on_attach = function(client)
+    -- Let null-ls handle the formatting with the faster prettierd
+    client.resolved_capabilities.document_formatting = false
+    client.resolved_capabilities.document_range_formatting = false
+  end,
 }
 
 require'lspconfig'.jsonls.setup {
   capabilities = capabilities,
   -- Support monorepos by not checking for `package.json`s, instead check for `.git` or `yarn.lock`
   root_dir = util.root_pattern('.git', 'yarn.lock', 'package-lock.json'),
+  on_attach = function(client)
+    -- Let null-ls handle the formatting with the faster prettierd
+    client.resolved_capabilities.document_formatting = false
+    client.resolved_capabilities.document_range_formatting = false
+  end,
+  settings = {
+    json = {
+      -- Use https://www.schemastore.org/json/ for JSON schemas. Powered by b0o/SchemaStore.nvim
+      schemas = require('schemastore').json.schemas(),
+    },
+  },
 }
 
 local runtime_path = vim.split(package.path, ';')
@@ -302,6 +338,20 @@ require'lspconfig'.tsserver.setup{
   end,
 }
 
+require'lspconfig'.remark_ls.setup {
+  capabilities = capabilities,
+  -- Support monorepos by not checking for `package.json`s, instead check for `.git` or `yarn.lock`
+  root_dir = function(fname)
+    return util.root_pattern('.remarkrc.json')(fname)
+      or util.root_pattern('.git', 'yarn.lock', 'package-lock.json')(fname)
+  end,
+  on_attach = function(client)
+    -- Let null-ls handle the formatting with the faster prettierd
+    client.resolved_capabilities.document_formatting = false
+    client.resolved_capabilities.document_range_formatting = false
+  end,
+}
+
 -- Use a circle instead of a square for diagnostics
 -- Taken from https://github.com/projekt0n/circles.nvim
 vim.lsp.handlers["textDocument/publishDiagnostics"] = vim.lsp.with(vim.lsp.diagnostic.on_publish_diagnostics, {
@@ -332,18 +382,35 @@ EOF
 " -------
 " For things that lspconfig can't handle well
 lua <<EOF
+local command_resolver = require("null-ls.helpers.command_resolver")
+local util = require'lspconfig.util'
+
 require("null-ls").setup({
   sources = {
     require("null-ls").builtins.completion.spell,
     require("null-ls").builtins.formatting.prettierd.with({
-      -- TODO: Does this still work with yarn v3 installations?
-      -- only_local = "node_modules/.bin",
-      -- method = require("null-ls").methods.DIAGNOSTICS_ON_SAVE,
+      -- Attempt to use a local version of prettier first
+      -- falling back to the globally installed version when not found
+      -- See: https://github.com/jose-elias-alvarez/null-ls.nvim/blob/main/doc/BUILTIN_CONFIG.md#using-local-executables
+      dynamic_command = function(params)
+        return command_resolver.from_node_modules(params)
+          or command_resolver.from_yarn_pnp(params)
+          or vim.fn.executable(params.command) == 1 and params.command
+      end,
+      -- Only format on save
+      --method = require("null-ls").methods.DIAGNOSTICS_ON_SAVE,
     }),
   },
+  -- Support monorepos by not checking for `package.json`s, instead check for `.git` or `yarn.lock`
+  --root_dir = util.root_pattern('.git', 'yarn.lock', 'package-lock.json'),
   on_attach = function(client)
     if client.resolved_capabilities.document_formatting then
-      vim.cmd("autocmd BufWritePre <buffer> lua vim.lsp.buf.formatting_sync()")
+      vim.cmd([[
+        augroup LspFormatting
+          autocmd! * <buffer>
+          autocmd BufWritePre <buffer> lua vim.lsp.buf.formatting_sync()
+        augroup END
+      ]])
     end
   end,
 })
@@ -368,12 +435,13 @@ let g:nvim_tree_icons = {
 " Create new files within a closed folder when that folder is under cursor
 let g:nvim_tree_create_in_closed_folder = 1
 
+let g:nvim_tree_indent_markers = 1
+
 lua <<EOF
 require("indent_blankline").setup {}
 require("lsp-colors").setup {}
 require('gitsigns').setup {}
 --require('nvim-ts-autotag').setup {}
-vim.g.nvim_tree_indent_markers = 1
 require('nvim-tree').setup {
   diagnostics = {
     enable = true,
