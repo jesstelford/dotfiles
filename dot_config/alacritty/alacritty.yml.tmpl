@@ -742,6 +742,9 @@ key_bindings:
   # Send Ctrl-Space+n (Next tab/window in tmux)
   # See: https://arslan.io/2018/02/05/gpu-accelerated-terminal-alacritty/#make-alacritty-feel-like-iterm2
   - { key: Right,     mods: Command|Option, chars: "\x00\x6e" }
+  # Pass through Ctrl-6 to neovim
+  # See: https://github.com/alacritty/alacritty/issues/5024#issuecomment-833679036
+  - { key: Key6,     mods: Control, chars: "\x1e" }
 
   #- { key: Paste,                                       action: Paste          }
   #- { key: Copy,                                        action: Copy           }
