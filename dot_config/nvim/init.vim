@@ -133,7 +133,7 @@ require'nvim-treesitter.configs'.setup {
   ignore_install = {
     -- Errors out during installation on MacOS: https://github.com/nvim-treesitter/nvim-treesitter/issues/1383
     -- Forcing the compiler to 'gcc' doesn't seem to help either
-    "haskell"
+    "haskell",
     -- Has some kind of error during install. Don't need it.
     "fusion",
     -- Has some kind of error during install. Don't need it.
