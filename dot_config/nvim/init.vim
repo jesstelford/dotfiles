@@ -131,6 +131,9 @@ require'nvim-treesitter.configs'.setup {
 
   -- List of parsers to ignore installing
   ignore_install = {
+    -- Errors out during installation on MacOS: https://github.com/nvim-treesitter/nvim-treesitter/issues/1383
+    -- Forcing the compiler to 'gcc' doesn't seem to help either
+    "haskell"
     -- Has some kind of error during install. Don't need it.
     "fusion",
     -- Has some kind of error during install. Don't need it.
@@ -521,6 +524,11 @@ set undofile
 set virtualedit=block              "can move cursor past end of line in visualblock mode
 set splitbelow
 set splitright
+
+" Use global status line if available. See: https://github.com/neovim/neovim/pull/17266
+" NOTE: May not work with lualine: https://github.com/vim-airline/vim-airline/issues/2517
+"set laststatus=3
+" Use buffer status line
 set laststatus=2
 
 set formatoptions=cqlron

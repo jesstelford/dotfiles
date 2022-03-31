@@ -41,6 +41,7 @@ export PATH="$HOME/.yarn/bin:$PATH"
 export PATH="$HOME/.config/yarn/global/node_modules/.bin:$PATH"
 export PATH="/usr/local/opt/python/libexec/bin:$PATH"
 export PATH="/usr/local/go/bin:$PATH"
+export PATH="$HOME/go/bin:$PATH"
 
 export FZF_DEFAULT_COMMAND='rg --files --hidden --glob "!**/node_modules" --glob "!**/.git"'
 export EDITOR='oni2 --nofork --new-window --silent'
