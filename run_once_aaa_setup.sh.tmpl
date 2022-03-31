@@ -91,11 +91,11 @@ sudo tee -a /usr/local/bin/nvim > /dev/null <<EOF
 if test \$# -gt 0; then
   # Explicityly set the terminal here so nvim knows its running inside alacritty
   # (necessary when running inside tmux)
-  TERM=alacritty /usr/local/bin/nvim-0.6.1.appimage "\$@"
+  TERM=alacritty {{ $nvimbinary }} "\$@"
 elif test -f Session.vim; then
-  TERM=alacritty /usr/local/bin/nvim-0.6.1.appimage -S
+  TERM=alacritty {{ $nvimbinary }} -S
 else
-  TERM=alacritty /usr/local/bin/nvim-0.6.1.appimage -c Obsession
+  TERM=alacritty {{ $nvimbinary }} -c Obsession
 fi
 EOF
 sudo chmod a+x /usr/local/bin/nvim
