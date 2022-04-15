@@ -344,6 +344,9 @@ sudo apt update
 sudo apt install gh
 {{- end }}
 
+# GitHub CLI Extensions
+gh extension install dlvhdr/gh-dash
+
 # mongoDB
 {{- if (eq .chezmoi.os "darwin") }}
 {{- else if (eq .chezmoi.os "linux") }}
