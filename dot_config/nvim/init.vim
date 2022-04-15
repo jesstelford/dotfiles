@@ -343,10 +343,23 @@ require'lspconfig'.tsserver.setup{
 
 require'lspconfig'.remark_ls.setup {
   capabilities = capabilities,
+  single_file_support = false,
   -- Support monorepos by not checking for `package.json`s, instead check for `.git` or `yarn.lock`
   root_dir = function(fname)
-    return util.root_pattern('.remarkrc.json')(fname)
-      or util.root_pattern('.git', 'yarn.lock', 'package-lock.json')(fname)
+    local root_dir = util.root_pattern(
+      '.remarkrc.json',
+      '.remarkc',
+      '.remarkc.json',
+      '.remarkc.cjs',
+      '.remarkc.mjs',
+      '.remarkc.js',
+      '.remarkc.yaml',
+      '.remarkc.yml'
+    )(fname)
+    -- TODO: or: look for a 'remark' key in `package.json`?
+    -- NOTE: If root_dir is empty, and single_file_support = false, this lsp is disabled
+    -- Avoids an error demanding that `remark` be installed in `node_modules` even if you're not in a JS project
+    return root_dir
   end,
   on_attach = function(client)
     -- Let null-ls handle the formatting with the faster prettierd
@@ -355,8 +368,6 @@ require'lspconfig'.remark_ls.setup {
   end,
 }
 
--- Use a circle instead of a square for diagnostics
--- Taken from https://github.com/projekt0n/circles.nvim
 vim.lsp.handlers["textDocument/publishDiagnostics"] = vim.lsp.with(vim.lsp.diagnostic.on_publish_diagnostics, {
   -- Disable inline virtual text, use lspsaga to show diagnostics instead
   virtual_text = false,
