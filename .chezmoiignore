@@ -1,5 +1,6 @@
 # Common files to ignore
 README.md
+scripts/
 
 # The codespaces bootstrap script is run by Codespaces before chezmoi ever runs
 # so we globally ignore it as we never want chezmoi to try use it
@@ -8,10 +9,12 @@ install.sh
 {{- if ne .chezmoi.os "darwin" }}
 # OSX only files
 .config/karabiner/karabiner.json
+Library/
 {{- end }}
 
 {{- if ne .chezmoi.os "linux" }}
 # Linux only files
+.lexaloffle/
 {{- end }}
 
 {{- if not .codespaces }}
