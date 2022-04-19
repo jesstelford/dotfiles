@@ -19,7 +19,7 @@ show_fps 0 // Draw frames per second in the corner
 windowed 1 // 1 to start up in windowed mode
 window_position -1 -1 // x and y position of window (-1, -1 to let the window manager decide)
 frameless 0 // 1 to use a window with no frame
-fullscreen_method 1 // 0 maximized window (linux)  1 borderless desktop-sized window  2 fullscreen
+fullscreen_method 1 // 0 maximized window (linux)  1 borderless desktop-sized window  2 hardware fullscreen (warning: erratic behaviour under some drivers)
 
 
 // :: System Settings
@@ -36,6 +36,9 @@ rmb_key 0 // 0 for none  226 for LALT
 // Desktop for saving screenshots etc. Defaults to $HOME/Desktop
 desktop_path 
 
+// 1 to allow controller input even when application is in background
+read_controllers_in_background 0
+
 
 
 // :: Audio Settings (use "volume" for PICO-8)
@@ -51,7 +54,7 @@ mix_buffer_size 1024
 
 // :: 
 
-version 0.2.4c
+version 0.2.4C
 
 // audio volume: 0..256 
 volume 256
@@ -112,4 +115,25 @@ allow_function_keys 1
 
 // 0 off 1 on: automatically check for a newer version of a BBS cart each time it is run.
 check_for_cart_updates 1
+
+// hide mouse cursor for n seconds when typing.
+auto_hide_mouse_cursor 5
+
+// 0 off 1 on: backup with a new timestamped filename on every run
+// normally not needed -- was used for debugging crash-on-run
+aggressive_backups 0
+
+// back up cartridge in editor every n minutes when not idle (0 for no periodic backups)
+periodic_backups 20
+
+// global screen transformations:
+//  129 flip horizontally
+//  130 flip vertically
+//  133 rotate CW 90 degrees
+//  134 rotate CW 180 degrees
+//  135 rotate CW 270 degrees
+transform_screen 0
+
+// 0 off 1 on: show pixel grid in the gfx editor at zoom:8 and zoom:4
+gfx_grid_lines 0
 
