@@ -7,7 +7,7 @@ let g:go_bin_path = has('nvim') ? stdpath('data') . '/bin' : '~/.vim/bin'
 " Auto-install vim-plug if not already installed
 let data_dir = has('nvim') ? stdpath('data') . '/site' : '~/.vim'
 if empty(glob(data_dir . '/autoload/plug.vim'))
-  silent execute '!curl -fLo '.data_dir.'/autoload/plug.vim --create-dirs https://raw.githubusercontent.com/junegunn/vim-plug/e300178/plug.vim'
+  silent execute '!curl -fLo '.data_dir.'/autoload/plug.vim --create-dirs https://raw.githubusercontent.com/junegunn/vim-plug/93ab590/plug.vim'
   autocmd VimEnter * PlugInstall --sync | source $MYVIMRC
 endif
 
@@ -56,9 +56,9 @@ Plug 'nvim-telescope/telescope-fzf-native.nvim', { 'commit': '8ec164b', 'do': 'm
 Plug 'nvim-treesitter/nvim-treesitter', { 'commit': '9e8749f', 'do': ':TSUpdate' }
 Plug 'nvim-treesitter/playground', { 'commit': '9df82a2' }
 Plug 'Pamplemousse/badWords', { 'commit': '467f330' }
-Plug 'projekt0n/github-nvim-theme', { 'commit': 'e56b49e' }
+Plug 'projekt0n/github-nvim-theme', { 'commit': '9c641bd' }
 " required by ellisonleao/gruvbox.nvim
-Plug 'rktjmp/lush.nvim', { 'commit': '6984849' }
+Plug 'rktjmp/lush.nvim', { 'commit': '87e9039' }
 " TODO: Is there a modern alternative (that uses devicons, etc), but still uses
 " the same commands I'm used to?
 " <F8> (or :e /path/to/dir) to open file browser
@@ -488,11 +488,12 @@ require('telescope').setup {
 --    }
 --  }
 --}
---require "nvim-treesitter.configs".setup {
---  playground = {
---    enable = true,
---  }
---}
+
+-- require "nvim-treesitter.configs".setup {
+--   playground = {
+--     enable = true,
+--   }
+-- }
 EOF
 
 set grepprg=rg
