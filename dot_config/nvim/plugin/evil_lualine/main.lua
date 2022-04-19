@@ -47,8 +47,10 @@ end
 local function dimmedHighlightGroup(group, type)
   local hexColor = vim.api.nvim_exec(':echo synIDattr(synIDtrans(hlID("'..group..'")), "'..type..'#")', true)
   if vim.o.background == "dark" then
+    if hexColor == nil or hexColor == '' then hexColor = '#000000' end
     return darken(hexColor, 20)
   else
+    if hexColor == nil or hexColor == '' then hexColor = '#ffffff' end
     return lighten(hexColor, 20)
   end
 end
