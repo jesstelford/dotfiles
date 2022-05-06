@@ -91,6 +91,8 @@ Plug 'tami5/lspsaga.nvim', { 'commit': '5309d75' }
 Plug 'fatih/vim-go', { 'commit': 'dcefd64', 'do': ':GoUpdateBinaries', 'frozen': 1 }
 Plug 'rebelot/kanagawa.nvim', { 'commit': 'f5881a6' }
 Plug 'b0o/SchemaStore.nvim', { 'commit': '0a3f765' }
+Plug 'JoosepAlviste/nvim-ts-context-commentstring', { 'commit': '8834375' }
+Plug 'karb94/neoscroll.nvim', { 'commit': '07242b9' }
 
 " NOTE: internally calls: filetype indent on, syntax on
 call plug#end()
@@ -165,6 +167,11 @@ require'nvim-treesitter.configs'.setup {
     -- list of language that will be disabled
     disable = {},
   },
+
+  -- To support nvim-ts-context-commentstring
+  context_commentstring = {
+    enable = true
+  }
 }
 EOF
 
@@ -329,7 +336,9 @@ require'lspconfig'.tsserver.setup{
     client.resolved_capabilities.document_range_formatting = false
 
     local ts_utils = require("nvim-lsp-ts-utils")
-    ts_utils.setup{}
+    ts_utils.setup{
+      auto_inlay_hints = false
+    }
     -- required to fix code action ranges and filter diagnostics
     ts_utils.setup_client(client)
   end,
@@ -477,6 +486,25 @@ require('telescope').setup {
     }
   }
 }
+require('neoscroll').setup({
+  easing_function = "sine"
+})
+local t = {}
+-- Syntax: t[keys] = {function, {function arguments}}
+t['<C-u>'] = {'scroll', {'-vim.wo.scroll', 'true', '150'}}
+t['<C-d>'] = {'scroll', { 'vim.wo.scroll', 'true', '150'}}
+t['<C-b>'] = {'scroll', {'-vim.api.nvim_win_get_height(0)', 'true', '200'}}
+t['<C-f>'] = {'scroll', { 'vim.api.nvim_win_get_height(0)', 'true', '200'}}
+t['<C-y>'] = {'scroll', {'-0.10', 'false', '100'}}
+t['<C-e>'] = {'scroll', { '0.10', 'false', '100'}}
+t['zt']    = {'zt', {'150'}}
+t['zz']    = {'zz', {'150'}}
+t['zb']    = {'zb', {'150'}}
+-- From https://github.com/karb94/neoscroll.nvim/issues/23#issuecomment-839630060
+t['gg']    = {'scroll', {'-2*vim.api.nvim_buf_line_count(0)', 'true', '1', '5', e}}
+t['G']     = {'scroll', {'2*vim.api.nvim_buf_line_count(0)', 'true', '1', '5', e}}
+
+require('neoscroll.config').set_mappings(t)
 -- Sets the colorscheme
 --require('github-theme').setup {
 --  theme_style = "dimmed",
