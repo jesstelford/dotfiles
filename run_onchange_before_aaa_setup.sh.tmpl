@@ -469,6 +469,48 @@ mkdir -p {{ .chezmoi.homeDir }}/dev/pico-8/cdata
 # See https://stackoverflow.com/a/22753363/473961
 compaudit | xargs chmod g-w
 
+# Moonlander keyboard setup
+{{- if (eq .chezmoi.os "darwin") }}
+# So the flashing tool can write to the keyboard
+brew install libusb
+
+# Install Wally, the EZ / ZSA flashing tool
+wget -O wally-osx.dmg https://configure.zsa.io/wally/osx
+MOUNTDIR=$(echo `hdiutil mount wally-osx.dmg | tail -1 \
+| awk '{$1=$2=""; print $0}'` | xargs -0 echo) \
+&& sudo cp -R "${MOUNTDIR}/Wally.app" /Applications
+{{- else if (eq .chezmoi.os "linux") }}
+# So the flashing tool can write to the keyboard
+sudo apt install libusb-1.0-0-dev
+
+# Setup udev rules so the flashing tool can receive the correct events
+sudo touch /etc/udev/rules.d/50-wally.rules
+sudo tee -a /etc/udev/rules.d/50-wally.rules > /dev/null <<EOF
+# STM32 rules for the Moonlander and Planck EZ
+SUBSYSTEMS=="usb", ATTRS{idVendor}=="0483", ATTRS{idProduct}=="df11", \
+    MODE:="0666", \
+    SYMLINK+="stm32_dfu"
+EOF
+
+# Setup udev rules for the training software to receive the correct events
+sudo touch /etc/udev/rules.d/50-oryx.rules
+sudo tee -a /etc/udev/rules.d/50-oryx.rules > /dev/null <<EOF
+# Rule for all ZSA keyboards
+SUBSYSTEM=="usb", ATTR{idVendor}=="3297", GROUP="plugdev"
+# Rule for the Moonlander
+SUBSYSTEM=="usb", ATTR{idVendor}=="3297", ATTR{idProduct}=="1969", GROUP="plugdev"
+# Rule for the Ergodox EZ
+SUBSYSTEM=="usb", ATTR{idVendor}=="feed", ATTR{idProduct}=="1307", GROUP="plugdev"
+# Rule for the Planck EZ
+SUBSYSTEM=="usb", ATTR{idVendor}=="feed", ATTR{idProduct}=="6060", GROUP="plugdev"
+EOF
+
+# Install Wally, the EZ / ZSA flashing tool
+wget https://github.com/zsa/wally/releases/download/2.1.3-linux/wally
+sudo mv wally /usr/local/bin/wally
+sudo chmod a+x /usr/local/bin/wally
+{{- end }}
+
 # TODO
 # - Install:
 #.  - git-lfs
