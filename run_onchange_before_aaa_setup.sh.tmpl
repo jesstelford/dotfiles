@@ -415,6 +415,17 @@ open -nW pdftk_server-2.02-mac_osx-10.11-setup.pkg
 # TODO
 {{- end }}
 
+# xournal++ (for annotaing pdfs + handwriting notes)
+{{- if (eq .chezmoi.os "darwin") }}
+# TODO
+{{- else if (eq .chezmoi.os "linux") }}
+# Install required deps
+sudo apt-get install libportaudio2 libportaudiocpp0 libzip5
+wget https://github.com/xournalpp/xournalpp/releases/download/v1.1.1/xournalpp-1.1.1-Ubuntu-focal-x86_64.deb
+# Install the package
+sudo dpkg -i xournalpp-1.1.1-Ubuntu-focal-x86_64.deb
+{{- end }}
+
 # Signal messenger
 {{- if .codespaces }}
 # Not on Codespaces
