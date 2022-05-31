@@ -522,6 +522,16 @@ sudo mv wally /usr/local/bin/wally
 sudo chmod a+x /usr/local/bin/wally
 {{- end }}
 
+# mkcert for creating SSL certs in localhost
+{{- if (eq .chezmoi.os "darwin") }}
+# TODO
+{{- else if (eq .chezmoi.os "linux") }}
+wget https://github.com/FiloSottile/mkcert/releases/download/v1.4.4/mkcert-v1.4.4-linux-amd64
+sudo mv mkcert-v1.4.4-linux-amd64 /usr/local/bin/
+sudo chmod a+x /usr/local/bin/mkcert-v1.4.4-linux-amd64
+sudo ln -s /usr/local/bin/mkcert-v1.4.4-linux-amd64 /usr/local/bin/mkcert
+{{- end }}
+
 # TODO
 # - Install:
 #.  - git-lfs
