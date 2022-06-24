@@ -658,7 +658,7 @@ install_pdftk() (
     wget https://www.pdflabs.com/tools/pdftk-the-pdf-toolkit/pdftk_server-2.02-mac_osx-10.11-setup.pkg
     open -nW pdftk_server-2.02-mac_osx-10.11-setup.pkg
   {{- else if (eq .chezmoi.os "linux") }}
-    # TODO
+    sudo apt install pdftk
   {{- end }}
 )
 runner install_pdftk
