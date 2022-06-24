@@ -607,7 +607,9 @@ install_dbeaver() (
   {{- if (eq .chezmoi.os "darwin") }}
     brew install --cask dbeaver-community
   {{- else if (eq .chezmoi.os "linux") }}
-    # TODO
+    wget https://github.com/dbeaver/dbeaver/releases/download/22.1.0/dbeaver-ce_22.1.0_amd64.deb
+    # Install the package
+    sudo dpkg -i dbeaver-ce_22.1.0_amd64.deb
   {{- end }}
 )
 runner install_dbeaver
