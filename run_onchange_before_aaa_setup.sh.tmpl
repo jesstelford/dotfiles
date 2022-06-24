@@ -489,6 +489,14 @@ MOUNTDIR=$(echo `hdiutil mount HyperSwitch.dmg | tail -1 \
 && sudo cp -R "${MOUNTDIR}/HyperSwitch.app" /Applications
 {{- end }}
 
+# Karabiner-Elements keyboard shortcut customizer for OSX
+{{- if (eq .chezmoi.os "darwin") }}
+wget https://github.com/pqrs-org/Karabiner-Elements/releases/download/v14.4.0/Karabiner-Elements-14.4.0.dmg
+MOUNTDIR=$(echo `hdiutil mount Karabiner-Elements-14.4.0.dmg | tail -1 \
+| awk '{$1=$2=""; print $0}'` | xargs -0 echo) \
+&& sudo cp -R "${MOUNTDIR}/Karabiner-Elements.app" /Applications
+{{- end }}
+
 # Fix permissions of zsh folders if necessary
 # See https://stackoverflow.com/a/22753363/473961
 compaudit | xargs chmod g-w
