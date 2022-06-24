@@ -745,7 +745,7 @@ runner install_rectangle
 {{- if (eq .chezmoi.os "darwin") }}
 install_hyperswitch() (
   set -e
-  install_dmg https://bahoom.com/hyperswitch/HyperSwitch.dmg pkg
+  install_dmg https://bahoom.com/hyperswitch/HyperSwitch.dmg
 )
 runner install_hyperswitch
 {{- end }}
@@ -754,7 +754,7 @@ runner install_hyperswitch
 {{- if (eq .chezmoi.os "darwin") }}
 install_karabiner_elements() (
   set -e
-  install_dmg https://github.com/pqrs-org/Karabiner-Elements/releases/download/v14.4.0/Karabiner-Elements-14.4.0.dmg
+  install_dmg https://github.com/pqrs-org/Karabiner-Elements/releases/download/v14.4.0/Karabiner-Elements-14.4.0.dmg pkg
 )
 runner install_karabiner_elements
 {{- end }}
