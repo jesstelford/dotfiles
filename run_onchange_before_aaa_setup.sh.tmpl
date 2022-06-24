@@ -586,6 +586,82 @@ sudo chmod a+x /usr/local/bin/mkcert-v1.4.4-linux-amd64
 sudo ln -s /usr/local/bin/mkcert-v1.4.4-linux-amd64 /usr/local/bin/mkcert
 {{- end }}
 
+{{- if (eq .chezmoi.os "darwin") }}
+# Setup MacOS OS-level settings
+# See: https://gist.github.com/vraravam/5e28ca1720c9dddacdc0e6db61e093fe
+# Close any open System Preferences panes, to prevent them from overriding
+# settings we're about to change
+osascript -e 'tell application "System Preferences" to quit'
+
+# Ask for the administrator password upfront
+sudo -v
+
+# Keep-alive: update existing `sudo` time stamp until `.macos` has finished
+while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
+
+# While applying any changes to SoftwareUpdate defaults, set software update to OFF to avoid any conflict with the defaults system cache. (Also close the System Preferences app)
+sudo softwareupdate --schedule OFF
+
+# Disable guest login
+sudo defaults write /Library/Preferences/com.apple.loginwindow GuestEnabled -bool false
+
+# Message added to lock screen
+{{- $lockscreenemail := promptString "Enter email to display on lock screen (with escaped at symbol)" }}
+sudo defaults write /Library/Preferences/com.apple.loginwindow LoginwindowText "Contact: {{ $lockscreenemail }}"
+
+# Show remaining battery percentage" Y; then
+defaults write com.apple.menuextra.battery ShowPercent -string "YES"
+
+# Disable automatic capitalization as it's annoying when typing code
+defaults write -g NSAutomaticCapitalizationEnabled -bool false
+
+# Disable automatic period substitution as it's annoying when typing code
+defaults write -g NSAutomaticPeriodSubstitutionEnabled -bool false
+
+# Fix the track pad scrolling direction
+defaults write -g com.apple.swipescrolldirection -bool false
+
+# Show all filename extensions
+defaults write -g AppleShowAllExtensions -bool true
+
+# Show the POSIX path at the top of Finder
+defaults write com.apple.finder _FXShowPosixPathInTitle -bool true
+
+# Finder: show hidden files by default
+defaults write com.apple.finder AppleShowAllFiles -bool true
+
+# Disable the warning when changing a file extension
+defaults write com.apple.finder FXEnableExtensionChangeWarning -bool false
+
+# Avoid creating .DS_Store files on network or USB volumes
+defaults write com.apple.desktopservices DSDontWriteNetworkStores -bool true
+defaults write com.apple.desktopservices DSDontWriteUSBStores -bool true
+
+# Prevent Photos from opening automatically when devices are plugged in
+defaults -currentHost write com.apple.ImageCapture disableHotPlug -bool true
+
+# Add a context menu item for showing the Web Inspector in web views
+defaults write -g WebKitDeveloperExtras -bool true
+
+# Don't default to saving documents to iCloud:
+defaults write NSGlobalDomain NSDocumentSaveNewDocumentsToCloud -bool false
+
+# Set your screen to lock as soon as the screensaver starts:
+defaults write com.apple.screensaver askForPassword -int 1
+defaults write com.apple.screensaver askForPasswordDelay -int 0
+
+# Save screenshots to the desktop
+mkdir -p "${HOME}/Desktop/screenshots"
+defaults write com.apple.screencapture location -string "${HOME}/Desktop/screenshots"
+
+# Save screenshots in PNG format (other options: BMP, GIF, JPG, PDF, TIFF)
+defaults write com.apple.screencapture type -string "png"
+
+# Now that we're done, turn software updates back on
+sudo softwareupdate --schedule ON
+
+{{- end }}
+
 # TODO
 # - Install:
 #.  - git-lfs
