@@ -500,6 +500,16 @@ MOUNTDIR=$(echo `hdiutil mount Karabiner-Elements-14.4.0.dmg | tail -1 \
 && sudo cp -R "${MOUNTDIR}/Karabiner-Elements.app" /Applications
 {{- end }}
 
+# LICEcap screenshot utility
+{{- if (eq .chezmoi.os "darwin") }}
+wget https://www.cockos.com/licecap/licecap132.dmg
+MOUNTDIR=$(echo `hdiutil mount licecap132.dmg | tail -1 \
+| awk '{$1=$2=""; print $0}'` | xargs -0 echo) \
+&& sudo cp -R "${MOUNTDIR}/LICEcap.app" /Applications
+# Set the default directory
+defaults write com.cockos.LICEcap.plist NSNavLastRootDirectory -string "~/Movies"
+{{- end }}
+
 # Fix permissions of zsh folders if necessary
 # See https://stackoverflow.com/a/22753363/473961
 compaudit | xargs chmod g-w
