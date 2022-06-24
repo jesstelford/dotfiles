@@ -631,7 +631,9 @@ runner install_golang
 install_one_password_desktop() (
   set -e
   {{- if (eq .chezmoi.os "darwin") }}
-    # TODO
+    wget https://downloads.1password.com/mac/1Password.zip
+    unzip 1Password.zip -d onepassword
+    open -nW "onepassword/1Password Installer.app"
   {{- else if (eq .chezmoi.os "linux") }}
     sudo snap install 1password --edge
   {{- end }}
