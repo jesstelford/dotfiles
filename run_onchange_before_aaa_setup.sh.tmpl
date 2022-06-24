@@ -476,6 +476,11 @@ mkdir -p {{ .chezmoi.homeDir }}/dev/pico-8/cdata
 # TODO: When is the config.txt file written?
 {{- end }}
 
+# Rectangle window manager for OSX
+{{- if (eq .chezmoi.os "darwin") }}
+brew install --cask rectangle
+{{- end }}
+
 # Fix permissions of zsh folders if necessary
 # See https://stackoverflow.com/a/22753363/473961
 compaudit | xargs chmod g-w
