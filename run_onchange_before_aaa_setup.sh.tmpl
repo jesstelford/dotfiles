@@ -524,8 +524,10 @@ sudo chmod a+x /usr/local/bin/wally
 
 # mkcert for creating SSL certs in localhost
 {{- if (eq .chezmoi.os "darwin") }}
-# TODO
+brew install mkcert
+brew install nss
 {{- else if (eq .chezmoi.os "linux") }}
+sudo apt install libnss3-tools
 wget https://github.com/FiloSottile/mkcert/releases/download/v1.4.4/mkcert-v1.4.4-linux-amd64
 sudo mv mkcert-v1.4.4-linux-amd64 /usr/local/bin/
 sudo chmod a+x /usr/local/bin/mkcert-v1.4.4-linux-amd64
