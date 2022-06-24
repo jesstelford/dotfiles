@@ -481,6 +481,14 @@ mkdir -p {{ .chezmoi.homeDir }}/dev/pico-8/cdata
 brew install --cask rectangle
 {{- end }}
 
+# HyperSwitch window switcher for OSX
+{{- if (eq .chezmoi.os "darwin") }}
+wget https://bahoom.com/hyperswitch/HyperSwitch.dmg
+MOUNTDIR=$(echo `hdiutil mount HyperSwitch.dmg | tail -1 \
+| awk '{$1=$2=""; print $0}'` | xargs -0 echo) \
+&& sudo cp -R "${MOUNTDIR}/HyperSwitch.app" /Applications
+{{- end }}
+
 # Fix permissions of zsh folders if necessary
 # See https://stackoverflow.com/a/22753363/473961
 compaudit | xargs chmod g-w
