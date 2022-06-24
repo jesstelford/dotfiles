@@ -90,22 +90,34 @@ runner() {
   )
 {{- end }}
 
-# toolchain setup
-toolchain_setup() (
+{{- if (eq .chezmoi.os "darwin") }}
+install_xcode_toolchain() (
+  set -e
+  xcode-select --install
+)
+runner install_xcode_toolchain
+{{- end }}
+
+{{- if (eq .chezmoi.os "darwin") }}
+install_homebrew() (
+  set -e
+  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+)
+runner install_homebrew
+{{- end }}
+
+install_dev_deps() (
   set -e
   {{- if (eq .chezmoi.os "darwin") }}
-    xcode-select --install
-    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
     brew install wget git findutils coreutils parallel
   {{- else if (eq .chezmoi.os "linux") }}
-    # Setup for linux
     # update git
     sudo add-apt-repository ppa:git-core/ppa
     sudo apt update
     sudo apt install git parallel
   {{- end }}
 )
-runner toolchain_setup
+runner install_dev_deps
 
 # Some prep for ZSH
 mkdir -p $HOME/.zsh
