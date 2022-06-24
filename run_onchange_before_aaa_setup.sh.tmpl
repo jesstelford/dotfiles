@@ -430,7 +430,10 @@ sudo dpkg -i xournalpp-1.1.1-Ubuntu-focal-x86_64.deb
 {{- if .codespaces }}
 # Not on Codespaces
 {{- else if (eq .chezmoi.os "darwin") }}
-# TODO
+wget https://updates.signal.org/desktop/signal-desktop-mac-universal-5.47.0.dmg
+MOUNTDIR=$(echo `hdiutil mount signal-desktop-mac-universal-5.47.0.dmg | tail -1 \
+| awk '{$1=$2=""; print $0}'` | xargs -0 echo) \
+&& sudo cp -R "${MOUNTDIR}/Signal.app" /Applications
 {{- else if (eq .chezmoi.os "linux") }}
 wget -O- https://updates.signal.org/desktop/apt/keys.asc | gpg --dearmor > signal-desktop-keyring.gpg
 cat signal-desktop-keyring.gpg | sudo tee -a /usr/share/keyrings/signal-desktop-keyring.gpg > /dev/null
