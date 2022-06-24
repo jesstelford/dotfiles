@@ -170,7 +170,14 @@ gsettings set org.gnome.desktop.default-applications.terminal exec 'alacritty'
 
 # Emoji picker
 {{- if (eq .chezmoi.os "darwin") }}
-# TODO Rocket emoji picker
+# Rocket emoji picker
+wget https://macrelease.matthewpalmer.net/Rocket.dmg
+MOUNTDIR=$(echo `hdiutil mount Rocket.dmg | tail -1 \
+| awk '{$1=$2=""; print $0}'` | xargs -0 echo) \
+&& sudo cp -R "${MOUNTDIR}/Rocket.app" /Applications
+# Set shortcut to "~"
+defaults write net.matthewpalmer.Rocket.plist "hot-key-b8-iaK-thyib-yoV-Kep-It" -string "~"
+defaults write net.matthewpalmer.Rocket.plist "launch-at-login" -bool true
 {{- else if (eq .chezmoi.os "linux") }}
 # Emote emoji picker
 # default shortcut is Ctrl-Alt-e, remapped to Ctrl-Super-Space)
@@ -335,8 +342,6 @@ sudo ln -s /usr/local/lib/lua-language-server/bin/lua-language-server /usr/local
 # Keypress visualiser
 {{- if (eq .chezmoi.os "darwin") }}
 brew install --cask keycastr
-{{- else if (eq .chezmoi.os "linux") }}
-# TODO
 {{- end }}
 
 # GitHub CLI; gh
