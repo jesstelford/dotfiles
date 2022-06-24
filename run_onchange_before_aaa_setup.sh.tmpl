@@ -106,7 +106,10 @@ sudo chmod a+x /usr/local/bin/nvim
 
 # Brave browser
 {{- if (eq .chezmoi.os "darwin") }}
-# TODO
+wget https://referrals.brave.com/latest/Brave-Browser.dmg
+MOUNTDIR=$(echo `hdiutil mount Brave-Browser.dmg | tail -1 \
+| awk '{$1=$2=""; print $0}'` | xargs -0 echo) \
+&& sudo cp -R "${MOUNTDIR}/Brave Browser.app" /Applications
 {{- else if (eq .chezmoi.os "linux") }}
 # see: https://brave.com/linux/
 sudo apt install apt-transport-https curl
