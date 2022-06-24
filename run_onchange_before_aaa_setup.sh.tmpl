@@ -1,10 +1,52 @@
 #!/usr/bin/env bash
 
-{{- /* Completely disable this script in Codespaces and CI for now */}}
-{{- if (and (not .codespaces) (not .ci)) }}
-
 # IMPORTANT: This file must be idempotent because we don't know when/if it'll
 # be re-run.
+
+# A runner for functions which perform actions, resulting in clean output for
+# successful runs.
+# Usage:
+#
+# # Note the '(' is important: It makes this a subshell so it can return with an
+# # exit code when `set -e` is set.
+# example_func() (
+#   # This is important to ensure this subshell exits with a code when any
+#   # commands fail
+#   set -e
+#   echo "Some pre-execution output: $1"
+#   false
+#   # true
+#   echo "Things have happened"
+# )
+# 
+# # Execute the `example_func` function, buffering output and showing a
+# # success/failure message.
+# runner example_func "An example argument"
+
+runner() {
+  # 1. $@ is all the arguments passed to this function
+  # 2. Executing "$@" will execute it like a command to bash. Ie; if the
+  #    arguments are [echo "foo"], it will execute `echo "foo"`
+  # 3. We capture the output from the command into the variable `output` by
+  #    using command substitution (ie; the $() part).
+  # 4. We also want to capture errors, so we make sure stderr (2) is redirected
+  #    to the same place as stdout (1) with 2>&1
+  output=$("$@" 2>&1)
+
+  # 1. This next line depends on the function being executed: It must be a
+  #    sub-shell ie; some_func() ( ... ). Notice the '(' instead of '{'. This is
+  #    to ensure we can call `set -e` within that subshell, causing it to return
+  #    with an exit code.
+  # 2. The exit code is stored in the $? variable.
+  # 3. If the command succeeded, the exit code ($?) will be 0, so we print the
+  #    tick
+  # 4. If the command failed, the exit code ($?) will be non-0, so we print the
+  #    cross, AND the output we captured above.
+  [[ $? -eq 0 ]] && printf "✅ $1" || printf "❌ $1:\n${output}\n"
+}
+
+{{- /* Completely disable this script in Codespaces and CI for now */}}
+{{- if (and (not .codespaces) (not .ci)) }}
 
 {{- /* Use for doing different things on different machines
 
@@ -29,66 +71,90 @@
 */}}
 
 # toolchain setup
-{{- if (eq .chezmoi.os "darwin") }}
-xcode-select --install
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-brew install wget git findutils coreutils parallel
-{{- else if (eq .chezmoi.os "linux") }}
-# Setup for linux
-# update git
-sudo add-apt-repository ppa:git-core/ppa
-sudo apt update
-sudo apt install git parallel
-{{- end }}
+toolchain_setup() (
+  set -e
+  {{- if (eq .chezmoi.os "darwin") }}
+    xcode-select --install
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    brew install wget git findutils coreutils parallel
+  {{- else if (eq .chezmoi.os "linux") }}
+    # Setup for linux
+    # update git
+    sudo add-apt-repository ppa:git-core/ppa
+    sudo apt update
+    sudo apt install git parallel
+  {{- end }}
+)
+runner toolchain_setup
 
 # Some prep for ZSH
 mkdir -p $HOME/.zsh
 mkdir -p /usr/local/bin
 
 # 1password CLI
-{{- if (eq .chezmoi.os "darwin") }}
-brew install --cask 1password/tap/1password-cli
-{{- else if (eq .chezmoi.os "linux") }}
-curl -sS https://downloads.1password.com/linux/keys/1password.asc | sudo gpg --dearmor --output /usr/share/keyrings/1password-archive-keyring.gpg
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/1password-archive-keyring.gpg] https://downloads.1password.com/linux/debian/$(dpkg --print-architecture) stable main" | sudo tee /etc/apt/sources.list.d/1password.list
-sudo mkdir -p /etc/debsig/policies/AC2D62742012EA22/
-curl -sS https://downloads.1password.com/linux/debian/debsig/1password.pol | sudo tee /etc/debsig/policies/AC2D62742012EA22/1password.pol
-sudo mkdir -p /usr/share/debsig/keyrings/AC2D62742012EA22
-curl -sS https://downloads.1password.com/linux/keys/1password.asc | sudo gpg --dearmor --output /usr/share/debsig/keyrings/AC2D62742012EA22/debsig.gpg
-sudo apt update && sudo apt install 1password-cli
-{{- end }}
-op update
+install_one_password_cli() (
+  set -e
+  {{- if (eq .chezmoi.os "darwin") }}
+    brew install --cask 1password/tap/1password-cli
+  {{- else if (eq .chezmoi.os "linux") }}
+    curl -sS https://downloads.1password.com/linux/keys/1password.asc | sudo gpg --dearmor --output /usr/share/keyrings/1password-archive-keyring.gpg
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/1password-archive-keyring.gpg] https://downloads.1password.com/linux/debian/$(dpkg --print-architecture) stable main" | sudo tee /etc/apt/sources.list.d/1password.list
+    sudo mkdir -p /etc/debsig/policies/AC2D62742012EA22/
+    curl -sS https://downloads.1password.com/linux/debian/debsig/1password.pol | sudo tee /etc/debsig/policies/AC2D62742012EA22/1password.pol
+    sudo mkdir -p /usr/share/debsig/keyrings/AC2D62742012EA22
+    curl -sS https://downloads.1password.com/linux/keys/1password.asc | sudo gpg --dearmor --output /usr/share/debsig/keyrings/AC2D62742012EA22/debsig.gpg
+    sudo apt update && sudo apt install 1password-cli
+  {{- end }}
+)
+runner install_one_password_cli
+
+one_password_signin() (
+  set -e
+  op update
 {{- $opemail := promptString "Enter your 1password email" }}
-op account add --address my.1password.com --email {{ $opemail | quote }}
-eval $(op signin --account my)
+  op account add --address my.1password.com --email {{ $opemail | quote }}
+  eval $(op signin --account my)
+)
+runner one_password_signin
 
 # rg / ripgrep
-{{- if (eq .chezmoi.os "darwin") }}
-brew install ripgrep
-{{- else if (eq .chezmoi.os "linux") }}
-curl -LO https://github.com/BurntSushi/ripgrep/releases/download/12.1.1/ripgrep_12.1.1_amd64.deb
-sudo dpkg -i ripgrep_12.1.1_amd64.deb
-{{- end }}
+install_ripgrep() (
+  set -e
+  {{- if (eq .chezmoi.os "darwin") }}
+    brew install ripgrep
+  {{- else if (eq .chezmoi.os "linux") }}
+    curl -LO https://github.com/BurntSushi/ripgrep/releases/download/12.1.1/ripgrep_12.1.1_amd64.deb
+    sudo dpkg -i ripgrep_12.1.1_amd64.deb
+  {{- end }}
+)
+runner install_ripgrep
 
 # fzf
-git clone --depth 1 https://github.com/junegunn/fzf.git $HOME/.fzf
-$HOME/.fzf/install --no-bash --no-fish --no-update-rc
+install_fzf() (
+  set -e
+  git clone --depth 1 https://github.com/junegunn/fzf.git $HOME/.fzf
+  $HOME/.fzf/install --no-bash --no-fish --no-update-rc
+)
+runner install_fzf
 
 # neovim
-{{- $nvimbinary := "" }}
-{{- if (eq .chezmoi.os "darwin") }}
-wget https://github.com/neovim/neovim/releases/download/v0.6.1/nvim-macos.tar.gz
-tar xzvf nvim-macos.tar.gz
-sudo mv ./nvim-osx64 /usr/local/nvim-osx64-0.6.1
-{{- $nvimbinary = "/usr/local/nvim-osx64-0.6.1/bin/nvim" }}
-{{- else if (eq .chezmoi.os "linux") }}
-wget https://github.com/neovim/neovim/releases/download/v0.6.1/nvim.appimage
-sudo mv nvim.appimage /usr/local/bin/nvim-0.6.1.appimage
-{{- $nvimbinary = "/usr/local/bin/nvim-0.6.1.appimage" }}
-{{- end }}
-sudo chmod a+x {{ $nvimbinary }}
+install_neovim() (
+  set -e
+  {{- $nvimbinary := "" }}
+  {{- if (eq .chezmoi.os "darwin") }}
+    wget https://github.com/neovim/neovim/releases/download/v0.6.1/nvim-macos.tar.gz
+    tar xzvf nvim-macos.tar.gz
+    sudo mv ./nvim-osx64 /usr/local/nvim-osx64-0.6.1
+    {{- $nvimbinary = "/usr/local/nvim-osx64-0.6.1/bin/nvim" }}
+  {{- else if (eq .chezmoi.os "linux") }}
+    wget https://github.com/neovim/neovim/releases/download/v0.6.1/nvim.appimage
+    sudo mv nvim.appimage /usr/local/bin/nvim-0.6.1.appimage
+    {{- $nvimbinary = "/usr/local/bin/nvim-0.6.1.appimage" }}
+  {{- end }}
 
-sudo tee -a /usr/local/bin/nvim > /dev/null <<EOF
+  sudo chmod a+x {{ $nvimbinary }}
+
+  sudo tee -a /usr/local/bin/nvim > /dev/null <<EOF
 #!/usr/bin/env bash
 # Auto-load sessions when starting nvim
 # Requires https://github.com/tpope/vim-obsession
@@ -102,465 +168,639 @@ else
   TERM=alacritty {{ $nvimbinary }} -c Obsession
 fi
 EOF
-sudo chmod a+x /usr/local/bin/nvim
+  sudo chmod a+x /usr/local/bin/nvim
+)
+runner install_neovim
 
 # Brave browser
-{{- if (eq .chezmoi.os "darwin") }}
-wget https://referrals.brave.com/latest/Brave-Browser.dmg
-MOUNTDIR=$(echo `hdiutil mount Brave-Browser.dmg | tail -1 \
-| awk '{$1=$2=""; print $0}'` | xargs -0 echo) \
-&& sudo cp -R "${MOUNTDIR}/Brave Browser.app" /Applications
-{{- else if (eq .chezmoi.os "linux") }}
-# see: https://brave.com/linux/
-sudo apt install apt-transport-https curl
-sudo curl -fsSLo /usr/share/keyrings/brave-browser-archive-keyring.gpg https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg
-echo "deb [signed-by=/usr/share/keyrings/brave-browser-archive-keyring.gpg arch=amd64] https://brave-browser-apt-release.s3.brave.com/ stable main"|sudo tee /etc/apt/sources.list.d/brave-browser-release.list
-sudo apt update
-sudo apt install brave-browser
+install_brave() (
+  set -e
+  {{- if (eq .chezmoi.os "darwin") }}
+    wget https://referrals.brave.com/latest/Brave-Browser.dmg
+    MOUNTDIR=$(echo `hdiutil mount Brave-Browser.dmg | tail -1 \
+    | awk '{$1=$2=""; print $0}'` | xargs -0 echo) \
+    && sudo cp -R "${MOUNTDIR}/Brave Browser.app" /Applications
+  {{- else if (eq .chezmoi.os "linux") }}
+    # see: https://brave.com/linux/
+    sudo apt install apt-transport-https curl
+    sudo curl -fsSLo /usr/share/keyrings/brave-browser-archive-keyring.gpg https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg
+    echo "deb [signed-by=/usr/share/keyrings/brave-browser-archive-keyring.gpg arch=amd64] https://brave-browser-apt-release.s3.brave.com/ stable main"|sudo tee /etc/apt/sources.list.d/brave-browser-release.list
+    sudo apt update
+    sudo apt install brave-browser
 
-# Set brave as the default browser
-sudo update-alternatives --config x-www-browser
-sudo update-alternatives --config gnome-www-browser
-xdg-settings set default-web-browser brave-browser.desktop
-{{- end }}
+    # Set brave as the default browser
+    sudo update-alternatives --config x-www-browser
+    sudo update-alternatives --config gnome-www-browser
+    xdg-settings set default-web-browser brave-browser.desktop
+  {{- end }}
+)
+runner install_brave
 
-# zsh-syntax-highliting
-git clone https://github.com/zsh-users/zsh-syntax-highlighting.git $HOME/.zsh/zsh-syntax-highlighting
+# zsh-syntax-highlighting
+install_zsh_syntax_highlighting() (
+  set -e
+  git clone https://github.com/zsh-users/zsh-syntax-highlighting.git $HOME/.zsh/zsh-syntax-highlighting
+)
+runner install_zsh_syntax_highlighting
 
 # rust via rustup
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-source $HOME/.cargo/env
+install_rust() (
+  set -e
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+  source $HOME/.cargo/env
+)
+runner install_rust
 
 # alacritty, based on https://github.com/alacritty/alacritty/blob/master/INSTALL.md#prerequisites
-# Fetch the code
-mkdir -p $HOME/dev
-git clone https://github.com/alacritty/alacritty.git $HOME/dev/alacritty
-cd $HOME/dev/alacritty
-git checkout f4bdf5f
-# Setup rust
-rustup override set stable
-rustup update stable
-{{- if (eq .chezmoi.os "darwin") }}
-# Build + install
-make app
-cp -r target/release/osx/Alacritty.app /Applications/
-{{- else if (eq .chezmoi.os "linux") }}
-# Install build deps
-apt-get install cmake pkg-config libfreetype6-dev libfontconfig1-dev libxcb-xfixes0-dev libxkbcommon-dev python3 python3-venv gzip
-# Build + install
-cargo build --release
-sudo cp target/release/alacritty /usr/local/bin # or anywhere else in $PATH
-{{- end }}
-# Terminfo
-sudo tic -xe alacritty,alacritty-direct extra/alacritty.info
-{{- if (eq .chezmoi.os "linux") }}
-# Desktop Entry
-sudo cp extra/logo/alacritty-term.svg /usr/share/pixmaps/Alacritty.svg
-sudo desktop-file-install extra/linux/Alacritty.desktop
-sudo update-desktop-database
-# Man pages
-sudo mkdir -p /usr/local/share/man/man1
-gzip -c extra/alacritty.man | sudo tee /usr/local/share/man/man1/alacritty.1.gz > /dev/null
-gzip -c extra/alacritty-msg.man | sudo tee /usr/local/share/man/man1/alacritty-msg.1.gz > /dev/null
-{{- end }}
-# Shell completion
-mkdir -p $HOME/.zsh_functions
-cp extra/completions/_alacritty $HOME/.zsh_functions/_alacritty
-{{- if (eq .chezmoi.os "linux") }}
-# Use Alacritty as default terminal (Ctrl + Alt + T)
-gsettings set org.gnome.desktop.default-applications.terminal exec 'alacritty'
-{{- end }}
+install_alacritty() (
+  set -e
+  # Fetch the code
+  mkdir -p $HOME/dev
+  git clone https://github.com/alacritty/alacritty.git $HOME/dev/alacritty
+  cd $HOME/dev/alacritty
+  git checkout f4bdf5f
+  # Setup rust
+  rustup override set stable
+  rustup update stable
+  {{- if (eq .chezmoi.os "darwin") }}
+    # Build + install
+    make app
+    cp -r target/release/osx/Alacritty.app /Applications/
+  {{- else if (eq .chezmoi.os "linux") }}
+    # Install build deps
+    apt-get install cmake pkg-config libfreetype6-dev libfontconfig1-dev libxcb-xfixes0-dev libxkbcommon-dev python3 python3-venv gzip
+    # Build + install
+    cargo build --release
+    sudo cp target/release/alacritty /usr/local/bin # or anywhere else in $PATH
+  {{- end }}
+  # Terminfo
+  sudo tic -xe alacritty,alacritty-direct extra/alacritty.info
+  {{- if (eq .chezmoi.os "linux") }}
+    # Desktop Entry
+    sudo cp extra/logo/alacritty-term.svg /usr/share/pixmaps/Alacritty.svg
+    sudo desktop-file-install extra/linux/Alacritty.desktop
+    sudo update-desktop-database
+    # Man pages
+    sudo mkdir -p /usr/local/share/man/man1
+    gzip -c extra/alacritty.man | sudo tee /usr/local/share/man/man1/alacritty.1.gz > /dev/null
+    gzip -c extra/alacritty-msg.man | sudo tee /usr/local/share/man/man1/alacritty-msg.1.gz > /dev/null
+  {{- end }}
+  # Shell completion
+  mkdir -p $HOME/.zsh_functions
+  cp extra/completions/_alacritty $HOME/.zsh_functions/_alacritty
+  {{- if (eq .chezmoi.os "linux") }}
+    # Use Alacritty as default terminal (Ctrl + Alt + T)
+    gsettings set org.gnome.desktop.default-applications.terminal exec 'alacritty'
+  {{- end }}
+)
+runner install_alacritty
 
 # Emoji picker
-{{- if (eq .chezmoi.os "darwin") }}
-# Rocket emoji picker
-wget https://macrelease.matthewpalmer.net/Rocket.dmg
-MOUNTDIR=$(echo `hdiutil mount Rocket.dmg | tail -1 \
-| awk '{$1=$2=""; print $0}'` | xargs -0 echo) \
-&& sudo cp -R "${MOUNTDIR}/Rocket.app" /Applications
-# Set shortcut to "~"
-defaults write net.matthewpalmer.Rocket.plist "hot-key-b8-iaK-thyib-yoV-Kep-It" -string "~"
-defaults write net.matthewpalmer.Rocket.plist "launch-at-login" -bool true
-{{- else if (eq .chezmoi.os "linux") }}
-# Emote emoji picker
-# default shortcut is Ctrl-Alt-e, remapped to Ctrl-Super-Space)
-sudo snap install emote
-{{- end }}
+install_emoji_picker() (
+  set -e
+  {{- if (eq .chezmoi.os "darwin") }}
+    # Rocket emoji picker
+    wget https://macrelease.matthewpalmer.net/Rocket.dmg
+    MOUNTDIR=$(echo `hdiutil mount Rocket.dmg | tail -1 \
+    | awk '{$1=$2=""; print $0}'` | xargs -0 echo) \
+    && sudo cp -R "${MOUNTDIR}/Rocket.app" /Applications
+    # Set shortcut to "~"
+    defaults write net.matthewpalmer.Rocket.plist "hot-key-b8-iaK-thyib-yoV-Kep-It" -string "~"
+    defaults write net.matthewpalmer.Rocket.plist "launch-at-login" -bool true
+  {{- else if (eq .chezmoi.os "linux") }}
+    # Emote emoji picker
+    # default shortcut is Ctrl-Alt-e, remapped to Ctrl-Super-Space)
+    sudo snap install emote
+  {{- end }}
+)
+runner install_emoji_picker
 
 # Install RoamResearch
-{{- $roamversion := "0.0.14" }}
-{{- if (eq .chezmoi.os "darwin") }}
-wget https://roam-electron-deploy.s3.us-east-2.amazonaws.com/Roam+Research-{{ $roamversion }}.dmg
-MOUNTDIR=$(echo `hdiutil mount Roam+Research-{{ $roamversion }}.dmg | tail -1 \
-| awk '{$1=$2=""; print $0}'` | xargs -0 echo) \
-&& sudo cp -R "${MOUNTDIR}/Roam Research.app" /Applications
-{{- else if (eq .chezmoi.os "linux") }}
-wget https://roam-electron-deploy.s3.us-east-2.amazonaws.com/roam-research_{{ $roamversion }}_amd64.deb
-sudo dpkg -i roam-research_{{ $roamversion }}_amd64.deb
-{{- end }}
+install_roam_research() (
+  set -e
+  {{- $roamversion := "0.0.14" }}
+  {{- if (eq .chezmoi.os "darwin") }}
+    wget https://roam-electron-deploy.s3.us-east-2.amazonaws.com/Roam+Research-{{ $roamversion }}.dmg
+    MOUNTDIR=$(echo `hdiutil mount Roam+Research-{{ $roamversion }}.dmg | tail -1 \
+    | awk '{$1=$2=""; print $0}'` | xargs -0 echo) \
+    && sudo cp -R "${MOUNTDIR}/Roam Research.app" /Applications
+  {{- else if (eq .chezmoi.os "linux") }}
+    wget https://roam-electron-deploy.s3.us-east-2.amazonaws.com/roam-research_{{ $roamversion }}_amd64.deb
+    sudo dpkg -i roam-research_{{ $roamversion }}_amd64.deb
+  {{- end }}
+)
+runner install_roam_research
 
 # fontforge for patching Input Mono later
-{{- if (eq .chezmoi.os "darwin") }}
-wget https://github.com/fontforge/fontforge/releases/download/20201107/FontForge-2020-11-07-21ad4a1.app.dmg
-MOUNTDIR=$(echo `hdiutil mount FontForge-2020-11-07-21ad4a1.app.dmg | tail -1 \
-| awk '{$1=$2=""; print $0}'` | xargs -0 echo) \
-&& sudo cp -R "${MOUNTDIR}/FontForge.app" /Applications
-{{- else if (eq .chezmoi.os "linux") }}
-wget https://github.com/fontforge/fontforge/releases/download/20201107/FontForge-2020-11-07-21ad4a1-x86_64.AppImage
-sudo mv FontForge-2020-11-07-21ad4a1-x86_64.AppImage /usr/local/bin
-sudo chmod a+x /usr/local/bin/FontForge-2020-11-07-21ad4a1-x86_64.AppImage
-sudo ln -s /usr/local/bin/FontForge-2020-11-07-21ad4a1-x86_64.AppImage /usr/local/bin/fontforge
-{{- end }}
+install_fontforge() (
+  set -e
+  {{- if (eq .chezmoi.os "darwin") }}
+    wget https://github.com/fontforge/fontforge/releases/download/20201107/FontForge-2020-11-07-21ad4a1.app.dmg
+    MOUNTDIR=$(echo `hdiutil mount FontForge-2020-11-07-21ad4a1.app.dmg | tail -1 \
+    | awk '{$1=$2=""; print $0}'` | xargs -0 echo) \
+    && sudo cp -R "${MOUNTDIR}/FontForge.app" /Applications
+  {{- else if (eq .chezmoi.os "linux") }}
+    wget https://github.com/fontforge/fontforge/releases/download/20201107/FontForge-2020-11-07-21ad4a1-x86_64.AppImage
+    sudo mv FontForge-2020-11-07-21ad4a1-x86_64.AppImage /usr/local/bin
+    sudo chmod a+x /usr/local/bin/FontForge-2020-11-07-21ad4a1-x86_64.AppImage
+    sudo ln -s /usr/local/bin/FontForge-2020-11-07-21ad4a1-x86_64.AppImage /usr/local/bin/fontforge
+  {{- end }}
+)
+runner install_fontforge
 
-# Patch fonts for use with powerlevel10k
-# https://github.com/ryanoasis/nerd-fonts/issues/400#issuecomment-687229777
-# Do a sparse-checkout of only the files we need
-git clone https://github.com/ryanoasis/nerd-fonts.git --depth 1 --filter=blob:none --sparse $HOME/dev/nerd-fonts
-cd $HOME/dev/nerd-fonts
-git sparse-checkout set src/glyphs font-patcher
-sudo chmod a+x font-patcher
+install_fonts() (
+  set -e
+  # Patch fonts for use with powerlevel10k
+  # https://github.com/ryanoasis/nerd-fonts/issues/400#issuecomment-687229777
+  # Do a sparse-checkout of only the files we need
+  git clone https://github.com/ryanoasis/nerd-fonts.git --depth 1 --filter=blob:none --sparse $HOME/dev/nerd-fonts
+  cd $HOME/dev/nerd-fonts
+  git sparse-checkout set src/glyphs font-patcher
+  sudo chmod a+x font-patcher
 
-# Install some custom fonts
+  # Install some custom fonts
 
-# temporary directory to extract fonts to
-mkdir -p fonts
+  # temporary directory to extract fonts to
+  mkdir -p fonts
 
-# Lato Font (for RoamResearch theme)
-curl 'https://fonts.google.com/download?family=Lato' -Lo lato-font.zip
-unzip lato-font.zip -d fonts
-rm lato-font.zip
+  # Lato Font (for RoamResearch theme)
+  curl 'https://fonts.google.com/download?family=Lato' -Lo lato-font.zip
+  unzip lato-font.zip -d fonts
+  rm lato-font.zip
 
-# Open Sans Font (for RoamResearch theme)
-curl 'https://fonts.google.com/download?family=Open%20Sans' -Lo open-sans-font.zip
-unzip open-sans-font.zip -d fonts
-rm open-sans-font.zip
+  # Open Sans Font (for RoamResearch theme)
+  curl 'https://fonts.google.com/download?family=Open%20Sans' -Lo open-sans-font.zip
+  unzip open-sans-font.zip -d fonts
+  rm open-sans-font.zip
 
-# InputMono Font
-curl "https://input.djr.com/build/?fontSelection=whole&a=0&g=0&i=0&l=0&zero=0&asterisk=0&braces=0&preset=default&line-height=1.2&accept=I+do&email=" -Lo InputMono-Font.zip 
-unzip InputMono-Font.zip -d InputMono-Font
-mv InputMono-Font/Input_Fonts/InputMono/InputMono/InputMono-*.ttf fonts
-rm -rf InputMono-Font InputMono-Font.zip
+  # InputMono Font
+  curl "https://input.djr.com/build/?fontSelection=whole&a=0&g=0&i=0&l=0&zero=0&asterisk=0&braces=0&preset=default&line-height=1.2&accept=I+do&email=" -Lo InputMono-Font.zip 
+  unzip InputMono-Font.zip -d InputMono-Font
+  mv InputMono-Font/Input_Fonts/InputMono/InputMono/InputMono-*.ttf fonts
+  rm -rf InputMono-Font InputMono-Font.zip
 
-# Patch Input Mono font for use with powerlevel10k
-# https://github.com/ryanoasis/nerd-fonts/issues/400#issuecomment-687229777
-# Prepare the output folder
-mkdir -p fonts/InputMono-NerdFont/
-{{- if (eq .chezmoi.os "darwin") }}
-# Patch the fonts
-find fonts/ -maxdepth 1 -name 'InputMono*.ttf' | parallel -j $(nproc) /Applications/FontForge.app/Contents/MacOS/FontForge -script font-patcher --no-progressbars --careful --complete --outputdir fonts/InputMono-NerdFont {} \;
-{{- else if (eq .chezmoi.os "linux") }}
-# Patch the fonts
-find fonts/ -maxdepth 1 -name 'InputMono*.ttf' | parallel -j $(nproc) fontforge -script font-patcher --no-progressbars --careful --complete --outputdir fonts/InputMono-NerdFont {} \;
-{{- end }}
+  # Patch Input Mono font for use with powerlevel10k
+  # https://github.com/ryanoasis/nerd-fonts/issues/400#issuecomment-687229777
+  # Prepare the output folder
+  mkdir -p fonts/InputMono-NerdFont/
+  {{- if (eq .chezmoi.os "darwin") }}
+    # Patch the fonts
+    find fonts/ -maxdepth 1 -name 'InputMono*.ttf' | parallel -j $(nproc) /Applications/FontForge.app/Contents/MacOS/FontForge -script font-patcher --no-progressbars --careful --complete --outputdir fonts/InputMono-NerdFont {} \;
+  {{- else if (eq .chezmoi.os "linux") }}
+    # Patch the fonts
+    find fonts/ -maxdepth 1 -name 'InputMono*.ttf' | parallel -j $(nproc) fontforge -script font-patcher --no-progressbars --careful --complete --outputdir fonts/InputMono-NerdFont {} \;
+  {{- end }}
 
-{{- if (eq .chezmoi.os "linux") }}
-# Get the latest emoji font for Ubuntu
-wget https://github.com/googlefonts/noto-emoji/raw/main/fonts/NotoColorEmoji.ttf -P fonts
-{{- end }}
+  {{- if (eq .chezmoi.os "linux") }}
+    # Get the latest emoji font for Ubuntu
+    wget https://github.com/googlefonts/noto-emoji/raw/main/fonts/NotoColorEmoji.ttf -P fonts
+  {{- end }}
 
-# Move all the fonts into the correct directory
-{{- if (eq .chezmoi.os "darwin") }}
-mkdir -p $HOME/Library/Fonts
-cp -r fonts/* $HOME/Library/Fonts
-{{- else if (eq .chezmoi.os "linux") }}
-mkdir -p $HOME/.fonts
-cp -r fonts/* $HOME/.fonts
+  # Move all the fonts into the correct directory
+  {{- if (eq .chezmoi.os "darwin") }}
+    mkdir -p $HOME/Library/Fonts
+    cp -r fonts/* $HOME/Library/Fonts
+  {{- else if (eq .chezmoi.os "linux") }}
+    mkdir -p $HOME/.fonts
+    cp -r fonts/* $HOME/.fonts
 
-# NOTE: No sudo; we want to update the current user's font cache
-fc-cache -f -v
-{{- end }}
+    # NOTE: No sudo; we want to update the current user's font cache
+    fc-cache -f -v
+  {{- end }}
+)
+runner install_fonts
 
 # fnm (node version manager)
-{{- if (eq .chezmoi.os "darwin") }}
-brew install fnm
-{{- else if (eq .chezmoi.os "linux") }}
-curl -fsSL https://fnm.vercel.app/install | bash -s -- --skip-shell
-{{- end }}
-eval "$($HOME/.fnm/fnm env)"
-mkdir -p $HOME/.zsh/completion
-$HOME/.fnm/fnm completions --shell zsh > $HOME/.zsh/completion/_fnm
+install_fnm() (
+  set -e
+  {{- if (eq .chezmoi.os "darwin") }}
+    brew install fnm
+  {{- else if (eq .chezmoi.os "linux") }}
+    curl -fsSL https://fnm.vercel.app/install | bash -s -- --skip-shell
+  {{- end }}
+  eval "$($HOME/.fnm/fnm env)"
+  mkdir -p $HOME/.zsh/completion
+  $HOME/.fnm/fnm completions --shell zsh > $HOME/.zsh/completion/_fnm
+)
+runner install_fnm
 
 # node
-$HOME/.fnm/fnm install v16
-$HOME/.fnm/fnm default v16
+install_node() (
+  set -e
+  $HOME/.fnm/fnm install v16
+  $HOME/.fnm/fnm default v16
+)
+runner install_node
 
 # yarn
-npm install --global yarn
+install_yarn() (
+  set -e
+  npm install --global yarn
+)
+runner install_yarn
 
 # powerlevel10k
-git clone --depth=1 https://github.com/romkatv/powerlevel10k.git $HOME/.zsh/powerlevel10k
+install_powerlevel10k() (
+  set -e
+  git clone --depth=1 https://github.com/romkatv/powerlevel10k.git $HOME/.zsh/powerlevel10k
+)
+runner install_powerlevel10k
 
 # tmux
-{{- if (eq .chezmoi.os "darwin") }}
-brew install tmux
-{{- else if (eq .chezmoi.os "linux") }}
-sudo apt install tmux
-{{- end }}
+install_tmux() (
+  set -e
+  {{- if (eq .chezmoi.os "darwin") }}
+    brew install tmux
+  {{- else if (eq .chezmoi.os "linux") }}
+    sudo apt install tmux
+  {{- end }}
+)
+runner install_tmux
 
 # bat
-{{- if (eq .chezmoi.os "darwin") }}
-brew install bat
-{{- else if (eq .chezmoi.os "linux") }}
-wget https://github.com/sharkdp/bat/releases/download/v0.18.0/bat_0.18.0_amd64.deb
-sudo dpkg -i bat_0.18.0_amd64.deb
-{{- end }}
+install_bat() (
+  set -e
+  {{- if (eq .chezmoi.os "darwin") }}
+    brew install bat
+  {{- else if (eq .chezmoi.os "linux") }}
+    wget https://github.com/sharkdp/bat/releases/download/v0.18.0/bat_0.18.0_amd64.deb
+    sudo dpkg -i bat_0.18.0_amd64.deb
+  {{- end }}
+)
+runner install_bat
 
 # fd
-{{- if (eq .chezmoi.os "darwin") }}
-brew install fd
-{{- else if (eq .chezmoi.os "linux") }}
-sudo apt install fd-find
-# Override the other `fd` binary that comes with Ubuntu
-sudo ln -s $(which fdfind) /usr/local/bin/fd
-{{- end }}
+install_fd() (
+  set -e
+  {{- if (eq .chezmoi.os "darwin") }}
+    brew install fd
+  {{- else if (eq .chezmoi.os "linux") }}
+    sudo apt install fd-find
+    # Override the other `fd` binary that comes with Ubuntu
+    sudo ln -s $(which fdfind) /usr/local/bin/fd
+  {{- end }}
+)
+runner install_fd
 
 # delta
-{{- if (eq .chezmoi.os "darwin") }}
-brew install git-delta
-{{- else if (eq .chezmoi.os "linux") }}
-wget https://github.com/dandavison/delta/releases/download/0.7.1/git-delta_0.7.1_amd64.deb
-sudo dpkg -i git-delta_0.7.1_amd64.deb
-{{- end }}
+install_delta() (
+  set -e
+  {{- if (eq .chezmoi.os "darwin") }}
+    brew install git-delta
+  {{- else if (eq .chezmoi.os "linux") }}
+    wget https://github.com/dandavison/delta/releases/download/0.7.1/git-delta_0.7.1_amd64.deb
+    sudo dpkg -i git-delta_0.7.1_amd64.deb
+  {{- end }}
+)
+runner install_delta
 
 # Diagnostic Languageserver (lsp for prettier, eslint, etc)
-yarn global add diagnostic-languageserver
-yarn global add vscode-langservers-extracted
-yarn global add graphql-language-service-cli
-yarn global add @tailwindcss/language-server
-yarn global add typescript typescript-language-server
-yarn global add @fsouza/prettierd
-yarn global add remark-language-server
+install_diagnostic_lsp() (
+  set -e
+  yarn global add diagnostic-languageserver
+)
+runner install_diagnostic_lsp
+
+install_vscode_lsp() (
+  set -e
+  yarn global add vscode-langservers-extracted
+)
+runner install_vscode_lsp
+
+install_graphql_lsp() (
+  set -e
+  yarn global add graphql-language-service-cli
+)
+runner install_graphql_lsp
+
+install_tailwind_lsp() (
+  set -e
+  yarn global add @tailwindcss/language-server
+)
+runner install_tailwind_lsp
+
+install_typescript_lsp() (
+  set -e
+  yarn global add typescript typescript-language-server
+)
+runner install_typescript_lsp
+
+install_remark_lsp() (
+  set -e
+  yarn global add remark-language-server
+)
+runner install_remark_lsp
+
+install_lua_lsp() (
+  set -e
+  {{- if (eq .chezmoi.os "darwin") }}
+    brew install lua-language-server
+  {{- else if (eq .chezmoi.os "linux") }}
+    wget https://github.com/sumneko/lua-language-server/releases/download/2.5.5/lua-language-server-2.5.5-linux-x64.tar.gz
+    sudo mkdir -p /usr/local/lib/lua-language-server
+    sudo tar xzvf lua-language-server-2.5.5-linux-x64.tar.gz -C /usr/local/lib/lua-language-server
+    sudo chmod a+x /usr/local/lib/lua-language-server/bin/lua-language-server
+    sudo chmod a+w -R /usr/local/lib/lua-language-server
+    sudo ln -s /usr/local/lib/lua-language-server/bin/lua-language-server /usr/local/bin/lua-language-server
+  {{- end }}
+)
+runner install_lua_lsp
+
+install_prettierd() (
+  set -e
+  yarn global add @fsouza/prettierd
+)
+runner install_prettierd
 
 {{- if (eq .chezmoi.os "darwin") }}
-brew install lua-language-server
-{{- else if (eq .chezmoi.os "linux") }}
-wget https://github.com/sumneko/lua-language-server/releases/download/2.5.5/lua-language-server-2.5.5-linux-x64.tar.gz
-sudo mkdir -p /usr/local/lib/lua-language-server
-sudo tar xzvf lua-language-server-2.5.5-linux-x64.tar.gz -C /usr/local/lib/lua-language-server
-sudo chmod a+x /usr/local/lib/lua-language-server/bin/lua-language-server
-sudo chmod a+w -R /usr/local/lib/lua-language-server
-sudo ln -s /usr/local/lib/lua-language-server/bin/lua-language-server /usr/local/bin/lua-language-server
-{{- end }}
-
 # Keypress visualiser
-{{- if (eq .chezmoi.os "darwin") }}
-brew install --cask keycastr
+install_keycastr() (
+  set -e
+  brew install --cask keycastr
+)
+runner install_keycastr
 {{- end }}
 
 # GitHub CLI; gh
-{{- if (eq .chezmoi.os "darwin") }}
-brew install gh
-{{- else if (eq .chezmoi.os "linux") }}
-sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-key C99B11DEB97541F0
-sudo apt-add-repository https://cli.github.com/packages
-sudo apt update
-sudo apt install gh
-{{- end }}
+install_gh() (
+  set -e
+  {{- if (eq .chezmoi.os "darwin") }}
+    brew install gh
+  {{- else if (eq .chezmoi.os "linux") }}
+    sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-key C99B11DEB97541F0
+    sudo apt-add-repository https://cli.github.com/packages
+    sudo apt update
+    sudo apt install gh
+  {{- end }}
+)
+runner install_gh
 
 # GitHub CLI Extensions
-gh extension install dlvhdr/gh-dash
+install_gh_dash() (
+  set -e
+  gh extension install dlvhdr/gh-dash
+)
+runner install_gh_dash
 
 # mongoDB
-{{- if (eq .chezmoi.os "darwin") }}
-# TODO
-{{- else if (eq .chezmoi.os "linux") }}
-# From  https://docs.mongodb.com/manual/tutorial/install-mongodb-on-ubuntu/
-sudo apt-get install gnupg
-wget -qO - https://www.mongodb.org/static/pgp/server-4.4.asc | sudo apt-key add -
-# NOTE: TODO: FIXME: Only for Ubuntu 20.04
-echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/4.4 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-4.4.list
-sudo apt-get update
-# Remove system-instaled mongo version
-sudo apt-get remove mongodb-org mongodb-org-tools mongodb-server-core mongo-tools
-sudo apt-get install -y mongodb-org=4.4.5 mongodb-org-server=4.4.5 mongodb-org-shell=4.4.5 mongodb-org-mongos=4.4.5 mongodb-org-tools=4.4.5
-echo "mongodb-org hold" | sudo dpkg --set-selections
-echo "mongodb-org-server hold" | sudo dpkg --set-selections
-echo "mongodb-org-shell hold" | sudo dpkg --set-selections
-echo "mongodb-org-mongos hold" | sudo dpkg --set-selections
-echo "mongodb-org-tools hold" | sudo dpkg --set-selections
+install_mongodb() (
+  set -e
+  {{- if (eq .chezmoi.os "darwin") }}
+    # TODO
+  {{- else if (eq .chezmoi.os "linux") }}
+    # From  https://docs.mongodb.com/manual/tutorial/install-mongodb-on-ubuntu/
+    sudo apt-get install gnupg
+    wget -qO - https://www.mongodb.org/static/pgp/server-4.4.asc | sudo apt-key add -
+    # NOTE: TODO: FIXME: Only for Ubuntu 20.04
+    echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/4.4 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-4.4.list
+    sudo apt-get update
+    # Remove system-instaled mongo version
+    sudo apt-get remove mongodb-org mongodb-org-tools mongodb-server-core mongo-tools
+    sudo apt-get install -y mongodb-org=4.4.5 mongodb-org-server=4.4.5 mongodb-org-shell=4.4.5 mongodb-org-mongos=4.4.5 mongodb-org-tools=4.4.5
+    echo "mongodb-org hold" | sudo dpkg --set-selections
+    echo "mongodb-org-server hold" | sudo dpkg --set-selections
+    echo "mongodb-org-shell hold" | sudo dpkg --set-selections
+    echo "mongodb-org-mongos hold" | sudo dpkg --set-selections
+    echo "mongodb-org-tools hold" | sudo dpkg --set-selections
 
-# Mongo not working? Probably because there are old databases that can't be
-# upgraded directly to this version, so we have to either delete the physical
-# database file or rollback mongo version to oldver+1, run the daemon, then
-# upgrade to the next version etc. :(
-{{- end }}
+    # Mongo not working? Probably because there are old databases that can't be
+    # upgraded directly to this version, so we have to either delete the physical
+    # database file or rollback mongo version to oldver+1, run the daemon, then
+    # upgrade to the next version etc. :(
+  {{- end }}
+)
+runner install_mongodb
 
 # DBeaver - PostgreSQL / MySQL / etc GUI
-{{- if (eq .chezmoi.os "darwin") }}
-brew install --cask dbeaver-community
-{{- else if (eq .chezmoi.os "linux") }}
-# TODO
-{{- end }}
+install_dbeaver() (
+  set -e
+  {{- if (eq .chezmoi.os "darwin") }}
+    brew install --cask dbeaver-community
+  {{- else if (eq .chezmoi.os "linux") }}
+    # TODO
+  {{- end }}
+)
+runner install_dbeaver
 
 # golang
-{{- if (eq .chezmoi.os "darwin") }}
-wget https://go.dev/dl/go1.18.darwin-amd64.pkg
-open -nW go1.18.darwin-amd64.pkg
-{{- else if (eq .chezmoi.os "linux") }}
-wget https://go.dev/dl/go1.18.linux-amd64.tar.gz
-sudo tar -C /usr/local -xzf go1.18.linux-amd64.tar.gz
-{{- end }}
+install_golang() (
+  set -e
+  {{- if (eq .chezmoi.os "darwin") }}
+    wget https://go.dev/dl/go1.18.darwin-amd64.pkg
+    open -nW go1.18.darwin-amd64.pkg
+  {{- else if (eq .chezmoi.os "linux") }}
+    wget https://go.dev/dl/go1.18.linux-amd64.tar.gz
+    sudo tar -C /usr/local -xzf go1.18.linux-amd64.tar.gz
+  {{- end }}
+)
+runner install_golang
 
 # 1password
-{{- if (eq .chezmoi.os "darwin") }}
-# TODO
-{{- else if (eq .chezmoi.os "linux") }}
-sudo snap install 1password --edge
-{{- end }}
+install_one_password_desktop() (
+  set -e
+  {{- if (eq .chezmoi.os "darwin") }}
+    # TODO
+  {{- else if (eq .chezmoi.os "linux") }}
+    sudo snap install 1password --edge
+  {{- end }}
+)
+runner install_one_password_desktop
 
 # 1password browser extension
-{{- if (eq .chezmoi.os "darwin") }}
-# TODO
-{{- else if (eq .chezmoi.os "linux") }}
-xdg-open https://chrome.google.com/webstore/detail/1password-%E2%80%93-password-mana/aeblfdkhhhdcdjpifhhbdiojplfjncoa
-{{- end }}
+install_one_password_browser_extension() (
+  set -e
+  {{- if (eq .chezmoi.os "darwin") }}
+    # TODO
+  {{- else if (eq .chezmoi.os "linux") }}
+    # xdg-open https://chrome.google.com/webstore/detail/1password-%E2%80%93-password-mana/aeblfdkhhhdcdjpifhhbdiojplfjncoa
+  {{- end }}
+)
+runner install_one_password_browser_extension
 
 # pdftk
-{{- if (eq .chezmoi.os "darwin") }}
-wget https://www.pdflabs.com/tools/pdftk-the-pdf-toolkit/pdftk_server-2.02-mac_osx-10.11-setup.pkg
-open -nW pdftk_server-2.02-mac_osx-10.11-setup.pkg
-{{- else if (eq .chezmoi.os "linux") }}
-# TODO
-{{- end }}
+install_pdftk() (
+  set -e
+  {{- if (eq .chezmoi.os "darwin") }}
+    wget https://www.pdflabs.com/tools/pdftk-the-pdf-toolkit/pdftk_server-2.02-mac_osx-10.11-setup.pkg
+    open -nW pdftk_server-2.02-mac_osx-10.11-setup.pkg
+  {{- else if (eq .chezmoi.os "linux") }}
+    # TODO
+  {{- end }}
+)
+runner install_pdftk
 
+{{- if (eq .chezmoi.os "linux") }}
 # xournal++ (for annotaing pdfs + handwriting notes)
-{{- if (eq .chezmoi.os "darwin") }}
-# TODO
-{{- else if (eq .chezmoi.os "linux") }}
-# Install required deps
-sudo apt-get install libportaudio2 libportaudiocpp0 libzip5
-wget https://github.com/xournalpp/xournalpp/releases/download/v1.1.1/xournalpp-1.1.1-Ubuntu-focal-x86_64.deb
-# Install the package
-sudo dpkg -i xournalpp-1.1.1-Ubuntu-focal-x86_64.deb
+install_xournal() (
+  set -e
+  # Install required deps
+  sudo apt-get install libportaudio2 libportaudiocpp0 libzip5
+  wget https://github.com/xournalpp/xournalpp/releases/download/v1.1.1/xournalpp-1.1.1-Ubuntu-focal-x86_64.deb
+  # Install the package
+  sudo dpkg -i xournalpp-1.1.1-Ubuntu-focal-x86_64.deb
+)
+runner install_xournal
 {{- end }}
 
 # Signal messenger
-{{- if .codespaces }}
-# Not on Codespaces
-{{- else if (eq .chezmoi.os "darwin") }}
-wget https://updates.signal.org/desktop/signal-desktop-mac-universal-5.47.0.dmg
-MOUNTDIR=$(echo `hdiutil mount signal-desktop-mac-universal-5.47.0.dmg | tail -1 \
-| awk '{$1=$2=""; print $0}'` | xargs -0 echo) \
-&& sudo cp -R "${MOUNTDIR}/Signal.app" /Applications
-{{- else if (eq .chezmoi.os "linux") }}
-wget -O- https://updates.signal.org/desktop/apt/keys.asc | gpg --dearmor > signal-desktop-keyring.gpg
-cat signal-desktop-keyring.gpg | sudo tee -a /usr/share/keyrings/signal-desktop-keyring.gpg > /dev/null
+install_signal() (
+  set -e
+  {{- if .codespaces }}
+    # Not on Codespaces
+  {{- else if (eq .chezmoi.os "darwin") }}
+    wget https://updates.signal.org/desktop/signal-desktop-mac-universal-5.47.0.dmg
+    MOUNTDIR=$(echo `hdiutil mount signal-desktop-mac-universal-5.47.0.dmg | tail -1 \
+    | awk '{$1=$2=""; print $0}'` | xargs -0 echo) \
+    && sudo cp -R "${MOUNTDIR}/Signal.app" /Applications
+  {{- else if (eq .chezmoi.os "linux") }}
+    wget -O- https://updates.signal.org/desktop/apt/keys.asc | gpg --dearmor > signal-desktop-keyring.gpg
+    cat signal-desktop-keyring.gpg | sudo tee -a /usr/share/keyrings/signal-desktop-keyring.gpg > /dev/null
+ 
+    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/signal-desktop-keyring.gpg] https://updates.signal.org/desktop/apt `lsb_release -cs` main" | sudo tee -a /etc/apt/sources.list.d/signal-`lsb_release -cs`.list
 
-echo "deb [arch=amd64 signed-by=/usr/share/keyrings/signal-desktop-keyring.gpg] https://updates.signal.org/desktop/apt `lsb_release -cs` main" | sudo tee -a /etc/apt/sources.list.d/signal-`lsb_release -cs`.list
-
-sudo apt update && sudo apt install signal-desktop
-{{- end }}
+    sudo apt update && sudo apt install signal-desktop
+  {{- end }}
+)
+runner install_signal
 
 # PICO-8
-{{- if .codespaces }}
-# Not on Codespaces
-{{- else }}
+install_pico8() (
+  set -e
+  {{- if .codespaces }}
+    # Not on Codespaces
+  {{- else }}
 
-{{- $pico8platform := "" }}
-{{- if (eq .chezmoi.os "darwin") }}
-{{- $pico8platform = "osx" }}
-{{- else if (eq .chezmoi.os "linux") }}
-{{- $pico8platform = "linux64" }}
-{{- end }}
+  {{- $pico8platform := "" }}
+  {{- if (eq .chezmoi.os "darwin") }}
+    {{- $pico8platform = "osx" }}
+  {{- else if (eq .chezmoi.os "linux") }}
+    {{- $pico8platform = "linux64" }}
+  {{- end }}
 
-# Get credentials out of 1password
-{{- $itchCredentials := onepasswordDetailsFields "kz6tex4nh5fx7a2kvohdx6tt4e" }}
-{{- $pico8zip := "/tmp/pico-8.zip" }}
+  # Get credentials out of 1password
+  {{- $itchCredentials := onepasswordDetailsFields "kz6tex4nh5fx7a2kvohdx6tt4e" }}
+  {{- $pico8zip := "/tmp/pico-8.zip" }}
 
-# Download the binary
-npx --package=playwright@~1.21.0 --yes -c 'dir=$(dirname `which playwright`)/../..; cp scripts/install-pico8.js $dir; cd $dir; DEST_FILE={{- $pico8zip }} USERNAME={{- $itchCredentials.username.value }} PASSWORD={{- $itchCredentials.password.value }} PLATFORM={{- $pico8platform }} node install-pico8.js'
+  # Download the binary
+  npx --package=playwright@~1.21.0 --yes -c 'dir=$(dirname `which playwright`)/../..; cp scripts/install-pico8.js $dir; cd $dir; DEST_FILE={{- $pico8zip }} USERNAME={{- $itchCredentials.username.value }} PASSWORD={{- $itchCredentials.password.value }} PLATFORM={{- $pico8platform }} node install-pico8.js'
 
-# Install it
-{{- if (eq .chezmoi.os "darwin") }}
-unzip {{ $pico8zip }} -d /tmp
-mv /tmp/pico-8/PICO-8.app /Applications/
-{{- else if (eq .chezmoi.os "linux") }}
-sudo unzip {{ $pico8zip }} -d /usr/lib
-sudo chmod a+x /usr/lib/pico-8/pico8
-sudo ln -s /usr/lib/pico-8/pico8 /usr/local/bin/pico8
-{{- end }}
+  # Install it
+  {{- if (eq .chezmoi.os "darwin") }}
+    unzip {{ $pico8zip }} -d /tmp
+    mv /tmp/pico-8/PICO-8.app /Applications/
+  {{- else if (eq .chezmoi.os "linux") }}
+    sudo unzip {{ $pico8zip }} -d /usr/lib
+    sudo chmod a+x /usr/lib/pico-8/pico8
+    sudo ln -s /usr/lib/pico-8/pico8 /usr/local/bin/pico8
+  {{- end }}
 
-# Setup the cart & save data directories
-mkdir -p {{ .chezmoi.homeDir }}/dev/pico-8/carts
-mkdir -p {{ .chezmoi.homeDir }}/dev/pico-8/cdata
-
-# TODO: When is the config.txt file written?
-{{- end }}
+  # Setup the cart & save data directories
+  mkdir -p {{ .chezmoi.homeDir }}/dev/pico-8/carts
+  mkdir -p {{ .chezmoi.homeDir }}/dev/pico-8/cdata
+  {{- end }}
+)
+runner install_pico8
 
 # Rectangle window manager for OSX
 {{- if (eq .chezmoi.os "darwin") }}
-brew install --cask rectangle
+install_rectangle() (
+  set -e
+  brew install --cask rectangle
+)
+runner install_rectangle
 {{- end }}
 
 # HyperSwitch window switcher for OSX
 {{- if (eq .chezmoi.os "darwin") }}
-wget https://bahoom.com/hyperswitch/HyperSwitch.dmg
-MOUNTDIR=$(echo `hdiutil mount HyperSwitch.dmg | tail -1 \
-| awk '{$1=$2=""; print $0}'` | xargs -0 echo) \
-&& sudo cp -R "${MOUNTDIR}/HyperSwitch.app" /Applications
+install_hyperswitch() (
+  set -e
+  wget https://bahoom.com/hyperswitch/HyperSwitch.dmg
+  MOUNTDIR=$(echo `hdiutil mount HyperSwitch.dmg | tail -1 \
+  | awk '{$1=$2=""; print $0}'` | xargs -0 echo) \
+  && sudo cp -R "${MOUNTDIR}/HyperSwitch.app" /Applications
+)
+runner install_hyperswitch
 {{- end }}
 
 # Karabiner-Elements keyboard shortcut customizer for OSX
 {{- if (eq .chezmoi.os "darwin") }}
-wget https://github.com/pqrs-org/Karabiner-Elements/releases/download/v14.4.0/Karabiner-Elements-14.4.0.dmg
-MOUNTDIR=$(echo `hdiutil mount Karabiner-Elements-14.4.0.dmg | tail -1 \
-| awk '{$1=$2=""; print $0}'` | xargs -0 echo) \
-&& sudo cp -R "${MOUNTDIR}/Karabiner-Elements.app" /Applications
+install_karabiner_elements() (
+  set -e
+  wget https://github.com/pqrs-org/Karabiner-Elements/releases/download/v14.4.0/Karabiner-Elements-14.4.0.dmg
+  MOUNTDIR=$(echo `hdiutil mount Karabiner-Elements-14.4.0.dmg | tail -1 \
+  | awk '{$1=$2=""; print $0}'` | xargs -0 echo) \
+  && sudo cp -R "${MOUNTDIR}/Karabiner-Elements.app" /Applications
+)
+runner install_karabiner_elements
 {{- end }}
 
 # LICEcap screenshot utility
 {{- if (eq .chezmoi.os "darwin") }}
-wget https://www.cockos.com/licecap/licecap132.dmg
-MOUNTDIR=$(echo `hdiutil mount licecap132.dmg | tail -1 \
-| awk '{$1=$2=""; print $0}'` | xargs -0 echo) \
-&& sudo cp -R "${MOUNTDIR}/LICEcap.app" /Applications
-# Set the default directory
-defaults write com.cockos.LICEcap.plist NSNavLastRootDirectory -string "~/Movies"
+install_licecap() (
+  set -e
+  wget https://www.cockos.com/licecap/licecap132.dmg
+  MOUNTDIR=$(echo `hdiutil mount licecap132.dmg | tail -1 \
+  | awk '{$1=$2=""; print $0}'` | xargs -0 echo) \
+  && sudo cp -R "${MOUNTDIR}/LICEcap.app" /Applications
+  # Set the default directory
+  defaults write com.cockos.LICEcap.plist NSNavLastRootDirectory -string "~/Movies"
+)
+runner install_licecap
 {{- end }}
 
 # Discord
-{{- if .codespaces }}
-# Not on Codespaces
-{{- else if (eq .chezmoi.os "darwin") }}
-wget https://dl.discordapp.net/apps/osx/0.0.267/Discord.dmg
-MOUNTDIR=$(echo `hdiutil mount Discord.dmg | tail -1 \
-| awk '{$1=$2=""; print $0}'` | xargs -0 echo) \
-&& sudo cp -R "${MOUNTDIR}/Discord.app" /Applications
-{{- else if (eq .chezmoi.os "linux") }}
-wget https://dl.discordapp.net/apps/linux/0.0.18/discord-0.0.18.deb
-sudo dpkg -i discord-0.0.18.deb
-{{- end }}
+install_discord() (
+  set -e
+  {{- if .codespaces }}
+    # Not on Codespaces
+  {{- else if (eq .chezmoi.os "darwin") }}
+    wget https://dl.discordapp.net/apps/osx/0.0.267/Discord.dmg
+    MOUNTDIR=$(echo `hdiutil mount Discord.dmg | tail -1 \
+    | awk '{$1=$2=""; print $0}'` | xargs -0 echo) \
+    && sudo cp -R "${MOUNTDIR}/Discord.app" /Applications
+  {{- else if (eq .chezmoi.os "linux") }}
+    wget https://dl.discordapp.net/apps/linux/0.0.18/discord-0.0.18.deb
+    sudo dpkg -i discord-0.0.18.deb
+  {{- end }}
+)
+runner install_discord
 
-# Fix permissions of zsh folders if necessary
-# See https://stackoverflow.com/a/22753363/473961
-compaudit | xargs chmod g-w
+fix_zsh_permissions() (
+  set -e
+  # Fix permissions of zsh folders if necessary
+  # See https://stackoverflow.com/a/22753363/473961
+  compaudit | xargs chmod g-w
+)
+runner fix_zsh_permissions
 
 # Moonlander keyboard setup
-{{- if (eq .chezmoi.os "darwin") }}
-# So the flashing tool can write to the keyboard
-brew install libusb
+install_moonlander() (
+  set -e
+  {{- if (eq .chezmoi.os "darwin") }}
+    # So the flashing tool can write to the keyboard
+    brew install libusb
 
-# Install Wally, the EZ / ZSA flashing tool
-wget -O wally-osx.dmg https://configure.zsa.io/wally/osx
-MOUNTDIR=$(echo `hdiutil mount wally-osx.dmg | tail -1 \
-| awk '{$1=$2=""; print $0}'` | xargs -0 echo) \
-&& sudo cp -R "${MOUNTDIR}/Wally.app" /Applications
-{{- else if (eq .chezmoi.os "linux") }}
-# So the flashing tool can write to the keyboard
-sudo apt install libusb-1.0-0-dev
-
-# Setup udev rules so the flashing tool can receive the correct events
-sudo touch /etc/udev/rules.d/50-wally.rules
-sudo tee -a /etc/udev/rules.d/50-wally.rules > /dev/null <<EOF
+    # Install Wally, the EZ / ZSA flashing tool
+    wget -O wally-osx.dmg https://configure.zsa.io/wally/osx
+    MOUNTDIR=$(echo `hdiutil mount wally-osx.dmg | tail -1 \
+    | awk '{$1=$2=""; print $0}'` | xargs -0 echo) \
+    && sudo cp -R "${MOUNTDIR}/Wally.app" /Applications
+  {{- else if (eq .chezmoi.os "linux") }}
+    # So the flashing tool can write to the keyboard
+    sudo apt install libusb-1.0-0-dev
+    
+    # Setup udev rules so the flashing tool can receive the correct events
+    sudo touch /etc/udev/rules.d/50-wally.rules
+    sudo tee -a /etc/udev/rules.d/50-wally.rules > /dev/null <<EOF
 # STM32 rules for the Moonlander and Planck EZ
 SUBSYSTEMS=="usb", ATTRS{idVendor}=="0483", ATTRS{idProduct}=="df11", \
     MODE:="0666", \
     SYMLINK+="stm32_dfu"
 EOF
 
-# Setup udev rules for the training software to receive the correct events
-sudo touch /etc/udev/rules.d/50-oryx.rules
-sudo tee -a /etc/udev/rules.d/50-oryx.rules > /dev/null <<EOF
+    # Setup udev rules for the training software to receive the correct events
+    sudo touch /etc/udev/rules.d/50-oryx.rules
+    sudo tee -a /etc/udev/rules.d/50-oryx.rules > /dev/null <<EOF
 # Rule for all ZSA keyboards
 SUBSYSTEM=="usb", ATTR{idVendor}=="3297", GROUP="plugdev"
 # Rule for the Moonlander
@@ -571,98 +811,105 @@ SUBSYSTEM=="usb", ATTR{idVendor}=="feed", ATTR{idProduct}=="1307", GROUP="plugde
 SUBSYSTEM=="usb", ATTR{idVendor}=="feed", ATTR{idProduct}=="6060", GROUP="plugdev"
 EOF
 
-# Install Wally, the EZ / ZSA flashing tool
-wget https://github.com/zsa/wally/releases/download/2.1.3-linux/wally
-sudo mv wally /usr/local/bin/wally
-sudo chmod a+x /usr/local/bin/wally
-{{- end }}
+    # Install Wally, the EZ / ZSA flashing tool
+    wget https://github.com/zsa/wally/releases/download/2.1.3-linux/wally
+    sudo mv wally /usr/local/bin/wally
+    sudo chmod a+x /usr/local/bin/wally
+  {{- end }}
+)
+runner install_moonlander
 
 # mkcert for creating SSL certs in localhost
-{{- if (eq .chezmoi.os "darwin") }}
-brew install mkcert
-brew install nss
-{{- else if (eq .chezmoi.os "linux") }}
-sudo apt install libnss3-tools
-wget https://github.com/FiloSottile/mkcert/releases/download/v1.4.4/mkcert-v1.4.4-linux-amd64
-sudo mv mkcert-v1.4.4-linux-amd64 /usr/local/bin/
-sudo chmod a+x /usr/local/bin/mkcert-v1.4.4-linux-amd64
-sudo ln -s /usr/local/bin/mkcert-v1.4.4-linux-amd64 /usr/local/bin/mkcert
-{{- end }}
+install_mkcert() (
+  set -e
+  {{- if (eq .chezmoi.os "darwin") }}
+    brew install mkcert
+    brew install nss
+  {{- else if (eq .chezmoi.os "linux") }}
+    sudo apt install libnss3-tools
+    wget https://github.com/FiloSottile/mkcert/releases/download/v1.4.4/mkcert-v1.4.4-linux-amd64
+    sudo mv mkcert-v1.4.4-linux-amd64 /usr/local/bin/
+    sudo chmod a+x /usr/local/bin/mkcert-v1.4.4-linux-amd64
+    sudo ln -s /usr/local/bin/mkcert-v1.4.4-linux-amd64 /usr/local/bin/mkcert
+  {{- end }}
+)
+runner install_mkcert
 
 {{- if (eq .chezmoi.os "darwin") }}
-# Setup MacOS OS-level settings
-# See: https://gist.github.com/vraravam/5e28ca1720c9dddacdc0e6db61e093fe
-# Close any open System Preferences panes, to prevent them from overriding
-# settings we're about to change
-osascript -e 'tell application "System Preferences" to quit'
+configure_macos() (
+  set -e
+  # Setup MacOS OS-level settings
+  # See: https://gist.github.com/vraravam/5e28ca1720c9dddacdc0e6db61e093fe
 
-# Ask for the administrator password upfront
-sudo -v
+  # Close any open System Preferences panes, to prevent them from overriding
+  # settings we're about to change
+  osascript -e 'tell application "System Preferences" to quit'
 
-# Keep-alive: update existing `sudo` time stamp until `.macos` has finished
-while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
+  # Keep-alive: update existing `sudo` time stamp until `.macos` has finished
+  while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
 
-# While applying any changes to SoftwareUpdate defaults, set software update to OFF to avoid any conflict with the defaults system cache. (Also close the System Preferences app)
-sudo softwareupdate --schedule OFF
+  # While applying any changes to SoftwareUpdate defaults, set software update to OFF to avoid any conflict with the defaults system cache. (Also close the System Preferences app)
+  sudo softwareupdate --schedule OFF
 
-# Disable guest login
-sudo defaults write /Library/Preferences/com.apple.loginwindow GuestEnabled -bool false
+  # Disable guest login
+  sudo defaults write /Library/Preferences/com.apple.loginwindow GuestEnabled -bool false
 
-# Message added to lock screen
+  # Message added to lock screen
 {{- $lockscreenemail := promptString "Enter email to display on lock screen (with escaped at symbol)" }}
-sudo defaults write /Library/Preferences/com.apple.loginwindow LoginwindowText "Contact: {{ $lockscreenemail }}"
+  sudo defaults write /Library/Preferences/com.apple.loginwindow LoginwindowText "Contact: {{ $lockscreenemail }}"
 
-# Show remaining battery percentage" Y; then
-defaults write com.apple.menuextra.battery ShowPercent -string "YES"
+  # Show remaining battery percentage" Y; then
+  defaults write com.apple.menuextra.battery ShowPercent -string "YES"
 
-# Disable automatic capitalization as it's annoying when typing code
-defaults write -g NSAutomaticCapitalizationEnabled -bool false
+  # Disable automatic capitalization as it's annoying when typing code
+  defaults write -g NSAutomaticCapitalizationEnabled -bool false
 
-# Disable automatic period substitution as it's annoying when typing code
-defaults write -g NSAutomaticPeriodSubstitutionEnabled -bool false
+  # Disable automatic period substitution as it's annoying when typing code
+  defaults write -g NSAutomaticPeriodSubstitutionEnabled -bool false
 
-# Fix the track pad scrolling direction
-defaults write -g com.apple.swipescrolldirection -bool false
+  # Fix the track pad scrolling direction
+  defaults write -g com.apple.swipescrolldirection -bool false
 
-# Show all filename extensions
-defaults write -g AppleShowAllExtensions -bool true
+  # Show all filename extensions
+  defaults write -g AppleShowAllExtensions -bool true
 
-# Show the POSIX path at the top of Finder
-defaults write com.apple.finder _FXShowPosixPathInTitle -bool true
+  # Show the POSIX path at the top of Finder
+  defaults write com.apple.finder _FXShowPosixPathInTitle -bool true
 
-# Finder: show hidden files by default
-defaults write com.apple.finder AppleShowAllFiles -bool true
+  # Finder: show hidden files by default
+  defaults write com.apple.finder AppleShowAllFiles -bool true
 
-# Disable the warning when changing a file extension
-defaults write com.apple.finder FXEnableExtensionChangeWarning -bool false
+  # Disable the warning when changing a file extension
+  defaults write com.apple.finder FXEnableExtensionChangeWarning -bool false
 
-# Avoid creating .DS_Store files on network or USB volumes
-defaults write com.apple.desktopservices DSDontWriteNetworkStores -bool true
-defaults write com.apple.desktopservices DSDontWriteUSBStores -bool true
+  # Avoid creating .DS_Store files on network or USB volumes
+  defaults write com.apple.desktopservices DSDontWriteNetworkStores -bool true
+  defaults write com.apple.desktopservices DSDontWriteUSBStores -bool true
 
-# Prevent Photos from opening automatically when devices are plugged in
-defaults -currentHost write com.apple.ImageCapture disableHotPlug -bool true
+  # Prevent Photos from opening automatically when devices are plugged in
+  defaults -currentHost write com.apple.ImageCapture disableHotPlug -bool true
 
-# Add a context menu item for showing the Web Inspector in web views
-defaults write -g WebKitDeveloperExtras -bool true
+  # Add a context menu item for showing the Web Inspector in web views
+  defaults write -g WebKitDeveloperExtras -bool true
 
-# Don't default to saving documents to iCloud:
-defaults write NSGlobalDomain NSDocumentSaveNewDocumentsToCloud -bool false
+  # Don't default to saving documents to iCloud:
+  defaults write NSGlobalDomain NSDocumentSaveNewDocumentsToCloud -bool false
 
-# Set your screen to lock as soon as the screensaver starts:
-defaults write com.apple.screensaver askForPassword -int 1
-defaults write com.apple.screensaver askForPasswordDelay -int 0
+  # Set your screen to lock as soon as the screensaver starts:
+  defaults write com.apple.screensaver askForPassword -int 1
+  defaults write com.apple.screensaver askForPasswordDelay -int 0
 
-# Save screenshots to the desktop
-mkdir -p "${HOME}/Desktop/screenshots"
-defaults write com.apple.screencapture location -string "${HOME}/Desktop/screenshots"
+  # Save screenshots to the desktop
+  mkdir -p "${HOME}/Desktop/screenshots"
+  defaults write com.apple.screencapture location -string "${HOME}/Desktop/screenshots"
 
-# Save screenshots in PNG format (other options: BMP, GIF, JPG, PDF, TIFF)
-defaults write com.apple.screencapture type -string "png"
+  # Save screenshots in PNG format (other options: BMP, GIF, JPG, PDF, TIFF)
+  defaults write com.apple.screencapture type -string "png"
 
-# Now that we're done, turn software updates back on
-sudo softwareupdate --schedule ON
-
+  # Now that we're done, turn software updates back on
+  sudo softwareupdate --schedule ON
+)
+runner configure_macos
 {{- end }}
 
 # TODO
