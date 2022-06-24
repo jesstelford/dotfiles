@@ -510,6 +510,19 @@ MOUNTDIR=$(echo `hdiutil mount licecap132.dmg | tail -1 \
 defaults write com.cockos.LICEcap.plist NSNavLastRootDirectory -string "~/Movies"
 {{- end }}
 
+# Discord
+{{- if .codespaces }}
+# Not on Codespaces
+{{- else if (eq .chezmoi.os "darwin") }}
+wget https://dl.discordapp.net/apps/osx/0.0.267/Discord.dmg
+MOUNTDIR=$(echo `hdiutil mount Discord.dmg | tail -1 \
+| awk '{$1=$2=""; print $0}'` | xargs -0 echo) \
+&& sudo cp -R "${MOUNTDIR}/Discord.app" /Applications
+{{- else if (eq .chezmoi.os "linux") }}
+wget https://dl.discordapp.net/apps/linux/0.0.18/discord-0.0.18.deb
+sudo dpkg -i discord-0.0.18.deb
+{{- end }}
+
 # Fix permissions of zsh folders if necessary
 # See https://stackoverflow.com/a/22753363/473961
 compaudit | xargs chmod g-w
