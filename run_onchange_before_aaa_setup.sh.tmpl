@@ -42,7 +42,7 @@ runner() {
   #    tick
   # 4. If the command failed, the exit code ($?) will be non-0, so we print the
   #    cross, AND the output we captured above.
-  [[ $? -eq 0 ]] && printf "✅ $1" || printf "❌ $1:\n${output}\n"
+  [[ $? -eq 0 ]] && echo "✅ $1" || (echo "❌ $1"; echo "${output}")
 }
 
 {{- /* Completely disable this script in Codespaces and CI for now */}}
@@ -79,11 +79,20 @@ runner() {
   # install_dmg https://bahoom.com/hyperswitch/HyperSwitch.dmg HyperSwitch.app
   install_dmg() (
     set -e
+    STRATEGY="${2:-app}"
     wget $1 -O /tmp/installer.dmg
     # Mount the .dmg and capture the directory it mounted to
     MOUNTDIR=$(echo `hdiutil mount /tmp/installer.dmg | tail -1 | awk '{$1=$2=""; print $0}'` | xargs -0 echo)
-    # Copy out the .app file to /Applications
-    sudo cp -R "${MOUNTDIR}"/*.app /Applications
+    case "$STRATEGY" in
+    "app")
+      # Copy out the .app file to /Applications
+      sudo cp -R "${MOUNTDIR}"/*.app /Applications
+      ;;
+    "pkg")
+      # Run the package installer script
+      open -nW "${MOUNTDIR}"/*.pkg
+      ;;
+    esac
     # Cleanup
     hdiutil unmount "$MOUNTDIR"
     rm -f /tmp/installer.dmg
@@ -731,7 +740,7 @@ runner install_rectangle
 {{- if (eq .chezmoi.os "darwin") }}
 install_hyperswitch() (
   set -e
-  install_dmg https://bahoom.com/hyperswitch/HyperSwitch.dmg
+  install_dmg https://bahoom.com/hyperswitch/HyperSwitch.dmg pkg
 )
 runner install_hyperswitch
 {{- end }}
