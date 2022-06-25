@@ -640,17 +640,6 @@ install_one_password_desktop() (
 )
 runner install_one_password_desktop
 
-# 1password browser extension
-install_one_password_browser_extension() (
-  set -e
-  {{- if (eq .chezmoi.os "darwin") }}
-    # TODO
-  {{- else if (eq .chezmoi.os "linux") }}
-    # xdg-open https://chrome.google.com/webstore/detail/1password-%E2%80%93-password-mana/aeblfdkhhhdcdjpifhhbdiojplfjncoa
-  {{- end }}
-)
-runner install_one_password_browser_extension
-
 # pdftk
 install_pdftk() (
   set -e
@@ -932,8 +921,14 @@ configure_macos() (
 runner configure_macos
 {{- end }}
 
-# TODO
-# - Install:
-#.  - git-lfs
-#   - prettybat https://github.com/eth-p/bat-extras/blob/master/doc/prettybat.md
+echo "🎉 Done!"
+echo ""
+# TODO: How can I automate these?
+echo "Some manual installation steps:"
+echo "  https://1password.com/downloads/#browsers"
+echo "  https://simpl.fyi/gmail"
+echo "  https://github.com/git-lfs/git-lfs/releases/latest"
+echo "  https://github.com/eth-p/bat-extras/blob/master/doc/prettybat.md"
+echo ""
+echo "Now logout and back in again"
 {{- end }}
