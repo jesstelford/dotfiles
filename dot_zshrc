@@ -86,6 +86,8 @@ bindkey "ç" fzf-cd-widget
 # To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
 
+# Make homebrew available
+[ -f /opt/homebrew/bin/brew ] && eval "$(/opt/homebrew/bin/brew shellenv)"
 
 # Added by serverless binary installer
 export PATH="$HOME/.serverless/bin:$PATH"
