@@ -5,6 +5,9 @@
 {{- if (eq .chezmoi.os "darwin") }}
 # install homebrew
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+# Ensure it's available on the path
+eval "$(/opt/homebrew/bin/brew shellenv)"
 {{- end }}
 
 # 1password CLI

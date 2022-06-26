@@ -71,6 +71,11 @@ runner() {
 */}}
 
 {{- if (eq .chezmoi.os "darwin") }}
+  # Ensure homebrew is available on the path for following commands
+  # Necessary because this script is run before chezmoi copies dotfiles
+  # (normally this lives in the .bash_profile)
+  eval "$(/opt/homebrew/bin/brew shellenv)"
+
   # Install a .dmg file into the /Applications directory
   # NOTE: This is running as a subshell '(' so we can use 'set -e' to bail
   # immediately from the function if anything errors.
