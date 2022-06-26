@@ -389,16 +389,20 @@ runner install_fonts
 # fnm (node version manager)
 install_fnm() (
   set -e
-  {{- if (eq .chezmoi.os "darwin") }}
-    brew install fnm
-  {{- else if (eq .chezmoi.os "linux") }}
-    curl -fsSL https://fnm.vercel.app/install | bash -s -- --skip-shell
-  {{- end }}
-  eval "$($HOME/.fnm/fnm env)"
+  curl -fsSL https://fnm.vercel.app/install | bash -s -- --force-install --skip-shell --install-dir $HOME/.fnm
+  # Install the shell completions manually for zsh (because this script is run
+  # in bash on first install by chezmoi)
   mkdir -p $HOME/.zsh/completion
   $HOME/.fnm/fnm completions --shell zsh > $HOME/.zsh/completion/_fnm
 )
 runner install_fnm
+
+if [ -f "$HOME/.fnm/fnm" ];
+then
+  # Ensure fnm's executable, etc, is loaded into the current environment so we
+  # can run it in the following commands
+  eval "$($HOME/.fnm/fnm env)"
+fi
 
 # node
 install_node() (
