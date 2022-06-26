@@ -898,6 +898,9 @@ configure_macos() (
   defaults write -g InitialKeyRepeat -int 12
   defaults write -g KeyRepeat -int 1
 
+  # Sane scroll direction
+  defaults write -g com.apple.swipescrolldirection -bool NO
+
   # Now that we're done, turn software updates back on
   sudo softwareupdate --schedule ON
 )
