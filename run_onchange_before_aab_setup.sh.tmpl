@@ -120,6 +120,19 @@ runner install_dev_deps
 mkdir -p $HOME/.zsh
 mkdir -p /usr/local/bin
 
+install_zsh() (
+  set -e
+  # Install it
+  {{- if (eq .chezmoi.os "darwin") }}
+    brew install zsh
+  {{- else if (eq .chezmoi.os "linux") }}
+    apt install zsh
+  {{- end }}
+  # Set it as the default shell
+  chsh -s $(which zsh)
+)
+runner install_dev_deps
+
 # rg / ripgrep
 install_ripgrep() (
   set -e
@@ -735,14 +748,6 @@ install_discord() (
 )
 runner install_discord
 
-fix_zsh_permissions() (
-  set -e
-  # Fix permissions of zsh folders if necessary
-  # See https://stackoverflow.com/a/22753363/473961
-  compaudit | xargs chmod g-w
-)
-runner fix_zsh_permissions
-
 # Moonlander keyboard setup
 install_moonlander() (
   set -e
@@ -882,6 +887,14 @@ configure_macos() (
 )
 runner configure_macos
 {{- end }}
+
+fix_zsh_permissions() (
+  set -e
+  # Fix permissions of zsh folders if necessary
+  # See https://stackoverflow.com/a/22753363/473961
+  /bin/zsh -i -c 'compaudit | xargs chmod g-w'
+)
+runner fix_zsh_permissions
 
 echo "🎉 Done!"
 echo ""
