@@ -225,6 +225,13 @@ install_rust() (
 )
 runner install_rust
 
+if [ -f "$HOME/.cargo/env" ];
+then
+  # NOTE: Has to be done outside the subshell to ensure it's available for
+  # following commands
+  source $HOME/.cargo/env
+fi
+
 # alacritty, based on https://github.com/alacritty/alacritty/blob/master/INSTALL.md#prerequisites
 install_alacritty() (
   set -e
