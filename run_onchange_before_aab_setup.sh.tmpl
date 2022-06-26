@@ -24,14 +24,13 @@
 # runner example_func "An example argument"
 
 runner() {
+  echo ""
+  echo "Running $1..."
+
   # 1. $@ is all the arguments passed to this function
   # 2. Executing "$@" will execute it like a command to bash. Ie; if the
   #    arguments are [echo "foo"], it will execute `echo "foo"`
-  # 3. We capture the output from the command into the variable `output` by
-  #    using command substitution (ie; the $() part).
-  # 4. We also want to capture errors, so we make sure stderr (2) is redirected
-  #    to the same place as stdout (1) with 2>&1
-  output=$("$@" 2>&1)
+  "$@"
 
   # 1. This next line depends on the function being executed: It must be a
   #    sub-shell ie; some_func() ( ... ). Notice the '(' instead of '{'. This is
@@ -42,7 +41,7 @@ runner() {
   #    tick
   # 4. If the command failed, the exit code ($?) will be non-0, so we print the
   #    cross, AND the output we captured above.
-  [[ $? -eq 0 ]] && echo "✅ $1" || (echo "❌ $1"; echo "${output}")
+  [[ $? -eq 0 ]] && echo "✅ $1" || echo "❌ $1"
 }
 
 {{- /* Completely disable this script in Codespaces and CI for now */}}
