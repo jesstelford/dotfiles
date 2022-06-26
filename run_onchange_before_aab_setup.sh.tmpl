@@ -552,6 +552,7 @@ install_gh() (
     sudo apt update
     sudo apt install gh
   {{- end }}
+  gh auth login
 )
 runner install_gh
 
