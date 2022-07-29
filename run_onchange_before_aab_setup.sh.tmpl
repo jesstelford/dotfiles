@@ -609,8 +609,8 @@ runner install_dbeaver
 install_golang() (
   set -e
   {{- if (eq .chezmoi.os "darwin") }}
-    wget https://go.dev/dl/go1.18.darwin-amd64.pkg
-    open -nW go1.18.darwin-amd64.pkg
+    wget https://go.dev/dl/go1.18.4.darwin-arm64.pkg
+    open -nW go1.18.4.darwin-arm64.pkg
   {{- else if (eq .chezmoi.os "linux") }}
     wget https://go.dev/dl/go1.18.linux-amd64.tar.gz
     sudo tar -C /usr/local -xzf go1.18.linux-amd64.tar.gz
