@@ -106,7 +106,7 @@ runner() {
 install_dev_deps() (
   set -e
   {{- if (eq .chezmoi.os "darwin") }}
-    brew install wget git findutils coreutils parallel
+    brew install wget git findutils coreutils parallel tree
   {{- else if (eq .chezmoi.os "linux") }}
     # update git
     sudo add-apt-repository ppa:git-core/ppa
