@@ -900,6 +900,11 @@ configure_macos() (
 
   # Sane scroll direction
   defaults write -g com.apple.swipescrolldirection -bool NO
+  
+  # Fix display issues. See: https://tonsky.me/blog/monitors/
+  # Disable font smoothing to avoid bad antialiasing
+  defaults -currentHost write -g AppleFontSmoothing -int 0
+  
 
   # Now that we're done, turn software updates back on
   sudo softwareupdate --schedule ON
@@ -923,6 +928,10 @@ echo "  https://1password.com/downloads/#browsers"
 echo "  https://simpl.fyi/gmail"
 echo "  https://github.com/git-lfs/git-lfs/releases/latest"
 echo "  https://github.com/eth-p/bat-extras/blob/master/doc/prettybat.md"
+{{- if (eq .chezmoi.os "darwin") }}
+echo "  Enable Integer Scaling resolution: https://tonsky.me/blog/monitors/#integer-scaling"
+echo "  Disable True Tone: https://support.apple.com/en-au/HT208909"
+{{- end }}
 echo ""
-echo "Now logout and back in again"
+echo "Now reboot"
 {{- end }}
