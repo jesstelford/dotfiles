@@ -905,6 +905,11 @@ configure_macos() (
   # Disable font smoothing to avoid bad antialiasing
   defaults -currentHost write -g AppleFontSmoothing -int 0
   
+  # Disable 2 finger swiping for back/forward
+  defaults write NSGlobalDomain AppleEnableSwipeNavigateWithScrolls -bool false
+  defaults write com.google.Chrome AppleEnableMouseSwipeNavigateWithScrolls -bool false
+  defaults write com.google.Chrome AppleEnableSwipeNavigateWithScrolls -bool false
+
 
   # Now that we're done, turn software updates back on
   sudo softwareupdate --schedule ON
