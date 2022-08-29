@@ -37,7 +37,7 @@ Plug 'jparise/vim-graphql', { 'commit': '15c5937' }
 Plug 'junegunn/vim-easy-align', { 'commit': '12dd631' }
 " Vim help for vim-plug itself (e.g. :help plug-options)
 Plug 'junegunn/vim-plug', { 'commit': 'e300178' }
-Plug 'kyazdani42/nvim-tree.lua', { 'commit': 'e87ee0e' }
+Plug 'kyazdani42/nvim-tree.lua', { 'commit': '4a725c0' }
 Plug 'kyazdani42/nvim-web-devicons', { 'commit': '4415d1a' }
 Plug 'lewis6991/gitsigns.nvim', { 'commit': '3791dfa' }
 " <leader><leader><motion> then select from the a-z as shown on the screen
@@ -442,35 +442,56 @@ EOF
 " end: null-ls
 " ------------
 
-let g:nvim_tree_show_icons = {
-  \ 'git': 0,
-  \ 'files': 1,
-  \ 'folders': 1,
-  \ 'folder_arrows': 1,
-  \ }
-
-let g:nvim_tree_git_hl = 1
-
-let g:nvim_tree_icons = {
-  \ 'default': '',
-  \ }
-
-" Create new files within a closed folder when that folder is under cursor
-let g:nvim_tree_create_in_closed_folder = 1
-
-let g:nvim_tree_indent_markers = 1
-
 lua <<EOF
 require("indent_blankline").setup {}
 require("lsp-colors").setup {}
 require('gitsigns').setup {}
 --require('nvim-ts-autotag').setup {}
 require('nvim-tree').setup {
+  -- Create new files within a closed folder when that folder is under cursor
+  create_in_closed_folder = true,
+  -- Keep nvim-tree up to date with cwd always to avoid accidentally running
+  -- commands in the wrong directory, etc.
+  sync_root_with_cwd = true,
+  -- When using gf to jump to a file, prefer to keep the tree open at the cwd
+  -- we started at.
+  respect_buf_cwd = true,
+  actions = {
+    change_dir = {
+      -- Do not ever change cwd when browsing / opening files and folders
+      enable = false,
+    },
+  },
+  update_focused_file = {
+    -- Jump nvim-tree to the currently open file
+    enable = true,
+    -- When opening a file from within a directory listing, we need nvim-tree
+    -- to update its root back to the correct location
+    update_root = true,
+  },
+  prefer_startup_root = true,
   diagnostics = {
     enable = true,
   },
   git = {
     enable = true,
+  },
+  renderer = {
+    highlight_git = true,
+    indent_markers = {
+      enable = true,
+    },
+    icons = {
+      show = {
+        git = false,
+        file = true,
+        folder = true,
+        folder_arrow = true,
+      },
+      glyphs = {
+        default = '',
+      },
+    },
   },
 }
 require('telescope').setup {
