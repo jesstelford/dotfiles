@@ -1,6 +1,12 @@
 [user]
   name = Jess Telford
-  email = {{ .gitemail }}
+{{- if .islocalenv }}
+{{- /* Interactive setup, so prompt for an email address */}}
+{{- $gitemail := promptString "Enter your git email" }}
+  email = {{ $gitemail | quote }}
+{{- else }}
+{{- /* GitHub Codespaces & spin should have this set already, and CI doesn't care */}}
+{{- end }}
 [rerere]
   enabled = true
 [core]

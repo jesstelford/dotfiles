@@ -1,29 +1,26 @@
 {{- /* Detect GitHub Codespaces and store presence in $codespaces */}}
 {{- $codespaces:= env "CODESPACES" | not | not }}
 
+{{- /* Detect Shopify Spin and store presence in $spin */}}
+{{- $spin:= env "SPIN" | not | not }}
+
 {{- /* Detect CI and store presence in $ci */}}
 {{- $ci:= env "CI" | not | not }}
+
+{{- /* When available, provide a better experience when interactive */}}
+{{- $islocalenv:= (and (not $codespaces) (not $ci) (not $spin)) }}
 
 {{- /* Set sourceDir to the --source CLI arg if present */}}
 sourceDir = "{{ .chezmoi.sourceDir }}"
 
 [data]
+  islocalenv = {{ $islocalenv }}
   codespaces = {{ $codespaces }}
+  spin = {{ $spin }}
   ci = {{ $ci }}
-{{- if $codespaces }}
-{{- /* Codespaces dotfiles setup is non-interactive, so set an email address */}}
-  gitemail = "REDACTED"
-{{- else if $ci }}
-{{- /* CI is non-interactive, so set an email address */}}
-  gitemail = "REDACTED"
-{{- else }}
-{{- /* Interactive setup, so prompt for an email address */}}
-{{- $gitemail := promptString "Enter your git email" }}
-  gitemail = {{ $gitemail | quote }}
-{{- end }}
  
 [git]
-{{- if (and (not $codespaces) (not $ci)) }}
+{{- if $islocalenv }}
 {{- /* When not in CI/a codespace, auto commit all the things */}}
   autoCommit = true
   autoPush = true
