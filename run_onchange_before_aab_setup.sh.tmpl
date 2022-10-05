@@ -1000,7 +1000,8 @@ fix_zsh_permissions() (
   set -e
   # Fix permissions of zsh folders if necessary
   # See https://stackoverflow.com/a/22753363/473961
-  /bin/zsh -i -c 'compaudit | xargs chmod g-w'
+  {{- /* xargs on MacOS will skip the command on empty input, but POSIX needs an extra flag */}}
+  /bin/zsh -i -c 'compaudit | xargs{{ if (eq .chezmoi.os "linux") }} --no-run-if-empty{{ end }} chmod g-w'
 )
 runner fix_zsh_permissions
 
