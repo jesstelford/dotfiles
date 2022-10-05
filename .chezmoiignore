@@ -20,3 +20,16 @@ Library/
 {{- if not .codespaces }}
 # Codespaces only files
 {{- end }}
+
+{{- if not .spin }}
+# Spin only files
+{{- end }}
+
+{{- if not .islocalenv }}
+# Local-only files
+Library/
+.lexaloffle/
+.config/karabiner/karabiner.json
+.config/alacritty/
+scripts/install-pico8.js
+{{- end }}

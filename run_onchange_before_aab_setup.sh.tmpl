@@ -44,13 +44,10 @@ runner() {
   [[ $? -eq 0 ]] && echo "✅ $1" || echo "❌ $1"
 }
 
-{{- /* Completely disable this script in Codespaces and CI for now */}}
-{{- if (and (not .codespaces) (not .ci)) }}
-
 {{- /* Use for doing different things on different machines
 
-{{- if .codespaces }}
-# Setup for codespaces
+{{- if not .islocalenv }}
+# Setup for codespaces / CI / spin
 {{- else if (eq .chezmoi.os "darwin") }}
 # Setup for MacOS
 {{- else if (eq .chezmoi.os "linux") }}
@@ -112,6 +109,9 @@ install_dev_deps() (
     sudo add-apt-repository ppa:git-core/ppa
     sudo apt update
     sudo apt install git parallel
+    # Ubuntu 22.04 no longer ships with libfuse2, which is required by
+    # AppImages. See: https://askubuntu.com/a/1404084
+    sudo apt install libfuse2*
   {{- end }}
 )
 runner install_dev_deps
@@ -168,6 +168,12 @@ install_neovim() (
     {{- $nvimbinary = "/usr/local/bin/nvim-0.7.0.appimage" }}
   {{- end }}
 
+  {{- $term := "alacritty" }}
+  {{- if .spin }}
+    {{- /* Use iTerm2 at Shopify */}}
+    {{- $term = "iterm2" }}
+  {{- end }}
+
   sudo chmod a+x {{ $nvimbinary }}
 
   rm -f /usr/local/bin/nvim
@@ -176,19 +182,20 @@ install_neovim() (
 # Auto-load sessions when starting nvim
 # Requires https://github.com/tpope/vim-obsession
 if test \$# -gt 0; then
-  # Explicityly set the terminal here so nvim knows its running inside alacritty
+  # Explicityly set the terminal here so nvim knows its running inside {{ $term }}
   # (necessary when running inside tmux)
-  TERM=alacritty {{ $nvimbinary }} "\$@"
+  TERM={{ $term }} {{ $nvimbinary }} "\$@"
 elif test -f Session.vim; then
-  TERM=alacritty {{ $nvimbinary }} -S
+  TERM={{ $term }} {{ $nvimbinary }} -S
 else
-  TERM=alacritty {{ $nvimbinary }} -c Obsession
+  TERM={{ $term }} {{ $nvimbinary }} -c Obsession
 fi
 EOF
   sudo chmod a+x /usr/local/bin/nvim
 )
 runner install_neovim
 
+{{- if .islocalenv }}
 # Brave browser
 install_brave() (
   set -e
@@ -209,6 +216,7 @@ install_brave() (
   {{- end }}
 )
 runner install_brave
+{{- end }}
 
 # zsh-syntax-highlighting
 install_zsh_syntax_highlighting() (
@@ -217,6 +225,7 @@ install_zsh_syntax_highlighting() (
 )
 runner install_zsh_syntax_highlighting
 
+{{- if .islocalenv }}
 # rust via rustup
 install_rust() (
   set -e
@@ -231,7 +240,9 @@ then
   # following commands
   source $HOME/.cargo/env
 fi
+{{- end }}
 
+{{- if .islocalenv }}
 # alacritty, based on https://github.com/alacritty/alacritty/blob/master/INSTALL.md#prerequisites
 install_alacritty() (
   set -e
@@ -275,7 +286,9 @@ install_alacritty() (
   {{- end }}
 )
 runner install_alacritty
+{{- end }}
 
+{{- if .islocalenv }}
 # Emoji picker
 install_emoji_picker() (
   set -e
@@ -292,7 +305,9 @@ install_emoji_picker() (
   {{- end }}
 )
 runner install_emoji_picker
+{{- end }}
 
+{{- if .islocalenv }}
 # Install RoamResearch
 install_roam_research() (
   set -e
@@ -305,7 +320,9 @@ install_roam_research() (
   {{- end }}
 )
 runner install_roam_research
+{{- end }}
 
+{{- if .islocalenv }}
 # fontforge for patching Input Mono later
 install_fontforge() (
   set -e
@@ -319,7 +336,9 @@ install_fontforge() (
   {{- end }}
 )
 runner install_fontforge
+{{- end }}
 
+{{- if .islocalenv }}
 install_fonts() (
   set -e
   # Patch fonts for use with powerlevel10k
@@ -385,7 +404,9 @@ install_fonts() (
   {{- end }}
 )
 runner install_fonts
+{{- end }}
 
+{{- if .islocalenv }}
 # fnm (node version manager)
 install_fnm() (
   set -e
@@ -403,12 +424,32 @@ then
   # can run it in the following commands
   eval "$($HOME/.fnm/fnm env)"
 fi
+{{- end }}
+
+{{- if .spin }}
+# nvm (node version manager)
+install_nvm() (
+  set -e
+  curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.1/install.sh | bash
+)
+runner install_nvm
+
+export NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" || printf %s "${XDG_CONFIG_HOME}/nvm")"
+# Load nvm in this shell (can't be in the install_nvm function since that's a
+# subshell)
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+{{- end }}
 
 # node
 install_node() (
   set -e
+{{- if .spin }}
+  nvm install v16
+  nvm alias default v16
+{{- else }}
   $HOME/.fnm/fnm install v16
   $HOME/.fnm/fnm default v16
+{{- end }}
 )
 runner install_node
 
@@ -541,6 +582,7 @@ install_keycastr() (
 runner install_keycastr
 {{- end }}
 
+{{- if .islocalenv }}
 # GitHub CLI; gh
 install_gh() (
   set -e
@@ -555,14 +597,18 @@ install_gh() (
   gh auth login
 )
 runner install_gh
+{{- end }}
 
+{{- if .islocalenv }}
 # GitHub CLI Extensions
 install_gh_dash() (
   set -e
   gh extension install dlvhdr/gh-dash
 )
 runner install_gh_dash
+{{- end }}
 
+{{- if .islocalenv }}
 # mongoDB
 install_mongodb() (
   set -e
@@ -591,7 +637,9 @@ install_mongodb() (
   {{- end }}
 )
 runner install_mongodb
+{{- end }}
 
+{{- if .islocalenv }}
 # DBeaver - PostgreSQL / MySQL / etc GUI
 install_dbeaver() (
   set -e
@@ -604,6 +652,7 @@ install_dbeaver() (
   {{- end }}
 )
 runner install_dbeaver
+{{- end }}
 
 # golang
 install_golang() (
@@ -618,6 +667,7 @@ install_golang() (
 )
 runner install_golang
 
+{{- if .islocalenv }}
 # 1password
 install_one_password_desktop() (
   set -e
@@ -630,7 +680,9 @@ install_one_password_desktop() (
   {{- end }}
 )
 runner install_one_password_desktop
+{{- end }}
 
+{{- if .islocalenv }}
 # pdftk
 install_pdftk() (
   set -e
@@ -642,7 +694,9 @@ install_pdftk() (
   {{- end }}
 )
 runner install_pdftk
+{{- end }}
 
+{{- if .islocalenv }}
 {{- if (eq .chezmoi.os "linux") }}
 # xournal++ (for annotaing pdfs + handwriting notes)
 install_xournal() (
@@ -655,7 +709,9 @@ install_xournal() (
 )
 runner install_xournal
 {{- end }}
+{{- end }}
 
+{{- if .islocalenv }}
 # Signal messenger
 install_signal() (
   set -e
@@ -673,7 +729,9 @@ install_signal() (
   {{- end }}
 )
 runner install_signal
+{{- end }}
 
+{{- if .islocalenv }}
 # PICO-8
 install_pico8() (
   set -e
@@ -711,7 +769,9 @@ install_pico8() (
   {{- end }}
 )
 runner install_pico8
+{{- end }}
 
+{{- if .islocalenv }}
 # Rectangle window manager for OSX
 {{- if (eq .chezmoi.os "darwin") }}
 install_rectangle() (
@@ -720,7 +780,9 @@ install_rectangle() (
 )
 runner install_rectangle
 {{- end }}
+{{- end }}
 
+{{- if .islocalenv }}
 # HyperSwitch window switcher for OSX
 {{- if (eq .chezmoi.os "darwin") }}
 install_hyperswitch() (
@@ -729,7 +791,9 @@ install_hyperswitch() (
 )
 runner install_hyperswitch
 {{- end }}
+{{- end }}
 
+{{- if .islocalenv }}
 # Karabiner-Elements keyboard shortcut customizer for OSX
 {{- if (eq .chezmoi.os "darwin") }}
 install_karabiner_elements() (
@@ -738,7 +802,9 @@ install_karabiner_elements() (
 )
 runner install_karabiner_elements
 {{- end }}
+{{- end }}
 
+{{- if .islocalenv }}
 # LICEcap screenshot utility
 {{- if (eq .chezmoi.os "darwin") }}
 install_licecap() (
@@ -749,7 +815,9 @@ install_licecap() (
 )
 runner install_licecap
 {{- end }}
+{{- end }}
 
+{{- if .islocalenv }}
 # Discord
 install_discord() (
   set -e
@@ -763,7 +831,9 @@ install_discord() (
   {{- end }}
 )
 runner install_discord
+{{- end }}
 
+{{- if .islocalenv }}
 # Moonlander keyboard setup
 install_moonlander() (
   set -e
@@ -806,7 +876,9 @@ EOF
   {{- end }}
 )
 runner install_moonlander
+{{- end }}
 
+{{- if .islocalenv }}
 # mkcert for creating SSL certs in localhost
 install_mkcert() (
   set -e
@@ -822,7 +894,9 @@ install_mkcert() (
   {{- end }}
 )
 runner install_mkcert
+{{- end }}
 
+{{- if .islocalenv }}
 {{- if (eq .chezmoi.os "darwin") }}
 configure_macos() (
   set -e
@@ -916,6 +990,7 @@ configure_macos() (
 )
 runner configure_macos
 {{- end }}
+{{- end }}
 
 fix_zsh_permissions() (
   set -e
@@ -939,4 +1014,3 @@ echo "  Disable True Tone: https://support.apple.com/en-au/HT208909"
 {{- end }}
 echo ""
 echo "Now reboot"
-{{- end }}

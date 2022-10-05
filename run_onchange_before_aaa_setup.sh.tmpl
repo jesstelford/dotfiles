@@ -1,15 +1,14 @@
 #!/usr/bin/env bash
-{{- /* Completely disable this script in Codespaces and CI for now */}}
-{{- if (and (not .codespaces) (not .ci)) }}
-
 {{- if (eq .chezmoi.os "darwin") }}
 # install homebrew
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
 # Ensure it's available on the path
 eval "$(/opt/homebrew/bin/brew shellenv)"
+echo "Installed brew"
 {{- end }}
 
+{{- if .islocalenv }}
 # 1password CLI
 {{- if (eq .chezmoi.os "darwin") }}
   brew install --cask 1password/tap/1password-cli
@@ -27,11 +26,5 @@ op update
 {{- $opemail := promptString "Enter your 1password email" }}
 op account add --address my.1password.com --email {{ $opemail | quote }}
 eval $(op signin --account my)
-
-{{- if (eq .chezmoi.os "darwin") }}
-echo "Installed brew & 1Password"
-{{- else if (eq .chezmoi.os "linux") }}
 echo "Installed 1Password"
-{{- end }}
-
 {{- end }}
