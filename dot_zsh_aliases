@@ -22,7 +22,6 @@ case `uname` in
   ;;
   Linux)
     # commands for Linux go here
-    alias oni2='/usr/local/bin/Onivim2-x86_64-master.AppImage'
   ;;
 esac
 

@@ -44,7 +44,9 @@ export PATH="/usr/local/go/bin:$PATH"
 export PATH="$HOME/go/bin:$PATH"
 
 export FZF_DEFAULT_COMMAND='rg --files --hidden --glob "!**/node_modules" --glob "!**/.git"'
-export EDITOR='oni2 --nofork --new-window --silent'
+# Use nvim for editing, falling back to vi if it can't be found
+export VISUAL="$(command -v nvim 2>/dev/null || command -v vi)"
+export EDITOR="$VISUAL"
 
 export LSCOLORS=gxfxbEaEBxxEhEhBaDaCaD # For OSX ls?
 
