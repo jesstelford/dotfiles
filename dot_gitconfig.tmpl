@@ -1,9 +1,8 @@
 [user]
   name = Jess Telford
 {{- if .islocalenv }}
-{{- /* Interactive setup, so prompt for an email address */}}
-{{- $gitemail := promptString "Enter your git email" }}
-  email = {{ $gitemail | quote }}
+{{- /* Interactive setup, so we've prompted for an email address */}}
+  email = {{ .gitemail | quote }}
 {{- else }}
 {{- /* GitHub Codespaces & spin should have this set already, and CI doesn't care */}}
 {{- end }}

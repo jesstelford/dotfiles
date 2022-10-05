@@ -18,9 +18,17 @@ sourceDir = "{{ .chezmoi.sourceDir }}"
   codespaces = {{ $codespaces }}
   spin = {{ $spin }}
   ci = {{ $ci }}
+{{- if .islocalenv }}
+{{- $gitemail := promptString "Enter your git email" }}
+  gitemail = {{ $gitemail | quote }}
+{{- $opemail := promptString "Enter your 1password email" }}
+  opemail = {{ $opemail | quote }}
+{{- $lockscreenemail := promptString "Enter email to display on lock screen" }}
+  lockscreenemail = {{ $lockscreenemail | quote }}
+{{- end }}
  
 [git]
-{{- if $islocalenv }}
+{{- if .islocalenv }}
 {{- /* When not in CI/a codespace, auto commit all the things */}}
   autoCommit = true
   autoPush = true

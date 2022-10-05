@@ -917,8 +917,7 @@ configure_macos() (
   sudo defaults write /Library/Preferences/com.apple.loginwindow GuestEnabled -bool false
 
   # Message added to lock screen
-{{- $lockscreenemail := promptString "Enter email to display on lock screen (with escaped at symbol)" }}
-  sudo defaults write /Library/Preferences/com.apple.loginwindow LoginwindowText "Contact: {{ $lockscreenemail }}"
+  sudo defaults write /Library/Preferences/com.apple.loginwindow LoginwindowText "Contact: {{ .lockscreenemail }}"
 
   # Show remaining battery percentage" Y; then
   defaults write com.apple.menuextra.battery ShowPercent -string "YES"
