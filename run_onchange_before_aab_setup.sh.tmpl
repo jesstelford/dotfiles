@@ -105,10 +105,15 @@ install_dev_deps() (
   {{- if (eq .chezmoi.os "darwin") }}
     brew install wget git findutils coreutils parallel tree
   {{- else if (eq .chezmoi.os "linux") }}
-    # update git
-    sudo add-apt-repository ppa:git-core/ppa
-    sudo apt update
-    sudo apt install git parallel
+    {{- if not .spin }}
+      # latest git
+      sudo add-apt-repository ppa:git-core/ppa
+      sudo apt update
+      sudo apt install git
+    {{- end }}
+    {{- if .islocalenv }}
+      sudo apt install parallel
+    {{- end }}
     # Ubuntu 22.04 no longer ships with libfuse2, which is required by
     # AppImages. See: https://askubuntu.com/a/1404084
     sudo apt install libfuse2*
