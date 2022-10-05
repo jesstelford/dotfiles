@@ -207,12 +207,12 @@ EOF
   sudo chmod a+x /usr/local/bin/nvim
 
   # Install vim-plug
-  nvim -es -u NONE -i NONE -c "source ./scripts/install-vim-plug.vim"
+  nvim -es -u NONE -i NONE -c "source ./scripts/install-vim-plug.vim" -c "qa"
 
   # Install plugins
   # NOTE: We reference the plugin script via the chezmoi directyory. Necessary
   # because this script is run before chezmoi copies dotfiles.
-  nvim -es -u NONE -i NONE -c "source ./dot_config/nvim/plugins.vim"
+  nvim -es -u NONE -i NONE -c "source ./dot_config/nvim/plugins.vim" -c "PlugInstall --sync" -c "qa"
 )
 runner install_neovim
 
