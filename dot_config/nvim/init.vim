@@ -34,10 +34,25 @@ colorscheme kanagawa
 lua <<EOF
 require'nvim-treesitter.configs'.setup {
   -- One of "all", "maintained" (parsers with maintainers), or a list of languages
-  ensure_installed = "all",
+  ensure_installed = {
+    "css",
+    "graphql",
+    "html",
+    "javascript",
+    "json",
+    "json5",
+    "markdown",
+    "scss",
+    "tsx",
+    "typescript",
+    "vim",
+  },
 
   -- Install languages synchronously (only applied to `ensure_installed`)
   sync_install = false,
+
+  -- Automatically install missing parsers when entering buffer
+  auto_install = true,
 
   -- List of parsers to ignore installing
   ignore_install = {
