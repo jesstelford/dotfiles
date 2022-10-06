@@ -81,7 +81,7 @@ runner() {
   install_dmg() (
     set -e
     STRATEGY="${2:-app}"
-    wget $1 -O /tmp/installer.dmg
+    wget --no-verbose $1 -O /tmp/installer.dmg
     # Mount the .dmg and capture the directory it mounted to
     MOUNTDIR=$(echo `hdiutil mount /tmp/installer.dmg | tail -1 | awk '{$1=$2=""; print $0}'` | xargs -0 echo)
     case "$STRATEGY" in
@@ -144,7 +144,7 @@ install_ripgrep() (
   {{- if (eq .chezmoi.os "darwin") }}
     brew install ripgrep
   {{- else if (eq .chezmoi.os "linux") }}
-    curl -LO https://github.com/BurntSushi/ripgrep/releases/download/12.1.1/ripgrep_12.1.1_amd64.deb
+    curl -sSLO https://github.com/BurntSushi/ripgrep/releases/download/12.1.1/ripgrep_12.1.1_amd64.deb
     sudo dpkg -i ripgrep_12.1.1_amd64.deb
   {{- end }}
 )
@@ -163,16 +163,16 @@ install_neovim() (
   set -e
   {{- $nvimbinary := "" }}
   {{- if (eq .chezmoi.os "darwin") }}
-    wget https://github.com/neovim/neovim/releases/download/v0.7.0/nvim-macos.tar.gz
+    wget --no-verbose https://github.com/neovim/neovim/releases/download/v0.7.0/nvim-macos.tar.gz
     tar xzvf nvim-macos.tar.gz
     sudo mv ./nvim-osx64 /usr/local/nvim-osx64-0.7.0
     {{- $nvimbinary = "/usr/local/nvim-osx64-0.7.0/bin/nvim" }}
   {{- else if (eq .chezmoi.os "linux") }}
-    wget https://github.com/neovim/neovim/releases/download/v0.7.0/nvim.appimage
+    wget --no-verbose https://github.com/neovim/neovim/releases/download/v0.7.0/nvim.appimage
     {{- if .spin }}
       {{- /* spin does not have fuse, so extract the image ready for use */}}
       sudo chmod a+x ./nvim.appimage
-      ./nvim.appimage --appimage-extract
+      ./nvim.appimage --appimage-extract 1>/dev/null
       sudo mv ./squashfs-root /usr/local/bin/nvim-0.7.0
       {{- $nvimbinary = "/usr/local/bin/nvim-0.7.0/usr/bin/nvim" }}
     {{- else }}
@@ -340,7 +340,7 @@ install_roam_research() (
   {{- if (eq .chezmoi.os "darwin") }}
     install_dmg https://roam-electron-deploy.s3.us-east-2.amazonaws.com/Roam+Research-{{ $roamversion }}.dmg
   {{- else if (eq .chezmoi.os "linux") }}
-    wget https://roam-electron-deploy.s3.us-east-2.amazonaws.com/roam-research_{{ $roamversion }}_amd64.deb
+    wget --no-verbose https://roam-electron-deploy.s3.us-east-2.amazonaws.com/roam-research_{{ $roamversion }}_amd64.deb
     sudo dpkg -i roam-research_{{ $roamversion }}_amd64.deb
   {{- end }}
 )
@@ -354,7 +354,7 @@ install_fontforge() (
   {{- if (eq .chezmoi.os "darwin") }}
     install_dmg https://github.com/fontforge/fontforge/releases/download/20201107/FontForge-2020-11-07-21ad4a1.app.dmg
   {{- else if (eq .chezmoi.os "linux") }}
-    wget https://github.com/fontforge/fontforge/releases/download/20201107/FontForge-2020-11-07-21ad4a1-x86_64.AppImage
+    wget --no-verbose https://github.com/fontforge/fontforge/releases/download/20201107/FontForge-2020-11-07-21ad4a1-x86_64.AppImage
     sudo mv FontForge-2020-11-07-21ad4a1-x86_64.AppImage /usr/local/bin
     sudo chmod a+x /usr/local/bin/FontForge-2020-11-07-21ad4a1-x86_64.AppImage
     sudo ln -s /usr/local/bin/FontForge-2020-11-07-21ad4a1-x86_64.AppImage /usr/local/bin/fontforge
@@ -380,17 +380,17 @@ install_fonts() (
   mkdir -p fonts
 
   # Lato Font (for RoamResearch theme)
-  curl 'https://fonts.google.com/download?family=Lato' -Lo lato-font.zip
+  curl 'https://fonts.google.com/download?family=Lato' -sSLo lato-font.zip
   unzip lato-font.zip -d fonts
   rm lato-font.zip
 
   # Open Sans Font (for RoamResearch theme)
-  curl 'https://fonts.google.com/download?family=Open%20Sans' -Lo open-sans-font.zip
+  curl 'https://fonts.google.com/download?family=Open%20Sans' -sSLo open-sans-font.zip
   unzip open-sans-font.zip -d fonts
   rm open-sans-font.zip
 
   # InputMono Font
-  curl "https://input.djr.com/build/?fontSelection=whole&a=0&g=0&i=0&l=0&zero=0&asterisk=0&braces=0&preset=default&line-height=1.2&accept=I+do&email=" -Lo InputMono-Font.zip 
+  curl "https://input.djr.com/build/?fontSelection=whole&a=0&g=0&i=0&l=0&zero=0&asterisk=0&braces=0&preset=default&line-height=1.2&accept=I+do&email=" -sSLo InputMono-Font.zip 
   unzip InputMono-Font.zip -d InputMono-Font
   mv InputMono-Font/Input_Fonts/InputMono/InputMono/InputMono-*.ttf fonts
   rm -rf InputMono-Font InputMono-Font.zip
@@ -413,7 +413,7 @@ install_fonts() (
 
   {{- if (eq .chezmoi.os "linux") }}
     # Get the latest emoji font for Ubuntu
-    wget https://github.com/googlefonts/noto-emoji/raw/main/fonts/NotoColorEmoji.ttf -P fonts
+    wget --no-verbose https://github.com/googlefonts/noto-emoji/raw/main/fonts/NotoColorEmoji.ttf -P fonts
   {{- end }}
 
   # Move all the fonts into the correct directory
@@ -455,7 +455,7 @@ fi
 # nvm (node version manager)
 install_nvm() (
   set -e
-  curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.1/install.sh | bash
+  curl -sSo- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.1/install.sh | bash
 )
 runner install_nvm
 
@@ -509,7 +509,7 @@ install_bat() (
   {{- if (eq .chezmoi.os "darwin") }}
     brew install bat
   {{- else if (eq .chezmoi.os "linux") }}
-    wget https://github.com/sharkdp/bat/releases/download/v0.18.0/bat_0.18.0_amd64.deb
+    wget --no-verbose https://github.com/sharkdp/bat/releases/download/v0.18.0/bat_0.18.0_amd64.deb
     sudo dpkg -i bat_0.18.0_amd64.deb
   {{- end }}
 )
@@ -534,7 +534,7 @@ install_delta() (
   {{- if (eq .chezmoi.os "darwin") }}
     brew install git-delta
   {{- else if (eq .chezmoi.os "linux") }}
-    wget https://github.com/dandavison/delta/releases/download/0.7.1/git-delta_0.7.1_amd64.deb
+    wget --no-verbose https://github.com/dandavison/delta/releases/download/0.7.1/git-delta_0.7.1_amd64.deb
     sudo dpkg -i git-delta_0.7.1_amd64.deb
   {{- end }}
 )
@@ -582,9 +582,9 @@ install_lua_lsp() (
   {{- if (eq .chezmoi.os "darwin") }}
     brew install lua-language-server
   {{- else if (eq .chezmoi.os "linux") }}
-    wget https://github.com/sumneko/lua-language-server/releases/download/2.5.5/lua-language-server-2.5.5-linux-x64.tar.gz
+    wget --no-verbose https://github.com/sumneko/lua-language-server/releases/download/2.5.5/lua-language-server-2.5.5-linux-x64.tar.gz
     sudo mkdir -p /usr/local/lib/lua-language-server
-    sudo tar xzvf lua-language-server-2.5.5-linux-x64.tar.gz -C /usr/local/lib/lua-language-server
+    sudo tar xzf lua-language-server-2.5.5-linux-x64.tar.gz -C /usr/local/lib/lua-language-server
     sudo chmod a+x /usr/local/lib/lua-language-server/bin/lua-language-server
     sudo chmod a+w -R /usr/local/lib/lua-language-server
     sudo ln -s /usr/local/lib/lua-language-server/bin/lua-language-server /usr/local/bin/lua-language-server
@@ -671,7 +671,7 @@ install_dbeaver() (
   {{- if (eq .chezmoi.os "darwin") }}
     brew install --cask dbeaver-community
   {{- else if (eq .chezmoi.os "linux") }}
-    wget https://github.com/dbeaver/dbeaver/releases/download/22.1.0/dbeaver-ce_22.1.0_amd64.deb
+    wget --no-verbose https://github.com/dbeaver/dbeaver/releases/download/22.1.0/dbeaver-ce_22.1.0_amd64.deb
     # Install the package
     sudo dpkg -i dbeaver-ce_22.1.0_amd64.deb
   {{- end }}
@@ -683,10 +683,10 @@ runner install_dbeaver
 install_golang() (
   set -e
   {{- if (eq .chezmoi.os "darwin") }}
-    wget https://go.dev/dl/go1.18.4.darwin-arm64.pkg
+    wget --no-verbose https://go.dev/dl/go1.18.4.darwin-arm64.pkg
     open -nW go1.18.4.darwin-arm64.pkg
   {{- else if (eq .chezmoi.os "linux") }}
-    wget https://go.dev/dl/go1.18.linux-amd64.tar.gz
+    wget --no-verbose https://go.dev/dl/go1.18.linux-amd64.tar.gz
     sudo tar -C /usr/local -xzf go1.18.linux-amd64.tar.gz
   {{- end }}
 )
@@ -697,7 +697,7 @@ runner install_golang
 install_one_password_desktop() (
   set -e
   {{- if (eq .chezmoi.os "darwin") }}
-    wget https://downloads.1password.com/mac/1Password.zip
+    wget --no-verbose https://downloads.1password.com/mac/1Password.zip
     unzip 1Password.zip -d onepassword
     open -nW "onepassword/1Password Installer.app"
   {{- else if (eq .chezmoi.os "linux") }}
@@ -712,7 +712,7 @@ runner install_one_password_desktop
 install_pdftk() (
   set -e
   {{- if (eq .chezmoi.os "darwin") }}
-    wget https://www.pdflabs.com/tools/pdftk-the-pdf-toolkit/pdftk_server-2.02-mac_osx-10.11-setup.pkg
+    wget --no-verbose https://www.pdflabs.com/tools/pdftk-the-pdf-toolkit/pdftk_server-2.02-mac_osx-10.11-setup.pkg
     open -nW pdftk_server-2.02-mac_osx-10.11-setup.pkg
   {{- else if (eq .chezmoi.os "linux") }}
     sudo apt --yes install pdftk
@@ -728,7 +728,7 @@ install_xournal() (
   set -e
   # Install required deps
   sudo apt-get --yes install libportaudio2 libportaudiocpp0 libzip5
-  wget https://github.com/xournalpp/xournalpp/releases/download/v1.1.1/xournalpp-1.1.1-Ubuntu-focal-x86_64.deb
+  wget --no-verbose https://github.com/xournalpp/xournalpp/releases/download/v1.1.1/xournalpp-1.1.1-Ubuntu-focal-x86_64.deb
   # Install the package
   sudo dpkg -i xournalpp-1.1.1-Ubuntu-focal-x86_64.deb
 )
@@ -745,7 +745,7 @@ install_signal() (
   {{- else if (eq .chezmoi.os "darwin") }}
     install_dmg https://updates.signal.org/desktop/signal-desktop-mac-universal-5.47.0.dmg
   {{- else if (eq .chezmoi.os "linux") }}
-    wget -O- https://updates.signal.org/desktop/apt/keys.asc | gpg --dearmor > signal-desktop-keyring.gpg
+    wget -qO- https://updates.signal.org/desktop/apt/keys.asc | gpg --dearmor > signal-desktop-keyring.gpg
     cat signal-desktop-keyring.gpg | sudo tee -a /usr/share/keyrings/signal-desktop-keyring.gpg > /dev/null
  
     echo "deb [arch=amd64 signed-by=/usr/share/keyrings/signal-desktop-keyring.gpg] https://updates.signal.org/desktop/apt `lsb_release -cs` main" | sudo tee -a /etc/apt/sources.list.d/signal-`lsb_release -cs`.list
@@ -851,7 +851,7 @@ install_discord() (
   {{- else if (eq .chezmoi.os "darwin") }}
     install_dmg https://dl.discordapp.net/apps/osx/0.0.267/Discord.dmg
   {{- else if (eq .chezmoi.os "linux") }}
-    wget https://dl.discordapp.net/apps/linux/0.0.18/discord-0.0.18.deb
+    wget --no-verbose https://dl.discordapp.net/apps/linux/0.0.18/discord-0.0.18.deb
     sudo dpkg -i discord-0.0.18.deb
   {{- end }}
 )
@@ -895,7 +895,7 @@ SUBSYSTEM=="usb", ATTR{idVendor}=="feed", ATTR{idProduct}=="6060", GROUP="plugde
 EOF
 
     # Install Wally, the EZ / ZSA flashing tool
-    wget https://github.com/zsa/wally/releases/download/2.1.3-linux/wally
+    wget --no-verbose https://github.com/zsa/wally/releases/download/2.1.3-linux/wally
     sudo mv wally /usr/local/bin/wally
     sudo chmod a+x /usr/local/bin/wally
   {{- end }}
@@ -912,7 +912,7 @@ install_mkcert() (
     brew install nss
   {{- else if (eq .chezmoi.os "linux") }}
     sudo apt --yes install libnss3-tools
-    wget https://github.com/FiloSottile/mkcert/releases/download/v1.4.4/mkcert-v1.4.4-linux-amd64
+    wget --no-verbose https://github.com/FiloSottile/mkcert/releases/download/v1.4.4/mkcert-v1.4.4-linux-amd64
     sudo mv mkcert-v1.4.4-linux-amd64 /usr/local/bin/
     sudo chmod a+x /usr/local/bin/mkcert-v1.4.4-linux-amd64
     sudo ln -s /usr/local/bin/mkcert-v1.4.4-linux-amd64 /usr/local/bin/mkcert
