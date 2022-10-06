@@ -208,14 +208,14 @@ EOF
 
   echo "Installing vim-plug"
   # Install vim-plug
-  nvim -es -u NONE -i NONE -c "source ./scripts/install-vim-plug.vim" -c "qa"
+  nvim -es -u NONE -i NONE -c "source {{ .chezmoi.sourceDir }}/scripts/install-vim-plug.vim" -c "qa"
   echo "vim-plug installed"
 
   echo "Installing neovim plugins"
   # Install plugins
   # NOTE: We reference the plugin script via the chezmoi directyory. Necessary
   # because this script is run before chezmoi copies dotfiles.
-  nvim -es -u NONE -i NONE -c "source ./dot_config/nvim/plugins.vim" -c "PlugInstall --sync" -c "qa"
+  nvim -es -u NONE -i NONE -c "source {{ .chezmoi.sourceDir }}/dot_config/nvim/plugins.vim" -c "PlugInstall --sync" -c "qa"
   echo "neovim plugins installed"
 )
 runner install_neovim
