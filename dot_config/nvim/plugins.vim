@@ -15,7 +15,7 @@ Plug 'crusoexia/vim-monokai', { 'commit': '66f7dc9' }
 Plug 'digitaltoad/vim-pug', { 'commit': 'ea39cd9' }
 Plug 'EdenEast/nightfox.nvim', { 'commit': 'fce6585' }
 Plug 'ellisonleao/gruvbox.nvim', { 'commit': 'dc6bae9' }
-Plug 'folke/lsp-colors.nvim', { 'commit': '517fe3a' }
+Plug 'folke/lsp-colors.nvim', { 'commit': '4e6da19' }
 Plug 'folke/tokyonight.nvim', { 'commit': '8223c97' }
 " Mega list window thing for errors, hints, lsp diagnostics, etc
 Plug 'folke/trouble.nvim', { 'commit': '691d490' }
