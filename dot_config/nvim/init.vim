@@ -310,6 +310,19 @@ vim.lsp.handlers["textDocument/publishDiagnostics"] = vim.lsp.with(vim.lsp.diagn
   severity_sort = true
 })
 
+-- Setup the symbols for nvim to use when displaying diagnostics (used by lspsaga)
+local signs = {
+  Error = ' ',
+  Warn = ' ',
+  Info = ' ',
+  Hint = 'ﴞ ',
+}
+
+for type, icon in pairs(signs) do
+  local hl = 'DiagnosticSign' .. type
+  vim.fn.sign_define(hl, { text = icon, texthl = hl, numhl = hl })
+end
+
 -- lspsaga for nicer diagnostics and other commands
 require'lspsaga'.init_lsp_saga{
   code_action_keys = {

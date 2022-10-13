@@ -76,7 +76,7 @@ Plug 'tpope/vim-unimpaired', { 'commit': 'f992923' }
 "Plug 'windwp/nvim-ts-autotag', { 'commit': '0ceb4ef' }
 " IDE-like commands for interacting with LSPs like code actions, diagnostics in
 " floats, etc
-Plug 'tami5/lspsaga.nvim', { 'commit': '5309d75' }
+Plug 'glepnir/lspsaga.nvim', { 'commit': 'f33bc99' }
 " golang syntaix higlighting support (also chezmoi .tmpl file highlighting)
 Plug 'fatih/vim-go', { 'commit': 'dcefd64', 'do': ':GoUpdateBinaries', 'frozen': 1 }
 Plug 'rebelot/kanagawa.nvim', { 'commit': 'f5881a6' }
