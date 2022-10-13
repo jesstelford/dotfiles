@@ -607,6 +607,8 @@ nnoremap <silent><leader>ca <cmd>lua require('lspsaga.codeaction').code_action()
 vnoremap <silent><leader>ca :<C-U>lua require('lspsaga.codeaction').range_code_action()<CR>
 " Rename symbol with lsp. Also mapped to <F2>
 nnoremap <silent>gr <cmd>Lspsaga rename<cr>
+" Open definition in a float window
+nnoremap <silent>gd <cmd>Lspsaga peek_definition<cr>
 
 " <Fn> keys
 "
