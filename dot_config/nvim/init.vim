@@ -11,22 +11,76 @@ syntax off
 " end: vim-plug
 " -------------
 
+" ------------------
+" colorscheme config
+" ------------------
 set background=dark
 
 " Enable 24bit colors
 set termguicolors
 
+" Gruvbox
+" -------
 let g:gruvbox_sign_column = 'bg0'
 let g:gruvbox_contrast_light = 'hard'
 let g:gruvbox_contrast_dark = 'medium'
 let g:gruvbox_italic = '1'
 let g:gruvbox_undercurl = '1'
 
-" let g:gh_color = "soft"
+" Nightfox
+" --------
+lua <<EOF
+require('nightfox').setup({
+  options = {
+    styles = {
+      comments = "italic",
+      keywords = "bold",
+      types = "italic,bold",
+    }
+  }
+})
+EOF
+
+" Tokyonight
+" ----------
+lua <<EOF
+require("tokyonight").setup({
+  styles = {
+    keywords = { italic = none },
+  },
+})
+EOF
+
+" Kanagawa
+" --------
+lua <<EOF
+require('kanagawa').setup({
+  keywordStyle = { italic = false},
+  statementStyle = { bold = true },
+})
+EOF
+
+" Github
+" ------
+lua <<EOF
+-- NOTE: Sets the colorscheme, so we do this config first, then later we choose
+-- which colorscheme we actually want.
+require('github-theme').setup {
+  theme_style = "dark",
+  -- Disable italics on keywords
+  keyword_style = "NONE",
+}
+EOF
+
+" Actually set the colorscheme now that it's all configured
 " colorscheme gruvbox
 " colorscheme nightfox
 " colorscheme tokyonight
 colorscheme kanagawa
+" colorscheme github_dark
+" -----------------------
+" end: colorscheme config
+" -----------------------
 
 " ------------------
 " Tree sitter config
@@ -462,17 +516,6 @@ t['gg']    = {'scroll', {'-2*vim.api.nvim_buf_line_count(0)', 'true', '1', '5', 
 t['G']     = {'scroll', {'2*vim.api.nvim_buf_line_count(0)', 'true', '1', '5', e}}
 
 require('neoscroll.config').set_mappings(t)
--- Sets the colorscheme
---require('github-theme').setup {
---  theme_style = "dimmed",
---  -- Disable italics on keywords
---  keyword_style = "NONE",
---  colors = {
---    syntax = {
---      --func = '#ff0000'
---    }
---  }
---}
 
 -- require "nvim-treesitter.configs".setup {
 --   playground = {

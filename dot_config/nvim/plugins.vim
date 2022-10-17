@@ -13,10 +13,10 @@ Plug 'arthurxavierx/vim-caser', { 'commit': '6bc9f41' }
 Plug 'christoomey/vim-tmux-navigator', { 'commit': '9ca5bfe' }
 Plug 'crusoexia/vim-monokai', { 'commit': '66f7dc9' }
 Plug 'digitaltoad/vim-pug', { 'commit': 'ea39cd9' }
-Plug 'EdenEast/nightfox.nvim', { 'commit': 'fce6585' }
+Plug 'EdenEast/nightfox.nvim', { 'commit': '15f3b58' }
 Plug 'ellisonleao/gruvbox.nvim', { 'commit': 'dc6bae9' }
 Plug 'folke/lsp-colors.nvim', { 'commit': '4e6da19' }
-Plug 'folke/tokyonight.nvim', { 'commit': '8223c97' }
+Plug 'folke/tokyonight.nvim', { 'commit': '9fba0cd' }
 " Mega list window thing for errors, hints, lsp diagnostics, etc
 Plug 'folke/trouble.nvim', { 'commit': '691d490' }
 "Plug 'honza/vim-snippets', { 'commit': '3c40345' }
@@ -46,7 +46,7 @@ Plug 'nvim-telescope/telescope-fzf-native.nvim', { 'commit': '8ec164b', 'do': 'm
 Plug 'nvim-treesitter/nvim-treesitter', { 'commit': '9e8749f', 'do': ':TSUpdate' }
 Plug 'nvim-treesitter/playground', { 'commit': '9df82a2' }
 Plug 'Pamplemousse/badWords', { 'commit': '467f330' }
-Plug 'projekt0n/github-nvim-theme', { 'commit': '9c641bd' }
+Plug 'projekt0n/github-nvim-theme', { 'commit': 'a0632f9' }
 " required by ellisonleao/gruvbox.nvim
 Plug 'rktjmp/lush.nvim', { 'commit': '87e9039' }
 " TODO: Is there a modern alternative (that uses devicons, etc), but still uses
@@ -79,7 +79,7 @@ Plug 'tpope/vim-unimpaired', { 'commit': 'f992923' }
 Plug 'glepnir/lspsaga.nvim', { 'commit': 'f33bc99' }
 " golang syntaix higlighting support (also chezmoi .tmpl file highlighting)
 Plug 'fatih/vim-go', { 'commit': 'dcefd64', 'do': ':GoUpdateBinaries', 'frozen': 1 }
-Plug 'rebelot/kanagawa.nvim', { 'commit': 'f5881a6' }
+Plug 'rebelot/kanagawa.nvim', { 'commit': 'dda1b8c' }
 Plug 'b0o/SchemaStore.nvim', { 'commit': '0a3f765' }
 Plug 'JoosepAlviste/nvim-ts-context-commentstring', { 'commit': '8834375' }
 Plug 'karb94/neoscroll.nvim', { 'commit': '07242b9' }
