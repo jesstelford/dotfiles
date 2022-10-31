@@ -1008,6 +1008,10 @@ configure_macos() (
   defaults write com.google.Chrome AppleEnableMouseSwipeNavigateWithScrolls -bool false
   defaults write com.google.Chrome AppleEnableSwipeNavigateWithScrolls -bool false
 
+  # Tell iterm2 where to find the config file
+  defaults write com.googlecode.iterm2 LoadPrefsFromCustomFolder -bool true
+  defaults write com.googlecode.iterm2 PrefsCustomFolder -string "~/.config/iterm2"
+
 
   # Now that we're done, turn software updates back on
   sudo softwareupdate --schedule ON
