@@ -371,7 +371,7 @@ install_fonts() (
   # Do a sparse-checkout of only the files we need
   git clone https://github.com/ryanoasis/nerd-fonts.git --depth 1 --filter=blob:none --sparse $HOME/dev/nerd-fonts
   cd $HOME/dev/nerd-fonts
-  git sparse-checkout set src/glyphs font-patcher
+  git sparse-checkout set --no-cone /src/glyphs /font-patcher
   sudo chmod a+x font-patcher
 
   # Install some custom fonts
