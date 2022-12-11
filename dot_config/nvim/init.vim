@@ -3,10 +3,6 @@ let g:go_bin_path = has('nvim') ? stdpath('data') . '/bin' : '~/.vim/bin'
 
 " Setup plugins
 runtime plugins.vim
-
-" Disable these so we can use tree-sitter instead
-filetype indent off
-syntax off
 " -------------
 " end: vim-plug
 " -------------
@@ -86,6 +82,16 @@ colorscheme kanagawa
 " Tree sitter config
 " ------------------
 lua <<EOF
+local diable_highlight = function()
+  if vim.bo.filetype == "pico8" then
+    return true
+  end
+end
+
+-- NOTE: When tree sitter is enabled for a filetype, it will automatically run:
+-- filetype indent off
+-- syntax off
+-- So, we don't have to run those, and can still support older syntax files where necessary
 require'nvim-treesitter.configs'.setup {
   -- One of "all", "maintained" (parsers with maintainers), or a list of languages
   ensure_installed = {
@@ -95,6 +101,7 @@ require'nvim-treesitter.configs'.setup {
     "javascript",
     "json",
     "json5",
+    "lua",
     "markdown",
     "scss",
     "tsx",
@@ -123,8 +130,7 @@ require'nvim-treesitter.configs'.setup {
     -- `false` will disable the whole extension
     enable = true,
 
-    -- list of language that will be disabled
-    disable = {},
+    disable = diable_highlight,
 
     -- Setting this to true will run `:h syntax` and tree-sitter at the same time.
     -- Set this to `true` if you depend on 'syntax' being enabled (like for indentation).
@@ -812,7 +818,7 @@ if has('autocmd')
   au BufNewFile,BufRead *.less set filetype=css
   au BufNewFile,BufRead *.cson set filetype=coffee
   au BufNewFile,BufRead Jenkinsfile set filetype=groovy
-  au BufNewFile,BufRead *.p8 set filetype=lua
+  "au BufNewFile,BufRead *.p8 set filetype=lua
 
   " In neovim 0.5.0+, briefly highlight the yanked area
   augroup highlight_yank
