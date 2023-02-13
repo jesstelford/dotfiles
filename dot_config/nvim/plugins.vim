@@ -87,6 +87,10 @@ Plug 'karb94/neoscroll.nvim', { 'commit': '07242b9' }
 " Add `-- vim: set ft=pico8:` to .lua files to have them highlighted (mostly)
 " correctly
 Plug 'Bakudankun/PICO-8.vim', { 'commit': '34f8442' }
+" Dep of nvim-ufo
+Plug 'kevinhwang91/promise-async', { 'commit': '7fa127f' }
+Plug 'kevinhwang91/nvim-ufo', { 'commit': 'b70c9ef' }
+
 
 " NOTE: internally calls: filetype indent on, syntax on
 call plug#end()

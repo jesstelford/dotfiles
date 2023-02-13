@@ -164,12 +164,30 @@ require'nvim-treesitter.configs'.setup {
   }
 }
 EOF
-
-set foldmethod=expr
-set foldexpr=nvim_treesitter#foldexpr()
 " -----------------------
 " End: Tree sitter config
 " -----------------------
+
+" --------------------
+" nvim-ufo For folding
+" --------------------
+lua <<EOF
+vim.o.foldcolumn = '0' -- Don't display nvim-ufo fold info in column
+vim.o.foldlevel = 99 -- Using ufo provider need a large value, feel free to decrease the value
+vim.o.foldlevelstart = 99
+vim.o.foldenable = true
+
+-- Using ufo provider need remap `zR` and `zM`. If Neovim is 0.6.1, remap yourself
+vim.keymap.set('n', 'zR', require('ufo').openAllFolds)
+vim.keymap.set('n', 'zM', require('ufo').closeAllFolds)
+
+-- TODO: Figure out why the LSP version of nvim-ufo wasn't working for JS/TS
+require('ufo').setup({
+  provider_selector = function(bufnr, filetype, buftype)
+    return {'treesitter', 'indent'}
+  end
+})
+EOF
 
 " ----------------
 " lspconfig config
