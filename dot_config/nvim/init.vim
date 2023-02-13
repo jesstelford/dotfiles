@@ -23,6 +23,13 @@ let g:gruvbox_contrast_dark = 'medium'
 let g:gruvbox_italic = '1'
 let g:gruvbox_undercurl = '1'
 
+" PICO-8
+" ------
+if !has_key(g:, 'pico8_config')
+  let g:pico8_config = {}
+endif
+let g:pico8_config.imitate_console = '0'
+
 " Nightfox
 " --------
 lua <<EOF
