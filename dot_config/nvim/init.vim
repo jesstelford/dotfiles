@@ -515,19 +515,43 @@ require('nvim-tree').setup {
     },
   },
 }
+
+-- Use Trouble instead of Quick Fix for the files which is much nicer to
+-- browser, but doesn't have commands
+-- Doing it this way (instead of using
+-- `require("trouble.providers.telescope").smart_open_with_trouble`) allows to
+-- continue using quickfix commands like :cdo.
+local sendToQuickFixThenOpenTrouble = function(...)
+  require("telescope.actions").send_to_qflist(...)
+  -- Close the quick fix window if it's already open
+  vim.cmd([[cclose]])
+  -- Open trouble using the quickfix list as input
+  vim.cmd([[Trouble quickfix]])
+end
+
+local sendSelectedToQuickFixThenOpenTrouble = function(...)
+  require("telescope.actions").send_selected_to_qflist(...)
+  -- Close the quick fix window if it's already open
+  vim.cmd([[cclose]])
+  -- Open trouble using the quickfix list as input
+  vim.cmd([[Trouble quickfix]])
+end
+
 require('telescope').setup {
   defaults = {
     mappings = {
       i = {
-        -- Use Trouble instead of Quick Fix for the files which is much nicer to browser, but doesn't have commands
-        ["<C-q>"] = require("trouble.providers.telescope").smart_open_with_trouble
+        ["<C-q>"] = sendToQuickFixThenOpenTrouble,
+        ["<M-q>"] = sendSelectedToQuickFixThenOpenTrouble
       },
       n = {
-        ["<C-q>"] = require("trouble.providers.telescope").smart_open_with_trouble
+        ["<C-q>"] = sendToQuickFixThenOpenTrouble,
+        ["<M-q>"] = sendSelectedToQuickFixThenOpenTrouble
       }
     }
   }
 }
+
 require('neoscroll').setup({
   easing_function = "sine"
 })
