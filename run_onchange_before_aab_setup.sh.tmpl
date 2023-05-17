@@ -613,6 +613,7 @@ install_lua_lsp() (
     sudo tar xzf lua-language-server-2.5.5-linux-x64.tar.gz -C /usr/local/lib/lua-language-server
     sudo chmod a+x /usr/local/lib/lua-language-server/bin/lua-language-server
     sudo chmod a+w -R /usr/local/lib/lua-language-server
+    sudo rm -f /usr/local/bin/lua-language-server
     sudo ln -s /usr/local/lib/lua-language-server/bin/lua-language-server /usr/local/bin/lua-language-server
   {{- end }}
 )
