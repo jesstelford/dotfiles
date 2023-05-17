@@ -507,7 +507,13 @@ runner install_yarn
 # powerlevel10k
 install_powerlevel10k() (
   set -e
-  git clone --depth=1 https://github.com/romkatv/powerlevel10k.git $HOME/.zsh/powerlevel10k
+  if [ -d "$HOME/.zsh/powerlevel10k" ]; then
+    cd "$HOME/.zsh/powerlevel10k"
+    git pull
+    cd -
+  else
+    git clone --depth=1 https://github.com/romkatv/powerlevel10k.git $HOME/.zsh/powerlevel10k
+  fi
 )
 runner install_powerlevel10k
 
