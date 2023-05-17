@@ -133,8 +133,8 @@ install_zsh() (
   {{- else if (eq .chezmoi.os "linux") }}
     sudo apt --yes install zsh
   {{- end }}
-  # Set it as the default shell
-  chsh -s $(which zsh)
+  # Use root to set the default shell for my user. Required when my user doesn't have permissions.
+  sudo chsh -s $(which zsh) $(whoami)
 )
 runner install_zsh
 
