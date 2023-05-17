@@ -259,7 +259,13 @@ runner install_brave
 # zsh-syntax-highlighting
 install_zsh_syntax_highlighting() (
   set -e
-  git clone https://github.com/zsh-users/zsh-syntax-highlighting.git $HOME/.zsh/zsh-syntax-highlighting
+  if [ -d "$HOME/.zsh/zsh-syntax-highlighting" ]; then
+    cd "$HOME/.zsh/zsh-syntax-highlighting"
+    git pull
+    cd -
+  else
+    git clone https://github.com/zsh-users/zsh-syntax-highlighting.git $HOME/.zsh/zsh-syntax-highlighting
+  fi
 )
 runner install_zsh_syntax_highlighting
 
