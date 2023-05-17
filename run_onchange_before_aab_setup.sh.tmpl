@@ -548,6 +548,7 @@ install_fd() (
   {{- else if (eq .chezmoi.os "linux") }}
     sudo apt --yes install fd-find
     # Override the other `fd` binary that comes with Ubuntu
+    sudo rm -f /usr/local/bin/fd
     sudo ln -s $(which fdfind) /usr/local/bin/fd
   {{- end }}
 )
