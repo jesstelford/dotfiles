@@ -202,7 +202,7 @@ install_neovim() (
 
   sudo chmod a+x {{ $nvimbinary }}
 
-  rm -f /usr/local/bin/nvim
+  sudo rm -f /usr/local/bin/nvim
   sudo tee -a /usr/local/bin/nvim > /dev/null <<EOF
 #!/usr/bin/env bash
 # Auto-load sessions when starting nvim
