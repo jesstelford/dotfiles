@@ -18,15 +18,7 @@ if ! chezmoi="$(command -v chezmoi)"; then
     exit 1
   fi
   
-  # +x is to detect an empty env var: https://stackoverflow.com/a/13864829
-  if [ -z "${CODESPACES+x}" ] || [ -z "${CI+x}" ] || [ -z "${SPIN+x}" ]; then
-    # Can't do anything interactive in these environments
-    chezmoi_args="--no-tty --force"
-  else
-    chezmoi_args=""
-  fi
-  
-  sh -c "${chezmoi_install_script}" -- -b "${bin_dir}" "${chezmoi_args}"
+  sh -c "${chezmoi_install_script}" -- -b "${bin_dir}"
   
   unset chezmoi_install_script bin_dir chezmoi_args
 fi
@@ -34,7 +26,17 @@ fi
 # POSIX way to get script's dir: https://stackoverflow.com/a/29834779/12156188
 script_dir="$(cd -P -- "$(dirname -- "$(command -v -- "$0")")" && pwd -P)"
 
-set -- init --apply --source="${script_dir}"
+# +x is to detect an empty env var: https://stackoverflow.com/a/13864829
+if [ -z "${CODESPACES+x}" ] || [ -z "${CI+x}" ] || [ -z "${SPIN+x}" ]; then
+  # Can't do anything interactive in these environments
+  chezmoi_args="--no-tty --force"
+else
+  chezmoi_args=""
+fi
+
+set -- init --apply --source="${script_dir}" ${chezmoi_args}
+
+unset chezmoi_args
 
 echo "Running 'chezmoi $*'" >&2
 # exec: replace current process with chezmoi
