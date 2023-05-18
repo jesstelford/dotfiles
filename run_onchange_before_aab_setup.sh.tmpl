@@ -72,7 +72,7 @@ runner() {
   # immediately from the function if anything errors.
   #
   # Usage:
-  # apt_get install ./foo-bar.dev
+  # apt_get install ./foo-bar.deb
   apt_get() (
     set -e
     sudo apt-get -o DPkg::Lock::Timeout=60 -q=2 --yes "$@"
@@ -156,7 +156,7 @@ install_ripgrep() (
     brew install ripgrep
   {{- else if (eq .chezmoi.os "linux") }}
     curl -sSLO https://github.com/BurntSushi/ripgrep/releases/download/12.1.1/ripgrep_12.1.1_amd64.deb
-    sudo dpkg -i ripgrep_12.1.1_amd64.deb
+    apt_get install ./ripgrep_12.1.1_amd64.deb
   {{- end }}
 )
 runner install_ripgrep
@@ -371,7 +371,7 @@ install_roam_research() (
     install_dmg https://roam-electron-deploy.s3.us-east-2.amazonaws.com/Roam+Research-{{ $roamversion }}.dmg
   {{- else if (eq .chezmoi.os "linux") }}
     wget --no-verbose https://roam-electron-deploy.s3.us-east-2.amazonaws.com/roam-research_{{ $roamversion }}_amd64.deb
-    sudo dpkg -i roam-research_{{ $roamversion }}_amd64.deb
+    apt_get install ./roam-research_{{ $roamversion }}_amd64.deb
   {{- end }}
 )
 runner install_roam_research
@@ -549,7 +549,7 @@ install_bat() (
     brew install bat
   {{- else if (eq .chezmoi.os "linux") }}
     wget --no-verbose https://github.com/sharkdp/bat/releases/download/v0.18.0/bat_0.18.0_amd64.deb
-    sudo dpkg -i bat_0.18.0_amd64.deb
+    apt_get install ./bat_0.18.0_amd64.deb
   {{- end }}
 )
 runner install_bat
@@ -575,7 +575,7 @@ install_delta() (
     brew install git-delta
   {{- else if (eq .chezmoi.os "linux") }}
     wget --no-verbose https://github.com/dandavison/delta/releases/download/0.7.1/git-delta_0.7.1_amd64.deb
-    sudo dpkg -i git-delta_0.7.1_amd64.deb
+    apt_get install ./git-delta_0.7.1_amd64.deb
   {{- end }}
 )
 runner install_delta
@@ -714,7 +714,7 @@ install_dbeaver() (
   {{- else if (eq .chezmoi.os "linux") }}
     wget --no-verbose https://github.com/dbeaver/dbeaver/releases/download/22.1.0/dbeaver-ce_22.1.0_amd64.deb
     # Install the package
-    sudo dpkg -i dbeaver-ce_22.1.0_amd64.deb
+    apt_get install ./dbeaver-ce_22.1.0_amd64.deb
   {{- end }}
 )
 runner install_dbeaver
@@ -771,7 +771,7 @@ install_xournal() (
   apt_get install libportaudio2 libportaudiocpp0 libzip5
   wget --no-verbose https://github.com/xournalpp/xournalpp/releases/download/v1.1.1/xournalpp-1.1.1-Ubuntu-focal-x86_64.deb
   # Install the package
-  sudo dpkg -i xournalpp-1.1.1-Ubuntu-focal-x86_64.deb
+  apt_get install ./xournalpp-1.1.1-Ubuntu-focal-x86_64.deb
 )
 runner install_xournal
 {{- end }}
@@ -893,7 +893,7 @@ install_discord() (
     install_dmg https://dl.discordapp.net/apps/osx/0.0.267/Discord.dmg
   {{- else if (eq .chezmoi.os "linux") }}
     wget --no-verbose https://dl.discordapp.net/apps/linux/0.0.18/discord-0.0.18.deb
-    sudo dpkg -i discord-0.0.18.deb
+    apt_get install ./discord-0.0.18.deb
   {{- end }}
 )
 runner install_discord
