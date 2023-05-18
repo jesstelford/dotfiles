@@ -108,15 +108,15 @@ install_dev_deps() (
     {{- if not .spin }}
       # latest git
       sudo add-apt-repository ppa:git-core/ppa
-      sudo apt --yes update
-      sudo apt --yes install git
+      sudo apt-get --yes update
+      sudo apt-get --yes install git
     {{- end }}
     {{- if .islocalenv }}
-      sudo apt --yes install parallel
+      sudo apt-get --yes install parallel
     {{- end }}
     # Ubuntu 22.04 no longer ships with libfuse2, which is required by
     # AppImages. See: https://askubuntu.com/a/1404084
-    sudo apt --yes install libfuse2*
+    sudo apt-get --yes install libfuse2*
   {{- end }}
 )
 runner install_dev_deps
@@ -131,7 +131,7 @@ install_zsh() (
   {{- if (eq .chezmoi.os "darwin") }}
     brew install zsh
   {{- else if (eq .chezmoi.os "linux") }}
-    sudo apt --yes install zsh
+    sudo apt-get --yes install zsh
   {{- end }}
   # Use root to set the default shell for my user. Required when my user doesn't have permissions.
   sudo chsh -s $(which zsh) $(whoami)
@@ -241,11 +241,11 @@ install_brave() (
     install_dmg https://referrals.brave.com/latest/Brave-Browser.dmg
   {{- else if (eq .chezmoi.os "linux") }}
     # see: https://brave.com/linux/
-    sudo apt --yes install apt-transport-https curl
+    sudo apt-get --yes install apt-transport-https curl
     sudo curl -fsSLo /usr/share/keyrings/brave-browser-archive-keyring.gpg https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg
     echo "deb [signed-by=/usr/share/keyrings/brave-browser-archive-keyring.gpg arch=amd64] https://brave-browser-apt-release.s3.brave.com/ stable main"|sudo tee /etc/apt/sources.list.d/brave-browser-release.list
-    sudo apt --yes update
-    sudo apt --yes install brave-browser
+    sudo apt-get --yes update
+    sudo apt-get --yes install brave-browser
 
     # Set brave as the default browser
     sudo update-alternatives --config x-www-browser
@@ -526,7 +526,7 @@ install_tmux() (
   {{- if (eq .chezmoi.os "darwin") }}
     brew install tmux
   {{- else if (eq .chezmoi.os "linux") }}
-    sudo apt --yes install tmux
+    sudo apt-get --yes install tmux
   {{- end }}
 )
 runner install_tmux
@@ -549,7 +549,7 @@ install_fd() (
   {{- if (eq .chezmoi.os "darwin") }}
     brew install fd
   {{- else if (eq .chezmoi.os "linux") }}
-    sudo apt --yes install fd-find
+    sudo apt-get --yes install fd-find
     # Override the other `fd` binary that comes with Ubuntu
     sudo rm -f /usr/local/bin/fd
     sudo ln -s $(which fdfind) /usr/local/bin/fd
@@ -646,8 +646,8 @@ install_gh() (
   {{- else if (eq .chezmoi.os "linux") }}
     sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-key C99B11DEB97541F0
     sudo apt-add-repository --yes https://cli.github.com/packages
-    sudo apt --yes update
-    sudo apt --yes install gh
+    sudo apt-get --yes update
+    sudo apt-get --yes install gh
   {{- end }}
   gh auth login
 )
@@ -745,7 +745,7 @@ install_pdftk() (
     wget --no-verbose https://www.pdflabs.com/tools/pdftk-the-pdf-toolkit/pdftk_server-2.02-mac_osx-10.11-setup.pkg
     open -nW pdftk_server-2.02-mac_osx-10.11-setup.pkg
   {{- else if (eq .chezmoi.os "linux") }}
-    sudo apt --yes install pdftk
+    sudo apt-get --yes install pdftk
   {{- end }}
 )
 runner install_pdftk
@@ -780,7 +780,7 @@ install_signal() (
  
     echo "deb [arch=amd64 signed-by=/usr/share/keyrings/signal-desktop-keyring.gpg] https://updates.signal.org/desktop/apt `lsb_release -cs` main" | sudo tee -a /etc/apt/sources.list.d/signal-`lsb_release -cs`.list
 
-    sudo apt --yes update && sudo apt --yes install signal-desktop
+    sudo apt-get --yes update && sudo apt-get --yes install signal-desktop
   {{- end }}
 )
 runner install_signal
@@ -900,7 +900,7 @@ install_moonlander() (
     install_dmg https://configure.zsa.io/wally/osx
   {{- else if (eq .chezmoi.os "linux") }}
     # So the flashing tool can write to the keyboard
-    sudo apt --yes install libusb-1.0-0-dev
+    sudo apt-get --yes install libusb-1.0-0-dev
     
     # Setup udev rules so the flashing tool can receive the correct events
     sudo touch /etc/udev/rules.d/50-wally.rules
@@ -941,7 +941,7 @@ install_mkcert() (
     brew install mkcert
     brew install nss
   {{- else if (eq .chezmoi.os "linux") }}
-    sudo apt --yes install libnss3-tools
+    sudo apt-get --yes install libnss3-tools
     wget --no-verbose https://github.com/FiloSottile/mkcert/releases/download/v1.4.4/mkcert-v1.4.4-linux-amd64
     sudo mv mkcert-v1.4.4-linux-amd64 /usr/local/bin/
     sudo chmod a+x /usr/local/bin/mkcert-v1.4.4-linux-amd64
