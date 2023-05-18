@@ -66,7 +66,18 @@ runner() {
 
 */}}
 
-{{- if (eq .chezmoi.os "darwin") }}
+{{- if (or (.codespaces) (eq .chezmoi.os "linux")) }}
+  # Run apt with some default options
+  # NOTE: This is running as a subshell '(' so we can use 'set -e' to bail
+  # immediately from the function if anything errors.
+  #
+  # Usage:
+  # apt_get install ./foo-bar.dev
+  apt_get() (
+    set -e
+    sudo apt-get -o DPkg::Lock::Timeout=60 -q=2 --yes "$@"
+  )
+{{- else if (eq .chezmoi.os "darwin") }}
   # Ensure homebrew is available on the path for following commands
   # Necessary because this script is run before chezmoi copies dotfiles
   # (normally this lives in the .bash_profile)
@@ -108,15 +119,15 @@ install_dev_deps() (
     {{- if not .spin }}
       # latest git
       sudo add-apt-repository ppa:git-core/ppa
-      sudo apt-get --yes update
-      sudo apt-get --yes install git
+      apt_get update
+      apt_get install git
     {{- end }}
     {{- if .islocalenv }}
-      sudo apt-get --yes install parallel
+      apt_get install parallel
     {{- end }}
     # Ubuntu 22.04 no longer ships with libfuse2, which is required by
     # AppImages. See: https://askubuntu.com/a/1404084
-    sudo apt-get --yes install libfuse2*
+    apt_get install libfuse2*
   {{- end }}
 )
 runner install_dev_deps
@@ -131,7 +142,7 @@ install_zsh() (
   {{- if (eq .chezmoi.os "darwin") }}
     brew install zsh
   {{- else if (eq .chezmoi.os "linux") }}
-    sudo apt-get --yes install zsh
+    apt_get install zsh
   {{- end }}
   # Use root to set the default shell for my user. Required when my user doesn't have permissions.
   sudo chsh -s $(which zsh) $(whoami)
@@ -241,11 +252,11 @@ install_brave() (
     install_dmg https://referrals.brave.com/latest/Brave-Browser.dmg
   {{- else if (eq .chezmoi.os "linux") }}
     # see: https://brave.com/linux/
-    sudo apt-get --yes install apt-transport-https curl
+    apt_get install apt-transport-https curl
     sudo curl -fsSLo /usr/share/keyrings/brave-browser-archive-keyring.gpg https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg
     echo "deb [signed-by=/usr/share/keyrings/brave-browser-archive-keyring.gpg arch=amd64] https://brave-browser-apt-release.s3.brave.com/ stable main"|sudo tee /etc/apt/sources.list.d/brave-browser-release.list
-    sudo apt-get --yes update
-    sudo apt-get --yes install brave-browser
+    apt_get update
+    apt_get install brave-browser
 
     # Set brave as the default browser
     sudo update-alternatives --config x-www-browser
@@ -304,7 +315,7 @@ install_alacritty() (
     cp -r target/release/osx/Alacritty.app /Applications/
   {{- else if (eq .chezmoi.os "linux") }}
     # Install build deps
-    sudo apt-get --yes install cmake pkg-config libfreetype6-dev libfontconfig1-dev libxcb-xfixes0-dev libxkbcommon-dev python3 python3-venv gzip
+    apt_get install cmake pkg-config libfreetype6-dev libfontconfig1-dev libxcb-xfixes0-dev libxkbcommon-dev python3 python3-venv gzip
     # Build + install
     cargo build --release
     sudo cp target/release/alacritty /usr/local/bin # or anywhere else in $PATH
@@ -526,7 +537,7 @@ install_tmux() (
   {{- if (eq .chezmoi.os "darwin") }}
     brew install tmux
   {{- else if (eq .chezmoi.os "linux") }}
-    sudo apt-get --yes install tmux
+    apt_get install tmux
   {{- end }}
 )
 runner install_tmux
@@ -549,7 +560,7 @@ install_fd() (
   {{- if (eq .chezmoi.os "darwin") }}
     brew install fd
   {{- else if (eq .chezmoi.os "linux") }}
-    sudo apt-get --yes install fd-find
+    apt_get install fd-find
     # Override the other `fd` binary that comes with Ubuntu
     sudo rm -f /usr/local/bin/fd
     sudo ln -s $(which fdfind) /usr/local/bin/fd
@@ -646,8 +657,8 @@ install_gh() (
   {{- else if (eq .chezmoi.os "linux") }}
     sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-key C99B11DEB97541F0
     sudo apt-add-repository --yes https://cli.github.com/packages
-    sudo apt-get --yes update
-    sudo apt-get --yes install gh
+    apt_get update
+    apt_get install gh
   {{- end }}
   gh auth login
 )
@@ -671,14 +682,14 @@ install_mongodb() (
     # TODO
   {{- else if (eq .chezmoi.os "linux") }}
     # From  https://docs.mongodb.com/manual/tutorial/install-mongodb-on-ubuntu/
-    sudo apt-get --yes install gnupg
+    apt_get install gnupg
     wget -qO - https://www.mongodb.org/static/pgp/server-4.4.asc | sudo apt-key add -
     # NOTE: TODO: FIXME: Only for Ubuntu 20.04
     echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/4.4 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-4.4.list
-    sudo apt-get --yes update
+    apt_get update
     # Remove system-instaled mongo version
-    sudo apt-get --yes remove mongodb-org mongodb-org-tools mongodb-server-core mongo-tools
-    sudo apt-get --yes install -y mongodb-org=4.4.5 mongodb-org-server=4.4.5 mongodb-org-shell=4.4.5 mongodb-org-mongos=4.4.5 mongodb-org-tools=4.4.5
+    apt_get remove mongodb-org mongodb-org-tools mongodb-server-core mongo-tools
+    apt_get install -y mongodb-org=4.4.5 mongodb-org-server=4.4.5 mongodb-org-shell=4.4.5 mongodb-org-mongos=4.4.5 mongodb-org-tools=4.4.5
     echo "mongodb-org hold" | sudo dpkg --set-selections
     echo "mongodb-org-server hold" | sudo dpkg --set-selections
     echo "mongodb-org-shell hold" | sudo dpkg --set-selections
@@ -745,7 +756,7 @@ install_pdftk() (
     wget --no-verbose https://www.pdflabs.com/tools/pdftk-the-pdf-toolkit/pdftk_server-2.02-mac_osx-10.11-setup.pkg
     open -nW pdftk_server-2.02-mac_osx-10.11-setup.pkg
   {{- else if (eq .chezmoi.os "linux") }}
-    sudo apt-get --yes install pdftk
+    apt_get install pdftk
   {{- end }}
 )
 runner install_pdftk
@@ -757,7 +768,7 @@ runner install_pdftk
 install_xournal() (
   set -e
   # Install required deps
-  sudo apt-get --yes install libportaudio2 libportaudiocpp0 libzip5
+  apt_get install libportaudio2 libportaudiocpp0 libzip5
   wget --no-verbose https://github.com/xournalpp/xournalpp/releases/download/v1.1.1/xournalpp-1.1.1-Ubuntu-focal-x86_64.deb
   # Install the package
   sudo dpkg -i xournalpp-1.1.1-Ubuntu-focal-x86_64.deb
@@ -780,7 +791,7 @@ install_signal() (
  
     echo "deb [arch=amd64 signed-by=/usr/share/keyrings/signal-desktop-keyring.gpg] https://updates.signal.org/desktop/apt `lsb_release -cs` main" | sudo tee -a /etc/apt/sources.list.d/signal-`lsb_release -cs`.list
 
-    sudo apt-get --yes update && sudo apt-get --yes install signal-desktop
+    apt_get update && apt_get install signal-desktop
   {{- end }}
 )
 runner install_signal
@@ -900,7 +911,7 @@ install_moonlander() (
     install_dmg https://configure.zsa.io/wally/osx
   {{- else if (eq .chezmoi.os "linux") }}
     # So the flashing tool can write to the keyboard
-    sudo apt-get --yes install libusb-1.0-0-dev
+    apt_get install libusb-1.0-0-dev
     
     # Setup udev rules so the flashing tool can receive the correct events
     sudo touch /etc/udev/rules.d/50-wally.rules
@@ -941,7 +952,7 @@ install_mkcert() (
     brew install mkcert
     brew install nss
   {{- else if (eq .chezmoi.os "linux") }}
-    sudo apt-get --yes install libnss3-tools
+    apt_get install libnss3-tools
     wget --no-verbose https://github.com/FiloSottile/mkcert/releases/download/v1.4.4/mkcert-v1.4.4-linux-amd64
     sudo mv mkcert-v1.4.4-linux-amd64 /usr/local/bin/
     sudo chmod a+x /usr/local/bin/mkcert-v1.4.4-linux-amd64
