@@ -31,7 +31,6 @@ if [ -z "${CODESPACES+x}" ] || [ -z "${CI+x}" ] || [ -z "${SPIN+x}" ]; then
   # --no-tty because we can't do anything interactive in these environments
   chezmoi_args="--no-tty"
 else
-  # --apply because we want to ensure we're actually doing the setup
   chezmoi_args=""
 fi
 
