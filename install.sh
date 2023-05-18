@@ -28,13 +28,15 @@ script_dir="$(cd -P -- "$(dirname -- "$(command -v -- "$0")")" && pwd -P)"
 
 # +x is to detect an empty env var: https://stackoverflow.com/a/13864829
 if [ -z "${CODESPACES+x}" ] || [ -z "${CI+x}" ] || [ -z "${SPIN+x}" ]; then
-  # Can't do anything interactive in these environments
-  chezmoi_args="--no-tty --force"
+  # --no-tty because we can't do anything interactive in these environments
+  # --one-shot because we're running in a temporary container so don't need permanency
+  chezmoi_args="--no-tty --one-shot"
 else
-  chezmoi_args=""
+  # --apply because we want to ensure we're actually doing the setup
+  chezmoi_args="--apply"
 fi
 
-set -- init --apply --source="${script_dir}" ${chezmoi_args}
+set -- init --source="${script_dir}" ${chezmoi_args}
 
 unset chezmoi_args
 
