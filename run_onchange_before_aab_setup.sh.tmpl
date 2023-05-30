@@ -524,9 +524,6 @@ install_powerlevel10k() (
   else
     git clone --depth=1 https://github.com/romkatv/powerlevel10k.git $HOME/.zsh/powerlevel10k
   fi
-  
-  # install gitstatusd dep now, otherwise it tries to fetch on first run of zsh which can cause timeouts
-  "$HOME/.zsh/powerlevel10k/gitstatus/install" -f
 )
 runner install_powerlevel10k
 

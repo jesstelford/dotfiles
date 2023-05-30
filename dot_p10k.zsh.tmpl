@@ -32,8 +32,8 @@
   typeset -g POWERLEVEL9K_LEFT_PROMPT_ELEMENTS=(
     # =========================[ Line #1 ]=========================
     # os_icon               # os identifier
-    dir                     # current directory
-    vcs                     # git status
+    dir                     # current directory{{- if .spin }}{{- else }}{{- /* Can't use gitstatusd in spin */}}
+    vcs                     # git status{{- end }}
     # =========================[ Line #2 ]=========================
     newline                 # \n
     prompt_char             # prompt symbol
