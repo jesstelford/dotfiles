@@ -1,13 +1,9 @@
-{{- if .spin }}
-{{- /* Can't use instant prompt in spin */}}
-{{- else }}
 # Enable Powerlevel10k instant prompt. Should stay close to the top of ~/.zshrc.
 # Initialization code that may require console input (password prompts, [y/n]
 # confirmations, etc.) must go above this block; everything else may go below.
 if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]; then
   source "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh"
 fi
-{{- end }}
 
 if [[ -v ZSH_PROF ]]; then
   zmodload zsh/zprof
@@ -117,6 +113,12 @@ add-zsh-hook chpwd _fnm_autoload_hook &&
 bindkey "ç" fzf-cd-widget
 
 [ -f ~/.zsh/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh ] && source ~/.zsh/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+
+{{- if .spin }}
+# Spin's /tmp directory is borked for some reason immediately as zsh is loading.
+# Putting the process to sleep seems to allow spin enough time to fix /tmp so p10k can do its setup correctly
+command sleep 1
+{{- end }}
 
 [ -f ~/.zsh/powerlevel10k/powerlevel10k.zsh-theme ] && source ~/.zsh/powerlevel10k/powerlevel10k.zsh-theme
 
