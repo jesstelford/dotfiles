@@ -117,7 +117,7 @@ bindkey "ç" fzf-cd-widget
 {{- if .spin }}
 # Spin's /tmp directory is borked for some reason immediately as zsh is loading.
 # Putting the process to sleep seems to allow spin enough time to fix /tmp so p10k can do its setup correctly
-command sleep 1
+command sleep 10
 {{- end }}
 
 [ -f ~/.zsh/powerlevel10k/powerlevel10k.zsh-theme ] && source ~/.zsh/powerlevel10k/powerlevel10k.zsh-theme
