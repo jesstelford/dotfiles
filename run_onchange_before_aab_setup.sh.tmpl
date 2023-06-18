@@ -819,6 +819,11 @@ install_pico8() (
   {{- if (eq .chezmoi.os "darwin") }}
     unzip {{ $pico8zip }} -d /tmp
     mv /tmp/pico-8/PICO-8.app /Applications/
+    sudo tee -a /usr/local/bin/pico8 > /dev/null <<EOF
+#!/usr/bin/env bash
+/Applications/PICO-8.app/Contents/MacOS/pico8 "\$@"
+EOF
+    sudo chmod a+x /usr/local/bin/pico8
   {{- else if (eq .chezmoi.os "linux") }}
     sudo unzip {{ $pico8zip }} -d /usr/lib
     sudo chmod a+x /usr/lib/pico-8/pico8
