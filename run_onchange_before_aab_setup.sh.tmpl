@@ -88,7 +88,7 @@ runner() {
   # immediately from the function if anything errors.
   #
   # Usage:
-  # install_dmg https://bahoom.com/hyperswitch/HyperSwitch.dmg HyperSwitch.app
+  # install_dmg https://referrals.brave.com/latest/Brave-Browser.dmg
   install_dmg() (
     set -e
     STRATEGY="${2:-app}"
@@ -850,13 +850,14 @@ runner install_rectangle
 {{- end }}
 
 {{- if .islocalenv }}
-# HyperSwitch window switcher for OSX
+# AltTab window switcher for OSX
 {{- if (eq .chezmoi.os "darwin") }}
-install_hyperswitch() (
+install_alttab() (
   set -e
-  install_dmg https://bahoom.com/hyperswitch/HyperSwitch.dmg
+  brew install --cask alt-tab
+  brew install alt-tab
 )
-runner install_hyperswitch
+runner install_alttab
 {{- end }}
 {{- end }}
 
