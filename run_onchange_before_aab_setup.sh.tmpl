@@ -1054,6 +1054,9 @@ configure_macos() (
   defaults write com.googlecode.iterm2 LoadPrefsFromCustomFolder -bool true
   defaults write com.googlecode.iterm2 PrefsCustomFolder -string "~/.config/iterm2"
 
+  # Get rid of the annoying blue arrow on Sonoma which insists capslocks is on when it's not
+  mkdir -p /Library/Preferences/FeatureFlags/Domains
+  defaults write /Library/Preferences/FeatureFlags/Domain/UIKit redesigned_text_cursor:Enabled -bool false
 
   # Now that we're done, turn software updates back on
   sudo softwareupdate --schedule ON
