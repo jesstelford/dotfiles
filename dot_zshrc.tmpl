@@ -11,6 +11,10 @@ fi
 
 fpath=( "$HOME/.zsh/site-functions" $fpath )
 fpath=( "$HOME/.zsh_functions" $fpath )
+{{- if (eq .chezmoi.os "darwin") }}
+# Autocompletions supplied by homebrew
+fpath=( "/opt/homebrew/share/zsh/site-functions" $fpath )
+{{- end }}
 
 # Enable auto complete
 autoload -Uz compinit && compinit
