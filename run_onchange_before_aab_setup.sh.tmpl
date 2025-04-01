@@ -498,11 +498,11 @@ export NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" || pr
 install_node() (
   set -e
 {{- if .spin }}
-  nvm install v16
-  nvm alias default v16
+  nvm install v22
+  nvm alias default v22
 {{- else }}
-  $HOME/.fnm/fnm install v16
-  $HOME/.fnm/fnm default v16
+  $HOME/.fnm/fnm install v22
+  $HOME/.fnm/fnm default v22
 {{- end }}
 )
 runner install_node
@@ -618,9 +618,9 @@ install_lua_lsp() (
   {{- if (eq .chezmoi.os "darwin") }}
     brew install lua-language-server
   {{- else if (eq .chezmoi.os "linux") }}
-    wget --no-verbose https://github.com/sumneko/lua-language-server/releases/download/2.5.5/lua-language-server-2.5.5-linux-x64.tar.gz
+    wget --no-verbose https://github.com/LuaLS/lua-language-server/releases/download/3.13.9/lua-language-server-3.13.9-linux-x64.tar.gz
     sudo mkdir -p /usr/local/lib/lua-language-server
-    sudo tar xzf lua-language-server-2.5.5-linux-x64.tar.gz -C /usr/local/lib/lua-language-server
+    sudo tar xzf lua-language-server-3.13.9-linux-x64.tar.gz -C /usr/local/lib/lua-language-server
     sudo chmod a+x /usr/local/lib/lua-language-server/bin/lua-language-server
     sudo chmod a+w -R /usr/local/lib/lua-language-server
     sudo rm -f /usr/local/bin/lua-language-server
