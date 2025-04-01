@@ -635,6 +635,13 @@ install_prettierd() (
 )
 runner install_prettierd
 
+# For neovim TreeSitter support
+install_tree_sitter() (
+  set -e
+  yarn global add tree-sitter-cli --silent
+)
+runner install_tree_sitter
+
 {{- if (eq .chezmoi.os "darwin") }}
 # Keypress visualiser
 install_keycastr() (
