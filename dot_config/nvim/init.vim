@@ -276,7 +276,7 @@ local runtime_path = vim.split(package.path, ';')
 table.insert(runtime_path, "lua/?.lua")
 table.insert(runtime_path, "lua/?/init.lua")
 
-require'lspconfig'.sumneko_lua.setup {
+require'lspconfig'["lua_ls"].setup {
   settings = {
     Lua = {
       runtime = {
@@ -327,7 +327,7 @@ local yarnGlobalBinDir = string.gsub(
 )
 
 -- Requires a tsconfig.json or jsconfig.json in the root of your project.
-require'lspconfig'.tsserver.setup{
+require'lspconfig'["ts_ls"].setup{
   -- Forcibly use the globally installed `tsserver` version.
   -- Otherwise, this will use... some other version? Even if there's not a
   -- version installed in the local node_modules it somehow manages to find one
