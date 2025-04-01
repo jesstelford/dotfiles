@@ -69,7 +69,6 @@ lua <<EOF
 -- NOTE: Sets the colorscheme, so we do this config first, then later we choose
 -- which colorscheme we actually want.
 require('github-theme').setup {
-  theme_style = "dark",
   -- Disable italics on keywords
   keyword_style = "NONE",
 }
