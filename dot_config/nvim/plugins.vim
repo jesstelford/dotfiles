@@ -82,7 +82,6 @@ Plug 'fatih/vim-go', { 'commit': 'dcefd64', 'do': ':GoUpdateBinaries', 'frozen':
 Plug 'rebelot/kanagawa.nvim', { 'commit': 'dda1b8c' }
 Plug 'b0o/SchemaStore.nvim', { 'commit': '0a3f765' }
 Plug 'JoosepAlviste/nvim-ts-context-commentstring', { 'commit': '8834375' }
-Plug 'karb94/neoscroll.nvim', { 'commit': '07242b9' }
 " PICO8 syntax, indent, sprite colour, and folding support
 " Add `-- vim: set ft=pico8:` to .lua files to have them highlighted (mostly)
 " correctly
