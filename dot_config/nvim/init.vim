@@ -161,10 +161,7 @@ require'nvim-treesitter.configs'.setup {
     disable = {},
   },
 
-  -- To support nvim-ts-context-commentstring
-  context_commentstring = {
-    enable = true
-  }
+  -- nvim-ts-context-commentstring support is setup automatically
 }
 EOF
 " -----------------------
