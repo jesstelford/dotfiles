@@ -206,8 +206,8 @@ require'lspconfig'.cssls.setup {
   root_dir = util.root_pattern('.git', 'yarn.lock', 'package-lock.json'),
   on_attach = function(client)
     -- Let null-ls handle the formatting with the faster prettierd
-    client.resolved_capabilities.document_formatting = false
-    client.resolved_capabilities.document_range_formatting = false
+    client.server_capabilities.documentFormattingProvider = false
+    client.server_capabilities.documentRangeFormattingProvider = false
   end,
 }
 
@@ -239,8 +239,8 @@ require'lspconfig'.graphql.setup{
   ),
   on_attach = function(client)
     -- Let null-ls handle the formatting with the faster prettierd
-    client.resolved_capabilities.document_formatting = false
-    client.resolved_capabilities.document_range_formatting = false
+    client.server_capabilities.documentFormattingProvider = false
+    client.server_capabilities.documentRangeFormattingProvider = false
   end,
 }
 
@@ -250,8 +250,8 @@ require'lspconfig'.html.setup {
   root_dir = util.root_pattern('.git', 'yarn.lock', 'package-lock.json'),
   on_attach = function(client)
     -- Let null-ls handle the formatting with the faster prettierd
-    client.resolved_capabilities.document_formatting = false
-    client.resolved_capabilities.document_range_formatting = false
+    client.server_capabilities.documentFormattingProvider = false
+    client.server_capabilities.documentRangeFormattingProvider = false
   end,
 }
 
@@ -261,8 +261,8 @@ require'lspconfig'.jsonls.setup {
   root_dir = util.root_pattern('.git', 'yarn.lock', 'package-lock.json'),
   on_attach = function(client)
     -- Let null-ls handle the formatting with the faster prettierd
-    client.resolved_capabilities.document_formatting = false
-    client.resolved_capabilities.document_range_formatting = false
+    client.server_capabilities.documentFormattingProvider = false
+    client.server_capabilities.documentRangeFormattingProvider = false
   end,
   settings = {
     json = {
@@ -340,8 +340,8 @@ require'lspconfig'["ts_ls"].setup{
   init_options = require("nvim-lsp-ts-utils").init_options,
   on_attach = function(client)
     -- Let null-ls handle the formatting with the faster prettierd
-    client.resolved_capabilities.document_formatting = false
-    client.resolved_capabilities.document_range_formatting = false
+    client.server_capabilities.documentFormattingProvider = false
+    client.server_capabilities.documentRangeFormattingProvider = false
 
     local ts_utils = require("nvim-lsp-ts-utils")
     ts_utils.setup{
@@ -380,8 +380,8 @@ require'lspconfig'.remark_ls.setup {
   end,
   on_attach = function(client)
     -- Let null-ls handle the formatting with the faster prettierd
-    client.resolved_capabilities.document_formatting = false
-    client.resolved_capabilities.document_range_formatting = false
+    client.server_capabilities.documentFormattingProvider = false
+    client.server_capabilities.documentRangeFormattingProvider = false
   end,
 }
 
@@ -448,7 +448,7 @@ require("null-ls").setup({
   -- Support monorepos by not checking for `package.json`s, instead check for `.git` or `yarn.lock`
   --root_dir = util.root_pattern('.git', 'yarn.lock', 'package-lock.json'),
   on_attach = function(client)
-    if client.resolved_capabilities.document_formatting then
+    if client.server_capabilities.documentFormattingProvider then
       vim.cmd([[
         augroup LspFormatting
           autocmd! * <buffer>
