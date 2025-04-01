@@ -676,12 +676,13 @@ nmap <leader>d <cmd>Telescope lsp_definitions<cr>
 nmap <leader>f <cmd>Telescope find_files<cr>
 nmap <leader>s <cmd>Telescope live_grep<cr>
 " Show all diagnostics on current line in floating window
-nnoremap <silent>? <cmd>lua require'lspsaga.diagnostic'.show_line_diagnostics()<CR>
+nnoremap <silent>? <cmd>lua require('lspsaga.diagnostic.show'):show_diagnostics({ line = true })<CR>
 " Show documentation on the current method / variable / etc
 nnoremap <silent>K <cmd>Lspsaga hover_doc<cr>
 " Trigger code actions for the current line / range
-nnoremap <silent><leader>ca <cmd>lua require('lspsaga.codeaction').code_action()<CR>
-vnoremap <silent><leader>ca :<C-U>lua require('lspsaga.codeaction').range_code_action()<CR>
+nnoremap <silent><leader>ca <cmd>lua require('lspsaga.codeaction'):code_action()<CR>
+" TODO: Figure out how to pass a range
+"vnoremap <silent><leader>ca :<C-U>lua require('lspsaga.codeaction'):range_code_action()<CR>
 " Rename symbol with lsp. Also mapped to <F2>
 nnoremap <silent>gr <cmd>Lspsaga rename<cr>
 " Open definition in a float window
