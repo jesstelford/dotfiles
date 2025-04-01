@@ -470,8 +470,6 @@ require("lsp-colors").setup {}
 require('gitsigns').setup {}
 --require('nvim-ts-autotag').setup {}
 require('nvim-tree').setup {
-  -- Create new files within a closed folder when that folder is under cursor
-  create_in_closed_folder = true,
   -- Keep nvim-tree up to date with cwd always to avoid accidentally running
   -- commands in the wrong directory, etc.
   sync_root_with_cwd = true,
