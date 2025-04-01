@@ -409,7 +409,7 @@ for type, icon in pairs(signs) do
 end
 
 -- lspsaga for nicer diagnostics and other commands
-require'lspsaga'.init_lsp_saga{
+require'lspsaga'.setup{
   code_action_keys = {
     quit = "<esc>",
   },
