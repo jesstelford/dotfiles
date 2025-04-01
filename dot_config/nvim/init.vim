@@ -464,7 +464,8 @@ EOF
 " ------------
 
 lua <<EOF
-require("indent_blankline").setup {}
+-- "ibl" === "indent_blankline"
+require("ibl").setup {}
 require("lsp-colors").setup {}
 require('gitsigns').setup {}
 --require('nvim-ts-autotag').setup {}
