@@ -119,9 +119,9 @@ optional_runner() {
   install_dmg() (
     set -e
     STRATEGY="${2:-app}"
-    wget --no-verbose $1 -O /tmp/installer.dmg
+    wget --no-verbose $1 -O ~/installer.dmg
     # Mount the .dmg and capture the directory it mounted to
-    MOUNTDIR=$(echo `hdiutil mount /tmp/installer.dmg | tail -1 | awk '{$1=$2=""; print $0}'` | xargs -0 echo)
+    MOUNTDIR=$(echo `hdiutil mount ~/installer.dmg | tail -1 | awk '{$1=$2=""; print $0}'` | xargs -0 echo)
     case "$STRATEGY" in
     "app")
       # Copy out the .app file to /Applications
@@ -134,7 +134,7 @@ optional_runner() {
     esac
     # Cleanup
     hdiutil unmount "$MOUNTDIR"
-    rm -f /tmp/installer.dmg
+    rm -f ~/installer.dmg
   )
 {{- end }}
 
