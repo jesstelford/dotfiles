@@ -23,7 +23,8 @@ echo "Installed brew"
 {{- end }}
 
 op update
-op account add --address my.1password.com --email {{ .opemail | quote }}
-eval $(op signin --account my)
+# Login to 1Password CLI ('op')
+#op account add --address my.1password.com --email {{ .opemail | quote }}
+#eval $(op signin --account my)
 echo "Installed 1Password"
 {{- end }}
