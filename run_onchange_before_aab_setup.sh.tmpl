@@ -44,6 +44,33 @@ runner() {
   [[ $? -eq 0 ]] && echo "✅ $1" || echo "❌ $1"
 }
 
+optional_runner() {
+  echo ""
+  read -p "[Optional] Run $1? y/n: " x;
+
+  if [ $x = "y" ]; then
+    echo "Running $1..."
+  
+    # 1. $@ is all the arguments passed to this function
+    # 2. Executing "$@" will execute it like a command to bash. Ie; if the
+    #    arguments are [echo "foo"], it will execute `echo "foo"`
+    "$@"
+  
+    # 1. This next line depends on the function being executed: It must be a
+    #    sub-shell ie; some_func() ( ... ). Notice the '(' instead of '{'. This is
+    #    to ensure we can call `set -e` within that subshell, causing it to return
+    #    with an exit code.
+    # 2. The exit code is stored in the $? variable.
+    # 3. If the command succeeded, the exit code ($?) will be 0, so we print the
+    #    tick
+    # 4. If the command failed, the exit code ($?) will be non-0, so we print the
+    #    cross, AND the output we captured above.
+    [[ $? -eq 0 ]] && echo "✅ $1" || echo "❌ $1"
+  else
+    echo "⚠️  Skipped $1"
+  fi
+}
+
 {{- /* Use for doing different things on different machines
 
 {{- if not .islocalenv }}
@@ -339,7 +366,7 @@ install_alacritty() (
     gsettings set org.gnome.desktop.default-applications.terminal exec 'alacritty'
   {{- end }}
 )
-runner install_alacritty
+optional_runner install_alacritty
 {{- end }}
 
 {{- if .islocalenv }}
@@ -373,7 +400,7 @@ install_roam_research() (
     apt_get install ./roam-research_{{ $roamversion }}_amd64.deb
   {{- end }}
 )
-runner install_roam_research
+optional_runner install_roam_research
 {{- end }}
 
 {{- if .islocalenv }}
@@ -705,7 +732,7 @@ install_mongodb() (
     # upgrade to the next version etc. :(
   {{- end }}
 )
-runner install_mongodb
+optional_runner install_mongodb
 {{- end }}
 
 {{- if .islocalenv }}
@@ -720,7 +747,7 @@ install_dbeaver() (
     apt_get install ./dbeaver-ce_22.1.0_amd64.deb
   {{- end }}
 )
-runner install_dbeaver
+optional_runner install_dbeaver
 {{- end }}
 
 # golang
@@ -748,7 +775,7 @@ install_one_password_desktop() (
     sudo snap install 1password --edge
   {{- end }}
 )
-runner install_one_password_desktop
+optional_runner install_one_password_desktop
 {{- end }}
 
 {{- if .islocalenv }}
@@ -762,7 +789,7 @@ install_pdftk() (
     apt_get install pdftk
   {{- end }}
 )
-runner install_pdftk
+optional_runner install_pdftk
 {{- end }}
 
 {{- if .islocalenv }}
@@ -797,7 +824,7 @@ install_signal() (
     apt_get update && apt_get install signal-desktop
   {{- end }}
 )
-runner install_signal
+optional_runner install_signal
 {{- end }}
 
 {{- if .islocalenv }}
@@ -842,7 +869,7 @@ EOF
   mkdir -p {{ .chezmoi.homeDir }}/dev/pico-8/cdata
   {{- end }}
 )
-runner install_pico8
+optional_runner install_pico8
 {{- end }}
 
 {{- if .islocalenv }}
@@ -904,7 +931,7 @@ install_discord() (
     apt_get install ./discord-0.0.18.deb
   {{- end }}
 )
-runner install_discord
+optional_runner install_discord
 {{- end }}
 
 {{- if .islocalenv }}
@@ -949,7 +976,7 @@ EOF
     sudo chmod a+x /usr/local/bin/wally
   {{- end }}
 )
-runner install_moonlander
+optional_runner install_moonlander
 {{- end }}
 
 {{- if .islocalenv }}
@@ -967,7 +994,7 @@ install_mkcert() (
     sudo ln -s /usr/local/bin/mkcert-v1.4.4-linux-amd64 /usr/local/bin/mkcert
   {{- end }}
 )
-runner install_mkcert
+optional_runner install_mkcert
 {{- end }}
 
 {{- if .islocalenv }}
