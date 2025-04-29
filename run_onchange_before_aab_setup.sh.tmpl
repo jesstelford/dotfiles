@@ -828,6 +828,51 @@ optional_runner install_signal
 {{- end }}
 
 {{- if .islocalenv }}
+# PICO-8
+install_pico8() (
+  set -e
+  {{- if .codespaces }}
+    # Not on Codespaces
+  {{- else }}
+
+  {{- $pico8platform := "" }}
+  {{- if (eq .chezmoi.os "darwin") }}
+    {{- $pico8platform = "osx" }}
+  {{- else if (eq .chezmoi.os "linux") }}
+    {{- $pico8platform = "linux64" }}
+  {{- end }}
+
+  # Get credentials out of 1password
+  {{- $itchCredentials := onepasswordDetailsFields "kz6tex4nh5fx7a2kvohdx6tt4e" }}
+  {{- $pico8zip := "/tmp/pico-8.zip" }}
+
+  # Download the binary
+  npx --package=playwright@~1.21.0 --yes -c 'dir=$(dirname `which playwright`)/../..; cp scripts/install-pico8.js $dir; cd $dir; DEST_FILE={{- $pico8zip }} USERNAME={{- $itchCredentials.username.value }} PASSWORD={{- $itchCredentials.password.value }} PLATFORM={{- $pico8platform }} node install-pico8.js'
+
+  # Install it
+  {{- if (eq .chezmoi.os "darwin") }}
+    unzip {{ $pico8zip }} -d /tmp
+    mv /tmp/pico-8/PICO-8.app /Applications/
+    sudo tee -a /usr/local/bin/pico8 > /dev/null <<EOF
+#!/usr/bin/env bash
+/Applications/PICO-8.app/Contents/MacOS/pico8 "\$@"
+EOF
+    sudo chmod a+x /usr/local/bin/pico8
+  {{- else if (eq .chezmoi.os "linux") }}
+    sudo unzip {{ $pico8zip }} -d /usr/lib
+    sudo chmod a+x /usr/lib/pico-8/pico8
+    sudo ln -s /usr/lib/pico-8/pico8 /usr/local/bin/pico8
+  {{- end }}
+
+  # Setup the cart & save data directories
+  mkdir -p {{ .chezmoi.homeDir }}/dev/pico-8/carts
+  mkdir -p {{ .chezmoi.homeDir }}/dev/pico-8/cdata
+  {{- end }}
+)
+optional_runner install_pico8
+{{- end }}
+
+{{- if .islocalenv }}
 # Rectangle window manager for OSX
 {{- if (eq .chezmoi.os "darwin") }}
 install_rectangle() (
