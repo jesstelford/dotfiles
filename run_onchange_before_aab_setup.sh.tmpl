@@ -436,14 +436,16 @@ install_fonts() (
   mkdir -p fonts
 
   # Lato Font (for RoamResearch theme)
-  curl 'https://fonts.google.com/download?family=Lato' -sSLo lato-font.zip
-  unzip lato-font.zip -d fonts
-  rm lato-font.zip
+  open 'https://fonts.google.com/download?family=Lato'
+  read -p "Once download complete, press y: " x;
+  unzip ~/Downloads/Lato.zip -d ./fonts
+  rm ~/Downloads/Lato.zip
 
   # Open Sans Font (for RoamResearch theme)
-  curl 'https://fonts.google.com/download?family=Open%20Sans' -sSLo open-sans-font.zip
-  unzip open-sans-font.zip -d fonts
-  rm open-sans-font.zip
+  open 'https://fonts.google.com/download?family=Open%20Sans'
+  read -p "Once download complete, press y: " x;
+  unzip ~/Downloads/Open_Sans.zip -d ./fonts
+  rm ~/Downloads/Open_Sans.zip
 
   # InputMono Font
   curl "https://input.djr.com/build/?fontSelection=whole&a=0&g=0&i=0&l=0&zero=0&asterisk=0&braces=0&preset=default&line-height=1.2&accept=I+do&email=" -sSLo InputMono-Font.zip 
@@ -461,10 +463,10 @@ install_fonts() (
     brew install woff2 sfnt2woff eot-utils
 
     # Patch the fonts
-    find fonts/ -maxdepth 1 -name 'InputMono*.ttf' | parallel -j $(nproc) /Applications/FontForge.app/Contents/MacOS/FontForge -script font-patcher --no-progressbars --careful --complete --outputdir fonts/InputMono-NerdFont {} \;
+    find fonts/ -maxdepth 1 -name 'InputMono*.ttf' | parallel -j $(nproc) /Applications/FontForge.app/Contents/MacOS/FontForge -script font-patcher --no-progressbars --careful --complete --makegroups 0 --outputdir fonts/InputMono-NerdFont {} \;
   {{- else if (eq .chezmoi.os "linux") }}
     # Patch the fonts
-    find fonts/ -maxdepth 1 -name 'InputMono*.ttf' | parallel -j $(nproc) fontforge -script font-patcher --no-progressbars --careful --complete --outputdir fonts/InputMono-NerdFont {} \;
+    find fonts/ -maxdepth 1 -name 'InputMono*.ttf' | parallel -j $(nproc) fontforge -script font-patcher --no-progressbars --careful --complete --makegroups 0 --outputdir fonts/InputMono-NerdFont {} \;
   {{- end }}
 
   {{- if (eq .chezmoi.os "linux") }}
