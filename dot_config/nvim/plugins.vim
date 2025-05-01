@@ -37,13 +37,13 @@ Plug 'moll/vim-node', { 'commit': 'ede0477' }
 " TODO: Find a modern version of this
 "Plug 'myusuf3/numbers.vim', { 'commit': '1867e76' }
 Plug 'NLKNguyen/papercolor-theme', { 'commit': '5465702' }
-Plug 'neovim/nvim-lspconfig', { 'commit': '48e59a4' }
+Plug 'neovim/nvim-lspconfig', { 'commit': 'd1bab4c' }
 Plug 'nvim-lua/plenary.nvim', { 'commit': '0d66015' }
 Plug 'nvim-lualine/lualine.nvim', { 'commit': '181b143' }
 Plug 'nvim-telescope/telescope.nvim', { 'commit': '1a72a92' }
 " Add fzf as the sorter for telescope
 Plug 'nvim-telescope/telescope-fzf-native.nvim', { 'commit': '8ec164b', 'do': 'make' }
-Plug 'nvim-treesitter/nvim-treesitter', { 'commit': '9e8749f', 'do': ':TSUpdate' }
+Plug 'nvim-treesitter/nvim-treesitter', { 'commit': '94ea4f4', 'do': ':TSUpdate' }
 Plug 'Pamplemousse/badWords', { 'commit': '467f330' }
 Plug 'projekt0n/github-nvim-theme', { 'commit': 'a0632f9' }
 " required by ellisonleao/gruvbox.nvim
@@ -80,7 +80,8 @@ Plug 'glepnir/lspsaga.nvim', { 'commit': 'f33bc99' }
 Plug 'fatih/vim-go', { 'commit': 'dcefd64', 'do': ':GoUpdateBinaries', 'frozen': 1 }
 Plug 'rebelot/kanagawa.nvim', { 'commit': 'dda1b8c' }
 Plug 'b0o/SchemaStore.nvim', { 'commit': '0a3f765' }
-Plug 'JoosepAlviste/nvim-ts-context-commentstring', { 'commit': '8834375' }
+" Disabled because it's causing a 'loop' error with nvim-treesitter
+"Plug 'JoosepAlviste/nvim-ts-context-commentstring', { 'commit': '1b212c2' }
 " Depends on plenary & neovim/nvim-lspconfig
 Plug 'pmizio/typescript-tools.nvim'
 " PICO8 syntax, indent, sprite colour, and folding support

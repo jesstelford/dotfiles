@@ -541,7 +541,7 @@ install_yarn() (
   set -e
   npm install --global yarn
 )
-runner install_yarn
+optional_runner install_yarn
 
 # powerlevel10k
 install_powerlevel10k() (
@@ -608,37 +608,37 @@ runner install_delta
 # Diagnostic Languageserver (lsp for prettier, eslint, etc)
 install_diagnostic_lsp() (
   set -e
-  yarn global add diagnostic-languageserver --silent
+  npm install -g diagnostic-languageserver --silent
 )
 runner install_diagnostic_lsp
 
 install_vscode_lsp() (
   set -e
-  yarn global add vscode-langservers-extracted --silent
+  npm install -g vscode-langservers-extracted --silent
 )
 runner install_vscode_lsp
 
 install_graphql_lsp() (
   set -e
-  yarn global add graphql-language-service-cli --silent
+  npm install -g graphql-language-service-cli --silent
 )
 runner install_graphql_lsp
 
 install_tailwind_lsp() (
   set -e
-  yarn global add @tailwindcss/language-server --silent
+  npm install -g @tailwindcss/language-server --silent
 )
 runner install_tailwind_lsp
 
 install_typescript_lsp() (
   set -e
-  yarn global add typescript typescript-language-server --silent
+  npm install -g typescript typescript-language-server --silent
 )
 runner install_typescript_lsp
 
 install_remark_lsp() (
   set -e
-  yarn global add remark-language-server --silent
+  npm install -g remark-language-server --silent
 )
 runner install_remark_lsp
 
@@ -660,14 +660,14 @@ runner install_lua_lsp
 
 install_prettierd() (
   set -e
-  yarn global add @fsouza/prettierd --silent
+  npm install -g @fsouza/prettierd --silent
 )
 runner install_prettierd
 
 # For neovim TreeSitter support
 install_tree_sitter() (
   set -e
-  yarn global add tree-sitter-cli --silent
+  npm install -g tree-sitter-cli --silent
 )
 runner install_tree_sitter
 

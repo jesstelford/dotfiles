@@ -63,21 +63,6 @@ require('kanagawa').setup({
 })
 EOF
 
-" Github
-" ------
-lua <<EOF
--- NOTE: Sets the colorscheme, so we do this config first, then later we choose
--- which colorscheme we actually want.
-require('github-theme').setup {
-  options = {
-    styles = {
-      -- Disable italics on keywords
-      keyword_style = "NONE",
-    }
-  }
-}
-EOF
-
 " Actually set the colorscheme now that it's all configured
 " colorscheme gruvbox
 " colorscheme nightfox
@@ -203,7 +188,7 @@ capabilities.textDocument.completion.completionItem.snippetSupport = true
 require'lspconfig'.cssls.setup {
   capabilities = capabilities,
   -- Support monorepos by not checking for `package.json`s, instead check for `.git` or `yarn.lock`
-  root_dir = util.root_pattern('.git', 'yarn.lock', 'package-lock.json'),
+  root_dir = util.root_pattern('.git', 'yarn.lock', 'package-lock.json', 'pnpm-lock.yaml'),
   on_attach = function(client)
     -- Let null-ls handle the formatting with the faster prettierd
     client.server_capabilities.documentFormattingProvider = false
@@ -223,7 +208,8 @@ require'lspconfig'.eslint.setup{
     '.eslintrc.json',
     '.git',
     'yarn.lock',
-    'package-lock.json'
+    'package-lock.json',
+    'pnpm-lock.yaml'
   ),
 }
 
@@ -235,7 +221,8 @@ require'lspconfig'.graphql.setup{
     'graphql.config.*',
     '.git',
     'yarn.lock',
-    'package-lock.json'
+    'package-lock.json',
+    'pnpm-lock.yaml'
   ),
   on_attach = function(client)
     -- Let null-ls handle the formatting with the faster prettierd
@@ -247,7 +234,7 @@ require'lspconfig'.graphql.setup{
 require'lspconfig'.html.setup {
   capabilities = capabilities,
   -- Support monorepos by not checking for `package.json`s, instead check for `.git` or `yarn.lock`
-  root_dir = util.root_pattern('.git', 'yarn.lock', 'package-lock.json'),
+  root_dir = util.root_pattern('.git', 'yarn.lock', 'package-lock.json', 'pnpm-lock.yaml'),
   on_attach = function(client)
     -- Let null-ls handle the formatting with the faster prettierd
     client.server_capabilities.documentFormattingProvider = false
@@ -258,7 +245,7 @@ require'lspconfig'.html.setup {
 require'lspconfig'.jsonls.setup {
   capabilities = capabilities,
   -- Support monorepos by not checking for `package.json`s, instead check for `.git` or `yarn.lock`
-  root_dir = util.root_pattern('.git', 'yarn.lock', 'package-lock.json'),
+  root_dir = util.root_pattern('.git', 'yarn.lock', 'package-lock.json', 'pnpm-lock.yaml'),
   on_attach = function(client)
     -- Let null-ls handle the formatting with the faster prettierd
     client.server_capabilities.documentFormattingProvider = false
@@ -300,7 +287,7 @@ require'lspconfig'["lua_ls"].setup {
     },
   },
   -- Support monorepos by not checking for `package.json`s, instead check for `.git` or `yarn.lock`
-  root_dir = util.root_pattern('.git', 'yarn.lock', 'package-lock.json'),
+  root_dir = util.root_pattern('.git', 'yarn.lock', 'package-lock.json', 'pnpm-lock.yaml'),
 }
 
 require'lspconfig'.tailwindcss.setup{
@@ -312,19 +299,20 @@ require'lspconfig'.tailwindcss.setup{
         'postcss.config.ts',
         '.git',
         'yarn.lock',
-        'package-lock.json'
+        'package-lock.json',
+        'pnpm-lock.yaml'
       )(fname)
   end,
 }
 
--- Get the global yarn bin directory
-local yarnGlobalBinDir = string.gsub(
-  -- Get the global yarn bin dir, but it includes a trailing `\n`
-  vim.fn.system('yarn global bin'),
+-- Get the global npm bin directory
+local npmGlobalBinDir = string.gsub(
+  -- Get the global npm bin dir, but it includes a trailing `\n`
+  vim.fn.system('npm config -g get prefix'),
   -- So we match against the contents with leading/trailing spaces stripped
   '^%s*(.-)%s*$',
   '%1'
-)
+) .. '/bin'
 
 -- Requires a tsconfig.json or jsconfig.json in the root of your project.
 require'lspconfig'["ts_ls"].setup{
@@ -335,7 +323,7 @@ require'lspconfig'["ts_ls"].setup{
   cmd = {
     'typescript-language-server',
     '--stdio',
-    '--tsserver-path='..yarnGlobalBinDir..'/tsserver'
+    '--tsserver-path='..npmGlobalBinDir..'/tsserver'
   },
   init_options = require("nvim-lsp-ts-utils").init_options,
   on_attach = function(client)
@@ -354,7 +342,7 @@ require'lspconfig'["ts_ls"].setup{
   root_dir = function(fname)
     return util.root_pattern('tsconfig.json')(fname)
       or util.root_pattern('jsconfig.json')(fname)
-      or util.root_pattern('.git', 'yarn.lock', 'package-lock.json')(fname)
+      or util.root_pattern('.git', 'yarn.lock', 'package-lock.json', 'pnpm-lock.yaml')(fname)
   end,
 }
 
@@ -446,7 +434,7 @@ require("null-ls").setup({
     }),
   },
   -- Support monorepos by not checking for `package.json`s, instead check for `.git` or `yarn.lock`
-  --root_dir = util.root_pattern('.git', 'yarn.lock', 'package-lock.json'),
+  --root_dir = util.root_pattern('.git', 'yarn.lock', 'package-lock.json', 'pnpm-lock.yaml'),
   on_attach = function(client)
     if client.server_capabilities.documentFormattingProvider then
       vim.cmd([[
