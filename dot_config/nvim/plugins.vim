@@ -44,7 +44,6 @@ Plug 'nvim-telescope/telescope.nvim', { 'commit': '1a72a92' }
 " Add fzf as the sorter for telescope
 Plug 'nvim-telescope/telescope-fzf-native.nvim', { 'commit': '8ec164b', 'do': 'make' }
 Plug 'nvim-treesitter/nvim-treesitter', { 'commit': '9e8749f', 'do': ':TSUpdate' }
-Plug 'nvim-treesitter/playground', { 'commit': '9df82a2' }
 Plug 'Pamplemousse/badWords', { 'commit': '467f330' }
 Plug 'projekt0n/github-nvim-theme', { 'commit': 'a0632f9' }
 " required by ellisonleao/gruvbox.nvim

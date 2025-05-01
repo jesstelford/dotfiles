@@ -550,12 +550,6 @@ require('telescope').setup {
     }
   }
 }
-
--- require "nvim-treesitter.configs".setup {
---   playground = {
---     enable = true,
---   }
--- }
 EOF
 
 set grepprg=rg
