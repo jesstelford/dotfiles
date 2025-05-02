@@ -242,31 +242,15 @@ install_neovim() (
   sudo rm -f /usr/local/bin/nvim
   sudo tee -a /usr/local/bin/nvim > /dev/null <<EOF
 #!/usr/bin/env bash
-# Auto-load sessions when starting nvim
-# Requires https://github.com/tpope/vim-obsession
 if test \$# -gt 0; then
   # Explicitly set the terminal here so nvim knows its running inside {{ $term }}
   # (necessary when running inside tmux)
   TERM={{ $term }} {{ $nvimbinary }} "\$@"
-elif test -f Session.vim; then
-  TERM={{ $term }} {{ $nvimbinary }} -S
 else
-  TERM={{ $term }} {{ $nvimbinary }} -c Obsession
+  TERM={{ $term }} {{ $nvimbinary }}
 fi
 EOF
   sudo chmod a+x /usr/local/bin/nvim
-
-  echo "Installing vim-plug"
-  # Install vim-plug
-  nvim -es -u NONE -i NONE -c "source {{ .chezmoi.sourceDir }}/scripts/install-vim-plug.vim" -c "qa"
-  echo "vim-plug installed"
-
-  echo "Installing neovim plugins"
-  # Install plugins
-  # NOTE: We reference the plugin script via the chezmoi directyory. Necessary
-  # because this script is run before chezmoi copies dotfiles.
-  nvim -es -u NONE -i NONE -c "source {{ .chezmoi.sourceDir }}/dot_config/nvim/plugins.vim" -c "PlugInstall --sync" -c "qa"
-  echo "neovim plugins installed"
 )
 runner install_neovim
 
@@ -541,7 +525,7 @@ install_yarn() (
   set -e
   npm install --global yarn
 )
-runner install_yarn
+optional_runner install_yarn
 
 # powerlevel10k
 install_powerlevel10k() (
@@ -608,37 +592,37 @@ runner install_delta
 # Diagnostic Languageserver (lsp for prettier, eslint, etc)
 install_diagnostic_lsp() (
   set -e
-  yarn global add diagnostic-languageserver --silent
+  npm install -g diagnostic-languageserver --silent
 )
 runner install_diagnostic_lsp
 
 install_vscode_lsp() (
   set -e
-  yarn global add vscode-langservers-extracted --silent
+  npm install -g vscode-langservers-extracted --silent
 )
 runner install_vscode_lsp
 
 install_graphql_lsp() (
   set -e
-  yarn global add graphql-language-service-cli --silent
+  npm install -g graphql-language-service-cli --silent
 )
 runner install_graphql_lsp
 
 install_tailwind_lsp() (
   set -e
-  yarn global add @tailwindcss/language-server --silent
+  npm install -g @tailwindcss/language-server --silent
 )
 runner install_tailwind_lsp
 
 install_typescript_lsp() (
   set -e
-  yarn global add typescript typescript-language-server --silent
+  npm install -g typescript typescript-language-server --silent
 )
 runner install_typescript_lsp
 
 install_remark_lsp() (
   set -e
-  yarn global add remark-language-server --silent
+  npm install -g remark-language-server --silent
 )
 runner install_remark_lsp
 
@@ -660,16 +644,23 @@ runner install_lua_lsp
 
 install_prettierd() (
   set -e
-  yarn global add @fsouza/prettierd --silent
+  npm install -g @fsouza/prettierd --silent
 )
 runner install_prettierd
 
 # For neovim TreeSitter support
 install_tree_sitter() (
   set -e
-  yarn global add tree-sitter-cli --silent
+  npm install -g tree-sitter-cli --silent
 )
 runner install_tree_sitter
+
+# For neovim support in lazyvim (or something, not sure tbh)
+install_neovim_npm() (
+  set -e
+  npm install -g neovim --silent
+)
+runner install_neovim_npm
 
 {{- if (eq .chezmoi.os "darwin") }}
 # Keypress visualiser
