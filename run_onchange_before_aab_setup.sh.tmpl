@@ -1085,6 +1085,11 @@ configure_macos() (
   mkdir -p /Library/Preferences/FeatureFlags/Domains
   defaults write /Library/Preferences/FeatureFlags/Domain/UIKit redesigned_text_cursor:Enabled -bool false
 
+  # Don't autoconnect to Bluetooth headphones (MacOS aggressively steals Bluetooth source from my phone),
+  # but still allow manual connection to audio devices, and auto connection to keyboard / mouse / etc.
+  # See: https://apple.stackexchange.com/a/226169
+  defaults write /Library/Preferences/com.apple.Bluetooth.plist DontPageAudioDevices 1
+
   # Now that we're done, turn software updates back on
   sudo softwareupdate --schedule ON
 )
