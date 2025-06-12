@@ -589,6 +589,24 @@ install_delta() (
 )
 runner install_delta
 
+# uv (python package manager)
+install_uv() (
+  set -e
+  {{- if (eq .chezmoi.os "darwin") }}
+    brew install uv
+  {{- else if (eq .chezmoi.os "linux") }}
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+  {{- end }}
+)
+runner install_uv
+
+# vectorcode (Used by codecompanion AI LLM plugin in Neovim)
+install_vectorcode() (
+  set -e
+  uv tool install "vectorcode[lsp,mcp]"
+)
+optional_runner install_vectorcode
+
 # Diagnostic Languageserver (lsp for prettier, eslint, etc)
 install_diagnostic_lsp() (
   set -e
