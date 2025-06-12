@@ -24,8 +24,8 @@ sh -c "$(curl -fsLS git.io/chezmoi)" -- init --apply jesstelford
 ### Tell Chezmoi about changes
 
 1. Edit the file (eg; `echo "echo 'hi'" >> ~/.zshrc`)
-2. Show what's changed: `chezmoi diff -r -x scripts` (_NOTE: diff is inversed_)
-3. Add the changes to chezmoi: `chezmoi add ~/.zshrc ~/.foo`
+2. Show diff of what's changed: `chezmoi diff --recursive --exclude scripts --reverse`
+3. Add the changes to chezmoi: `chezmoi add -p $(chezmoi diff --recursive --exclude scripts --reverse | lsdiff | cut -c2- | sed -e 's/^/~/' | tr '\n' ' ')`
    - Automatically pushes the changes to this repo
 
 ### Update machine with latest from chezmoi
