@@ -145,7 +145,7 @@ return {
 
   {
     -- Stop autocompleting brackets, quotes, etc
-    { "echasnovski/mini.pairs", enabled = false },
+    { "nvim-mini/mini.pairs", enabled = false },
   },
 
   -- Use diffview for git merge conflicts

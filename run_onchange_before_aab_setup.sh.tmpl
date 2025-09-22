@@ -669,13 +669,6 @@ install_prettierd() (
 )
 runner install_prettierd
 
-# For neovim TreeSitter support
-install_tree_sitter() (
-  set -e
-  npm install -g tree-sitter-cli --silent
-)
-runner install_tree_sitter
-
 # For neovim support in lazyvim (or something, not sure tbh)
 install_neovim_npm() (
   set -e
