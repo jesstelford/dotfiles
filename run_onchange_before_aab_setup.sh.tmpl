@@ -205,29 +205,32 @@ runner install_fzf
 install_neovim() (
   set -e
   {{- $nvimbinary := "" }}
+  {{- $nvimversion := "0.11.4" }}
   {{- if (eq .chezmoi.os "darwin") }}
-    if [ ! -d "/usr/local/nvim-osx64-0.11.0" ]; then
-      wget --no-verbose https://github.com/neovim/neovim/releases/download/v0.11.0/nvim-macos-arm64.tar.gz
+    if [ ! -d "/usr/local/nvim-osx64-{{ $nvimversion }}" ]; then
+      wget --no-verbose https://github.com/neovim/neovim/releases/download/v{{ $nvimversion }}/nvim-macos-arm64.tar.gz
+      # to avoid "unknown developer" warning
+      xattr -c ./nvim-macos-arm64.tar.gz
       tar xzvf nvim-macos-arm64.tar.gz
-      sudo mv ./nvim-macos-arm64 /usr/local/nvim-osx64-0.11.0
+      sudo mv ./nvim-macos-arm64 /usr/local/nvim-osx64-{{ $nvimversion }}
     fi
-    {{- $nvimbinary = "/usr/local/nvim-osx64-0.11.0/bin/nvim" }}
+    {{- $nvimbinary = "/usr/local/nvim-osx64-{{ $nvimversion }}/bin/nvim" }}
   {{- else if (eq .chezmoi.os "linux") }}
     {{- if .spin }}
-      if [ ! -d "/usr/local/bin/nvim-0.7.0" ]; then
-        wget --no-verbose https://github.com/neovim/neovim/releases/download/v0.11.0/nvim-linux-arm64.appimage
+      if [ ! -d "/usr/local/bin/nvim-{{ $nvimversion }}" ]; then
+        wget --no-verbose https://github.com/neovim/neovim/releases/download/v{{ $nvimversion }}/nvim-linux-arm64.appimage
         {{- /* spin does not have fuse, so extract the image ready for use */}}
         sudo chmod a+x ./nvim-linux-arm64.appimage
         ./nvim-linux-arm64.appimage --appimage-extract 1>/dev/null
-        sudo mv ./squashfs-root /usr/local/bin/nvim-0.11.0
+        sudo mv ./squashfs-root /usr/local/bin/nvim-{{ $nvimversion }}
       fi
-      {{- $nvimbinary = "/usr/local/bin/nvim-0.11.0/usr/bin/nvim" }}
+      {{- $nvimbinary = "/usr/local/bin/nvim-{{ $nvimversion }}/usr/bin/nvim" }}
     {{- else }}
-      if [ ! -f "/usr/local/bin/nvim-0.11.0.appimage" ]; then
-        wget --no-verbose https://github.com/neovim/neovim/releases/download/v0.11.0/nvim-linux-arm64.appimage
-        sudo mv nvim-linux-arm64.appimage /usr/local/bin/nvim-0.11.0.appimage
+      if [ ! -f "/usr/local/bin/nvim-{{ $nvimversion }}.appimage" ]; then
+        wget --no-verbose https://github.com/neovim/neovim/releases/download/v{{ $nvimversion }}/nvim-linux-arm64.appimage
+        sudo mv nvim-linux-arm64.appimage /usr/local/bin/nvim-{{ $nvimversion }}.appimage
       fi
-      {{- $nvimbinary = "/usr/local/bin/nvim-0.11.0.appimage" }}
+      {{- $nvimbinary = "/usr/local/bin/nvim-{{ $nvimversion }}.appimage" }}
     {{- end }}
   {{- end }}
 
