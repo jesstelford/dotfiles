@@ -176,6 +176,18 @@ install_zsh() (
 )
 runner install_zsh
 
+# Add git absorb command: https://github.com/tummychow/git-absorb
+install_git_absorb() (
+  set -e
+  # Install it
+  {{- if (eq .chezmoi.os "darwin") }}
+    brew install git-absorb
+  {{- else if (eq .chezmoi.os "linux") }}
+    apt_get install git-absorb
+  {{- end }}
+)
+runner install_git_absorb
+
 # rg / ripgrep
 install_ripgrep() (
   set -e
