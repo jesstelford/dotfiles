@@ -566,6 +566,16 @@ install_tmux() (
 )
 runner install_tmux
 
+# cmux
+install_cmux() (
+  set -e
+  {{- if (eq .chezmoi.os "darwin") }}
+    brew tap manaflow-ai/cmux
+    brew install --cask cmux
+  {{- end }}
+)
+runner install_cmux
+
 # bat
 install_bat() (
   set -e
