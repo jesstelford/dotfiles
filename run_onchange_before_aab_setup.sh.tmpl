@@ -360,6 +360,9 @@ install_alacritty() (
   # Shell completion
   mkdir -p $HOME/.zsh_functions
   cp extra/completions/_alacritty $HOME/.zsh_functions/_alacritty
+  {{- if (eq .chezmoi.os "darwin") }}
+    # Use Alacritty as default terminal
+    defaults write com.apple.LaunchServices/com.apple.launchservices.secure LSHandlers -array-add '{LSHandlerContentType="public.command-script"; LSHandlerRoleAll="io.alacritty";}'
   {{- if (eq .chezmoi.os "linux") }}
     # Use Alacritty as default terminal (Ctrl + Alt + T)
     gsettings set org.gnome.desktop.default-applications.terminal exec 'alacritty'
