@@ -27,7 +27,7 @@ return {
       return {
         strategies = {
           chat = {
-            adapter = "copilot",
+            adapter = "anthropic",
           },
           tools = {
             opts = {
@@ -42,6 +42,13 @@ return {
           },
         },
         adapters = {
+          anthropic = function()
+            return require("codecompanion.adapters").extend("anthropic", {
+              env = {
+                api_key = "cmd:op read op://Employee/Anthropic/credential --no-newline",
+              },
+            })
+          end,
           gemini = function()
             return require("codecompanion.adapters").extend("gemini", {
               env = {
@@ -168,4 +175,19 @@ return {
 
   -- Stop changing how Markdown looks
   { "MeanderingProgrammer/render-markdown.nvim", enabled = false },
+
+  -- Claude Code <-> Neovim bridge: share selection/diff context with a running
+  -- Claude Code terminal session. Keys are capitalised to coexist with the
+  -- lowercase <leader>a CopilotChat mappings from the ai.copilot extra.
+  {
+    "coder/claudecode.nvim",
+    dependencies = { "folke/snacks.nvim" },
+    config = true,
+    keys = {
+      { "<leader>aC", "<cmd>ClaudeCode<cr>", desc = "Toggle Claude Code" },
+      { "<leader>aF", "<cmd>ClaudeCodeFocus<cr>", desc = "Focus Claude Code" },
+      { "<leader>aA", "<cmd>ClaudeCodeAdd %<cr>", desc = "Add current buffer to Claude Code" },
+      { "<leader>aS", "<cmd>ClaudeCodeSend<cr>", mode = "v", desc = "Send selection to Claude Code" },
+    },
+  },
 }
