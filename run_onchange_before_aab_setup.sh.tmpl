@@ -624,6 +624,19 @@ install_bat() (
 )
 runner install_bat
 
+# eza (modern ls replacement; the `ls` alias falls back to system ls if absent)
+install_eza() (
+  set -e
+  {{- if (eq .chezmoi.os "darwin") }}
+    brew install eza
+  {{- else if (eq .chezmoi.os "linux") }}
+    # eza is in apt on Ubuntu 24.04+; on older releases this fails harmlessly
+    # and the ls alias falls back to system ls
+    apt_get install eza
+  {{- end }}
+)
+runner install_eza
+
 # fd
 install_fd() (
   set -e
