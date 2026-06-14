@@ -16,8 +16,16 @@ fpath=( "$HOME/.zsh_functions" $fpath )
 fpath=( "/opt/homebrew/share/zsh/site-functions" $fpath )
 {{- end }}
 
-# Enable auto complete
-autoload -Uz compinit && compinit
+# Enable auto complete.
+# Only rebuild the completion dump (and run the slow security audit) once a day;
+# otherwise load the cached dump with `compinit -C`. This keeps shell startup
+# fast since compinit would otherwise rescan all of fpath on every launch.
+autoload -Uz compinit
+if [[ -n ${HOME}/.zcompdump(#qN.mh+24) ]]; then
+  compinit
+else
+  compinit -C
+fi
 
 [ -f $HOME/.zsh_aliases ] && source $HOME/.zsh_aliases
 
