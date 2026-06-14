@@ -8,10 +8,8 @@ fi
 alias ls="ls -hAl ${colorflag}"
 alias fif='find ./ -type f -iname'
 alias fid='find ./ -type d -iname'
-alias ack='ack-grep'
 alias tmux="TERM=screen-256color-bce tmux"
 alias recent='for k in `git branch|sed s/^..//`;do echo -e `git log -1 --pretty=format:"%Cgreen%ci %Cblue%cr%Creset" "$k"`\\t"$k";done|sort'
-alias ag='ag --pager="less" --hidden --ignore ".git"'
 alias rgv='rg --no-ignore-vcs --hidden --glob "!**/.git"'
 
 
