@@ -202,14 +202,22 @@ runner install_ripgrep
 # fzf
 install_fzf() (
   set -e
-  if [ -d "$HOME/.fzf" ]; then
-    cd "$HOME/.fzf"
-    git pull
-    cd -
-  else
-    git clone --depth 1 https://github.com/junegunn/fzf.git "$HOME/.fzf"
-  fi
-  "$HOME/.fzf/install" --no-bash --no-fish --no-update-rc
+  {{- if (eq .chezmoi.os "darwin") }}
+    # brew puts fzf on PATH and keeps it current; shell integration comes from
+    # `fzf --zsh` (sourced in .zshrc)
+    brew install fzf
+  {{- else }}
+    if [ -d "$HOME/.fzf" ]; then
+      cd "$HOME/.fzf"
+      git pull
+      cd -
+    else
+      git clone --depth 1 https://github.com/junegunn/fzf.git "$HOME/.fzf"
+    fi
+    # --bin only fetches the fzf binary into ~/.fzf/bin; no rc-file edits needed
+    # since .zshrc adds it to PATH and sources `fzf --zsh`
+    "$HOME/.fzf/install" --bin
+  {{- end }}
 )
 runner install_fzf
 
