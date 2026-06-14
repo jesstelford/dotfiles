@@ -579,6 +579,18 @@ install_cmux() (
 )
 runner install_cmux
 
+# Claude Code (Anthropic's agentic coding CLI)
+install_claude_code() (
+  set -e
+  {{- if (eq .chezmoi.os "darwin") }}
+    brew install --cask claude-code
+  {{- else if (eq .chezmoi.os "linux") }}
+    # No brew on Linux; use the native installer (auto-updates in the background)
+    curl -fsSL https://claude.ai/install.sh | bash
+  {{- end }}
+)
+runner install_claude_code
+
 # bat
 install_bat() (
   set -e
