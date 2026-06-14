@@ -794,11 +794,16 @@ optional_runner install_dbeaver
 install_golang() (
   set -e
   {{- if (eq .chezmoi.os "darwin") }}
-    wget --no-verbose https://go.dev/dl/go1.18.4.darwin-arm64.pkg
-    open -nW go1.18.4.darwin-arm64.pkg
+    # brew keeps Go current; avoids pinning a pkg URL that rots
+    brew install go
   {{- else if (eq .chezmoi.os "linux") }}
-    wget --no-verbose https://go.dev/dl/go1.18.linux-amd64.tar.gz
-    sudo tar -C /usr/local -xzf go1.18.linux-amd64.tar.gz
+    # Resolve the latest stable Go release so this doesn't rot to a pinned version
+    GO_VERSION="$(curl -fsSL 'https://go.dev/VERSION?m=text' | head -n1)"
+    wget --no-verbose "https://go.dev/dl/${GO_VERSION}.linux-amd64.tar.gz"
+    # Remove any previous install before extracting, per the official upgrade docs
+    sudo rm -rf /usr/local/go
+    sudo tar -C /usr/local -xzf "${GO_VERSION}.linux-amd64.tar.gz"
+    rm -f "${GO_VERSION}.linux-amd64.tar.gz"
   {{- end }}
 )
 runner install_golang
