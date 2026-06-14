@@ -124,6 +124,10 @@ add-zsh-hook chpwd _fnm_autoload_hook &&
 # From: https://github.com/junegunn/fzf/issues/164#issuecomment-581837757
 bindkey "ç" fzf-cd-widget
 
+# Fish-style suggestions from history. Source before syntax-highlighting.
+[ -f ~/.zsh/zsh-autosuggestions/zsh-autosuggestions.zsh ] && source ~/.zsh/zsh-autosuggestions/zsh-autosuggestions.zsh
+
+# NOTE: zsh-syntax-highlighting must be sourced last (after autosuggestions).
 [ -f ~/.zsh/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh ] && source ~/.zsh/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 
 {{- if (eq .chezmoi.os "darwin") }}
