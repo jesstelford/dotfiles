@@ -118,7 +118,11 @@ add-zsh-hook chpwd _fnm_autoload_hook &&
 # END: Auto-switch node versions.
 {{- end }}
 
-[ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
+# Ensure fzf is on PATH (Linux git-clone install location; brew handles macOS)
+[ -d "$HOME/.fzf/bin" ] && export PATH="$HOME/.fzf/bin:$PATH"
+# fzf shell integration (keybindings + completion). Built into fzf >= 0.48,
+# so we no longer need the generated ~/.fzf.zsh snapshot.
+command -v fzf >/dev/null 2>&1 && source <(fzf --zsh)
 
 # Get Alt-c working for FZF (NOTE: Can also Type ESC-c)
 # From: https://github.com/junegunn/fzf/issues/164#issuecomment-581837757
