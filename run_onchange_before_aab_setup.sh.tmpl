@@ -729,8 +729,12 @@ install_gh() (
   {{- if (eq .chezmoi.os "darwin") }}
     brew install gh
   {{- else if (eq .chezmoi.os "linux") }}
-    sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-key C99B11DEB97541F0
-    sudo apt-add-repository --yes https://cli.github.com/packages
+    # apt-key is deprecated/removed on modern Ubuntu; use a signed-by keyring
+    # See: https://github.com/cli/cli/blob/trunk/docs/install_linux.md
+    sudo mkdir -p -m 755 /etc/apt/keyrings
+    wget -qO- https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null
+    sudo chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
     apt_get update
     apt_get install gh
   {{- end }}
@@ -757,9 +761,10 @@ install_mongodb() (
   {{- else if (eq .chezmoi.os "linux") }}
     # From  https://docs.mongodb.com/manual/tutorial/install-mongodb-on-ubuntu/
     apt_get install gnupg
-    wget -qO - https://www.mongodb.org/static/pgp/server-4.4.asc | sudo apt-key add -
+    # apt-key is deprecated/removed on modern Ubuntu; use a signed-by keyring
+    wget -qO - https://www.mongodb.org/static/pgp/server-4.4.asc | sudo gpg --dearmor -o /usr/share/keyrings/mongodb-server-4.4.gpg
     # NOTE: TODO: FIXME: Only for Ubuntu 20.04
-    echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/4.4 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-4.4.list
+    echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-4.4.gpg ] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/4.4 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-4.4.list
     apt_get update
     # Remove system-instaled mongo version
     apt_get remove mongodb-org mongodb-org-tools mongodb-server-core mongo-tools
