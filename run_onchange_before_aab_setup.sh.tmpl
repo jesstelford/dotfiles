@@ -515,7 +515,7 @@ fi
 # nvm (node version manager)
 install_nvm() (
   set -e
-  curl -sSo- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.1/install.sh | bash
+  curl -sSo- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
 )
 runner install_nvm
 
@@ -593,8 +593,8 @@ install_bat() (
   {{- if (eq .chezmoi.os "darwin") }}
     brew install bat
   {{- else if (eq .chezmoi.os "linux") }}
-    wget --no-verbose https://github.com/sharkdp/bat/releases/download/v0.18.0/bat_0.18.0_amd64.deb
-    apt_get install ./bat_0.18.0_amd64.deb
+    wget --no-verbose https://github.com/sharkdp/bat/releases/download/v0.25.0/bat_0.25.0_amd64.deb
+    apt_get install ./bat_0.25.0_amd64.deb
   {{- end }}
 )
 runner install_bat
@@ -619,8 +619,8 @@ install_delta() (
   {{- if (eq .chezmoi.os "darwin") }}
     brew install git-delta
   {{- else if (eq .chezmoi.os "linux") }}
-    wget --no-verbose https://github.com/dandavison/delta/releases/download/0.7.1/git-delta_0.7.1_amd64.deb
-    apt_get install ./git-delta_0.7.1_amd64.deb
+    wget --no-verbose https://github.com/dandavison/delta/releases/download/0.18.2/git-delta_0.18.2_amd64.deb
+    apt_get install ./git-delta_0.18.2_amd64.deb
   {{- end }}
 )
 runner install_delta
@@ -970,10 +970,12 @@ install_discord() (
   {{- if .codespaces }}
     # Not on Codespaces
   {{- else if (eq .chezmoi.os "darwin") }}
-    install_dmg https://dl.discordapp.net/apps/osx/0.0.267/Discord.dmg
+    # Use the "latest" download endpoint so this doesn't pin a stale version
+    install_dmg "https://discord.com/api/download?platform=osx"
   {{- else if (eq .chezmoi.os "linux") }}
-    wget --no-verbose https://dl.discordapp.net/apps/linux/0.0.18/discord-0.0.18.deb
-    apt_get install ./discord-0.0.18.deb
+    # Use the "latest" download endpoint so this doesn't pin a stale version
+    wget --no-verbose -O discord.deb "https://discord.com/api/download?platform=linux&format=deb"
+    apt_get install ./discord.deb
   {{- end }}
 )
 optional_runner install_discord
