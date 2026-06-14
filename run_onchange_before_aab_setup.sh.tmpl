@@ -305,6 +305,19 @@ install_zsh_syntax_highlighting() (
 )
 runner install_zsh_syntax_highlighting
 
+# zsh-autosuggestions (Fish-style history suggestions)
+install_zsh_autosuggestions() (
+  set -e
+  if [ -d "$HOME/.zsh/zsh-autosuggestions" ]; then
+    cd "$HOME/.zsh/zsh-autosuggestions"
+    git pull
+    cd -
+  else
+    git clone https://github.com/zsh-users/zsh-autosuggestions.git $HOME/.zsh/zsh-autosuggestions
+  fi
+)
+runner install_zsh_autosuggestions
+
 {{- if .islocalenv }}
 # rust via rustup
 install_rust() (
