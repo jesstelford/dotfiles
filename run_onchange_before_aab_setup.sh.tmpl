@@ -234,7 +234,9 @@ install_neovim() (
       tar xzvf nvim-macos-arm64.tar.gz
       sudo mv ./nvim-macos-arm64 /usr/local/nvim-osx64-{{ $nvimversion }}
     fi
-    {{- $nvimbinary = "/usr/local/nvim-osx64-{{ $nvimversion }}/bin/nvim" }}
+    {{- /* printf, not a nested "{{ }}" inside the string: template actions are
+           not re-evaluated, so the literal would survive into the script. */}}
+    {{- $nvimbinary = printf "/usr/local/nvim-osx64-%s/bin/nvim" $nvimversion }}
   {{- else if (eq .chezmoi.os "linux") }}
     {{- if .spin }}
       if [ ! -d "/usr/local/bin/nvim-{{ $nvimversion }}" ]; then
@@ -244,13 +246,13 @@ install_neovim() (
         ./nvim-linux-arm64.appimage --appimage-extract 1>/dev/null
         sudo mv ./squashfs-root /usr/local/bin/nvim-{{ $nvimversion }}
       fi
-      {{- $nvimbinary = "/usr/local/bin/nvim-{{ $nvimversion }}/usr/bin/nvim" }}
+      {{- $nvimbinary = printf "/usr/local/bin/nvim-%s/usr/bin/nvim" $nvimversion }}
     {{- else }}
       if [ ! -f "/usr/local/bin/nvim-{{ $nvimversion }}.appimage" ]; then
         wget --no-verbose https://github.com/neovim/neovim/releases/download/v{{ $nvimversion }}/nvim-linux-arm64.appimage
         sudo mv nvim-linux-arm64.appimage /usr/local/bin/nvim-{{ $nvimversion }}.appimage
       fi
-      {{- $nvimbinary = "/usr/local/bin/nvim-{{ $nvimversion }}.appimage" }}
+      {{- $nvimbinary = printf "/usr/local/bin/nvim-%s.appimage" $nvimversion }}
     {{- end }}
   {{- end }}
 
