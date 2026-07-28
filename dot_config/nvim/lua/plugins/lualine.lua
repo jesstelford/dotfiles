@@ -19,11 +19,30 @@ return {
       -- Remove the 'branch' section (I don't find it useful)
       opts.sections.lualine_b = {}
 
-      -- Expand the full path of the current file
-      opts.sections.lualine_c[4] = {
-        LazyVim.lualine.pretty_path({ length = 0 }),
-      }
-      opts.sections.lualine_c[5] = {}
+      -- Expand the full path of the current file.
+      --
+      -- lualine_c belongs to LazyVim, so find its pretty_path component by
+      -- shape rather than by list index: it is the only entry that is a bare
+      -- `{ <function> }`. (root_dir() also wraps a function, but carries `cond`
+      -- and `color`; the rest are string-named builtins.) Assigning to a fixed
+      -- index silently rewrites whatever component happens to sit there the
+      -- moment LazyVim reorders the section.
+      local replaced = false
+      for i, component in ipairs(opts.sections.lualine_c) do
+        if
+          type(component) == "table"
+          and type(component[1]) == "function"
+          and component.cond == nil
+          and component.color == nil
+        then
+          opts.sections.lualine_c[i] = { LazyVim.lualine.pretty_path({ length = 0 }) }
+          replaced = true
+          break
+        end
+      end
+      if not replaced then
+        table.insert(opts.sections.lualine_c, { LazyVim.lualine.pretty_path({ length = 0 }) })
+      end
 
       -- Move the file / diagnostics section to the left
       -- opts.sections.lualine_b = opts.sections.lualine_c

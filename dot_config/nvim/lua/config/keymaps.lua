@@ -3,5 +3,9 @@
 -- Add any additional keymaps here
 
 -- restore Shift-H and Shift-L behaviour of going to Head / Last line
-vim.keymap.del("n", "<S-h>")
-vim.keymap.del("n", "<S-l>")
+--
+-- pcall'd because vim.keymap.del throws E31 on a mapping that isn't there, and
+-- these are LazyVim defaults that may be dropped or renamed upstream at any
+-- point. A missing mapping already means we have what we want.
+pcall(vim.keymap.del, "n", "<S-h>")
+pcall(vim.keymap.del, "n", "<S-l>")
