@@ -12,8 +12,16 @@ fi
 fpath=( "$HOME/.zsh/site-functions" $fpath )
 fpath=( "$HOME/.zsh_functions" $fpath )
 {{- if (eq .chezmoi.os "darwin") }}
-# Autocompletions supplied by homebrew
-fpath=( "/opt/homebrew/share/zsh/site-functions" $fpath )
+# Homebrew's prefix is /opt/homebrew on Apple Silicon but /usr/local on Intel,
+# so probe for it rather than assuming. Used again further down to run
+# `brew shellenv`.
+if [ -x /opt/homebrew/bin/brew ]; then
+  _brew_prefix=/opt/homebrew
+elif [ -x /usr/local/bin/brew ]; then
+  _brew_prefix=/usr/local
+fi
+# Autocompletions supplied by homebrew. Must be set before compinit below.
+[ -n "$_brew_prefix" ] && fpath=( "$_brew_prefix/share/zsh/site-functions" $fpath )
 {{- end }}
 
 # Enable auto complete.
@@ -107,8 +115,9 @@ bindkey "ç" fzf-cd-widget
 [ -f ~/.zsh/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh ] && source ~/.zsh/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 
 {{- if (eq .chezmoi.os "darwin") }}
-# Make homebrew available
-[ -f /opt/homebrew/bin/brew ] && eval "$(/opt/homebrew/bin/brew shellenv)"
+# Make homebrew available ($_brew_prefix is probed near the top of this file)
+[ -n "$_brew_prefix" ] && eval "$("$_brew_prefix/bin/brew" shellenv)"
+unset _brew_prefix
 {{- end }}
 
 # Added by serverless binary installer
