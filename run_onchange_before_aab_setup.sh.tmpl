@@ -3,6 +3,39 @@
 # IMPORTANT: This file must be idempotent because we don't know when/if it'll
 # be re-run.
 
+{{- /*
+  Architecture matrix.
+
+  .chezmoi.arch is Go's GOARCH — "amd64" or "arm64" on every machine this repo
+  targets — and it was previously used nowhere at all. Instead each download
+  hardcoded an architecture, and they disagreed: Neovim assumed arm64 while
+  bat, delta, Go, mkcert, lua-language-server and the apt sources on the very
+  same Linux host assumed amd64, so at least one group was always wrong.
+
+  Three upstream spellings are in play, so derive all of them once, here:
+
+    $arch      amd64  | arm64   dpkg / .deb assets / Go's own tarballs
+    $archnvim  x86_64 | arm64   Neovim release assets
+    $archlua   x64    | arm64   lua-language-server release assets
+
+  A handful of pinned downloads (FontForge 2020, xournalpp 1.1.1, Signal) only
+  ever published an x86_64 build; those are called out individually below with
+  an arch-appropriate fallback rather than being silently wrong.
+*/}}
+{{- $arch := .chezmoi.arch }}
+{{- $archnvim := $arch }}
+{{- $archlua := $arch }}
+{{- if eq $arch "amd64" }}
+{{-   $archnvim = "x86_64" }}
+{{-   $archlua = "x64" }}
+{{- end }}
+
+{{- /* Opening a URL in the desktop browser: `open` is macOS-only */}}
+{{- $open := "open" }}
+{{- if (eq .chezmoi.os "linux") }}
+{{-   $open = "xdg-open" }}
+{{- end }}
+
 # A runner for functions which perform actions, resulting in clean output for
 # successful runs.
 # Usage:
@@ -108,7 +141,16 @@ optional_runner() {
   # Ensure homebrew is available on the path for following commands
   # Necessary because this script is run before chezmoi copies dotfiles
   # (normally this lives in the .bash_profile)
-  eval "$(/opt/homebrew/bin/brew shellenv)"
+  #
+  # Homebrew's prefix is /opt/homebrew on Apple Silicon but /usr/local on Intel,
+  # so probe both. This runs at file scope where there is no `set -e`, so a
+  # wrong guess used to fail silently here and then take down every `brew
+  # install` below it — say so loudly instead.
+  if brew_shellenv="$(/opt/homebrew/bin/brew shellenv 2>/dev/null || /usr/local/bin/brew shellenv 2>/dev/null)"; then
+    eval "$brew_shellenv"
+  else
+    echo "❌ No brew in /opt/homebrew or /usr/local; every brew step below will fail."
+  fi
 
   # Install a .dmg file into the /Applications directory
   # NOTE: This is running as a subshell '(' so we can use 'set -e' to bail
@@ -143,8 +185,18 @@ install_dev_deps() (
   {{- if (eq .chezmoi.os "darwin") }}
     brew install wget git findutils coreutils parallel tree patchutils
   {{- else if (eq .chezmoi.os "linux") }}
+    apt_get update
+    # Baseline tools the rest of this script assumes exist. None of them are
+    # guaranteed on a minimal Ubuntu image or a devcontainer:
+    #   wget                      - how nearly every download below is fetched
+    #   unzip                     - fonts, PICO-8, 1Password
+    #   patchutils                - lsdiff, for parity with the macOS branch
+    #   software-properties-common - add-apt-repository, used on the next line
+    apt_get install wget unzip patchutils software-properties-common
     # latest git
-    sudo add-apt-repository ppa:git-core/ppa
+    # -y because this also runs unattended in CI/codespaces, where the
+    # "press [ENTER] to continue" prompt has no one to answer it.
+    sudo add-apt-repository -y ppa:git-core/ppa
     apt_get update
     apt_get install git
     {{- if .islocalenv }}
@@ -239,19 +291,19 @@ install_neovim() (
   {{- $nvimversion := .versions.nvim }}
   {{- if (eq .chezmoi.os "darwin") }}
     if [ ! -d "/usr/local/nvim-osx64-{{ $nvimversion }}" ]; then
-      wget --no-verbose https://github.com/neovim/neovim/releases/download/v{{ $nvimversion }}/nvim-macos-arm64.tar.gz
+      wget --no-verbose https://github.com/neovim/neovim/releases/download/v{{ $nvimversion }}/nvim-macos-{{ $archnvim }}.tar.gz
       # to avoid "unknown developer" warning
-      xattr -c ./nvim-macos-arm64.tar.gz
-      tar xzvf nvim-macos-arm64.tar.gz
-      sudo mv ./nvim-macos-arm64 /usr/local/nvim-osx64-{{ $nvimversion }}
+      xattr -c ./nvim-macos-{{ $archnvim }}.tar.gz
+      tar xzvf nvim-macos-{{ $archnvim }}.tar.gz
+      sudo mv ./nvim-macos-{{ $archnvim }} /usr/local/nvim-osx64-{{ $nvimversion }}
     fi
     {{- /* printf, not a nested "{{ }}" inside the string: template actions are
            not re-evaluated, so the literal would survive into the script. */}}
     {{- $nvimbinary = printf "/usr/local/nvim-osx64-%s/bin/nvim" $nvimversion }}
   {{- else if (eq .chezmoi.os "linux") }}
     if [ ! -f "/usr/local/bin/nvim-{{ $nvimversion }}.appimage" ]; then
-      wget --no-verbose https://github.com/neovim/neovim/releases/download/v{{ $nvimversion }}/nvim-linux-arm64.appimage
-      sudo mv nvim-linux-arm64.appimage /usr/local/bin/nvim-{{ $nvimversion }}.appimage
+      wget --no-verbose https://github.com/neovim/neovim/releases/download/v{{ $nvimversion }}/nvim-linux-{{ $archnvim }}.appimage
+      sudo mv nvim-linux-{{ $archnvim }}.appimage /usr/local/bin/nvim-{{ $nvimversion }}.appimage
     fi
     {{- $nvimbinary = printf "/usr/local/bin/nvim-%s.appimage" $nvimversion }}
   {{- end }}
@@ -293,7 +345,7 @@ install_brave() (
     # see: https://brave.com/linux/
     apt_get install apt-transport-https curl
     sudo curl -fsSLo /usr/share/keyrings/brave-browser-archive-keyring.gpg https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg
-    echo "deb [signed-by=/usr/share/keyrings/brave-browser-archive-keyring.gpg arch=amd64] https://brave-browser-apt-release.s3.brave.com/ stable main"|sudo tee /etc/apt/sources.list.d/brave-browser-release.list
+    echo "deb [signed-by=/usr/share/keyrings/brave-browser-archive-keyring.gpg arch={{ $arch }}] https://brave-browser-apt-release.s3.brave.com/ stable main"|sudo tee /etc/apt/sources.list.d/brave-browser-release.list
     apt_get update
     apt_get install brave-browser
 
@@ -366,10 +418,16 @@ install_fontforge() (
   {{- if (eq .chezmoi.os "darwin") }}
     install_dmg https://github.com/fontforge/fontforge/releases/download/{{ .versions.fontforge }}/FontForge-{{ .versions.fontforge_build }}.app.dmg
   {{- else if (eq .chezmoi.os "linux") }}
-    wget --no-verbose https://github.com/fontforge/fontforge/releases/download/{{ .versions.fontforge }}/FontForge-{{ .versions.fontforge_build }}-x86_64.AppImage
-    sudo mv FontForge-{{ .versions.fontforge_build }}-x86_64.AppImage /usr/local/bin
-    sudo chmod a+x /usr/local/bin/FontForge-{{ .versions.fontforge_build }}-x86_64.AppImage
-    sudo ln -s /usr/local/bin/FontForge-{{ .versions.fontforge_build }}-x86_64.AppImage /usr/local/bin/fontforge
+    {{- if eq $arch "amd64" }}
+      wget --no-verbose https://github.com/fontforge/fontforge/releases/download/{{ .versions.fontforge }}/FontForge-{{ .versions.fontforge_build }}-x86_64.AppImage
+      sudo mv FontForge-{{ .versions.fontforge_build }}-x86_64.AppImage /usr/local/bin
+      sudo chmod a+x /usr/local/bin/FontForge-{{ .versions.fontforge_build }}-x86_64.AppImage
+      sudo ln -s /usr/local/bin/FontForge-{{ .versions.fontforge_build }}-x86_64.AppImage /usr/local/bin/fontforge
+    {{- else }}
+      # FontForge only ever published an x86_64 AppImage, so on {{ $arch }} use
+      # the distro package. install_fonts just needs a `fontforge` on PATH.
+      apt_get install fontforge
+    {{- end }}
   {{- end }}
 )
 runner install_fontforge
@@ -392,13 +450,15 @@ install_fonts() (
   mkdir -p fonts
 
   # Lato Font (for RoamResearch theme)
-  open 'https://fonts.google.com/download?family=Lato'
+  # NOTE: the opener is templated per-OS: `open` is macOS-only, and this
+  # function used to call it on Linux too, where it aborted the whole step.
+  {{ $open }} 'https://fonts.google.com/download?family=Lato'
   read -p "Once download complete, press y: " x;
   unzip ~/Downloads/Lato.zip -d ./fonts
   rm ~/Downloads/Lato.zip
 
   # Open Sans Font (for RoamResearch theme)
-  open 'https://fonts.google.com/download?family=Open%20Sans'
+  {{ $open }} 'https://fonts.google.com/download?family=Open%20Sans'
   read -p "Once download complete, press y: " x;
   unzip ~/Downloads/Open_Sans.zip -d ./fonts
   rm ~/Downloads/Open_Sans.zip
@@ -445,8 +505,11 @@ install_fonts() (
 runner install_fonts
 {{- end }}
 
-{{- if .islocalenv }}
 # fnm (node version manager)
+#
+# Deliberately NOT gated on .islocalenv: with Spin gone, fnm is the only way
+# node gets installed, and install_node / .zshrc both call it unconditionally.
+# Gating it here is what broke node in codespaces and CI.
 install_fnm() (
   set -e
   curl -fsSL https://fnm.vercel.app/install | bash -s -- --force-install --skip-shell --install-dir $HOME/.fnm
@@ -463,7 +526,6 @@ then
   # can run it in the following commands
   eval "$($HOME/.fnm/fnm env)"
 fi
-{{- end }}
 
 # node
 install_node() (
@@ -494,15 +556,18 @@ install_tmux() (
 )
 runner install_tmux
 
+{{- if .islocalenv }}
+{{- if (eq .chezmoi.os "darwin") }}
 # cmux
+# GUI app: only ever wanted on a real desktop, never in codespaces or CI.
 install_cmux() (
   set -e
-  {{- if (eq .chezmoi.os "darwin") }}
-    brew tap manaflow-ai/cmux
-    brew install --cask cmux
-  {{- end }}
+  brew tap manaflow-ai/cmux
+  brew install --cask cmux
 )
 runner install_cmux
+{{- end }}
+{{- end }}
 
 # Claude Code (Anthropic's agentic coding CLI)
 install_claude_code() (
@@ -518,8 +583,8 @@ install_bat() (
   {{- if (eq .chezmoi.os "darwin") }}
     brew install bat
   {{- else if (eq .chezmoi.os "linux") }}
-    wget --no-verbose https://github.com/sharkdp/bat/releases/download/v{{ .versions.bat }}/bat_{{ .versions.bat }}_amd64.deb
-    apt_get install ./bat_{{ .versions.bat }}_amd64.deb
+    wget --no-verbose https://github.com/sharkdp/bat/releases/download/v{{ .versions.bat }}/bat_{{ .versions.bat }}_{{ $arch }}.deb
+    apt_get install ./bat_{{ .versions.bat }}_{{ $arch }}.deb
   {{- end }}
 )
 runner install_bat
@@ -557,8 +622,8 @@ install_delta() (
   {{- if (eq .chezmoi.os "darwin") }}
     brew install git-delta
   {{- else if (eq .chezmoi.os "linux") }}
-    wget --no-verbose https://github.com/dandavison/delta/releases/download/{{ .versions.delta }}/git-delta_{{ .versions.delta }}_amd64.deb
-    apt_get install ./git-delta_{{ .versions.delta }}_amd64.deb
+    wget --no-verbose https://github.com/dandavison/delta/releases/download/{{ .versions.delta }}/git-delta_{{ .versions.delta }}_{{ $arch }}.deb
+    apt_get install ./git-delta_{{ .versions.delta }}_{{ $arch }}.deb
   {{- end }}
 )
 runner install_delta
@@ -616,9 +681,9 @@ install_lua_lsp() (
   {{- if (eq .chezmoi.os "darwin") }}
     brew install lua-language-server
   {{- else if (eq .chezmoi.os "linux") }}
-    wget --no-verbose https://github.com/LuaLS/lua-language-server/releases/download/{{ .versions.lua_language_server }}/lua-language-server-{{ .versions.lua_language_server }}-linux-x64.tar.gz
+    wget --no-verbose https://github.com/LuaLS/lua-language-server/releases/download/{{ .versions.lua_language_server }}/lua-language-server-{{ .versions.lua_language_server }}-linux-{{ $archlua }}.tar.gz
     sudo mkdir -p /usr/local/lib/lua-language-server
-    sudo tar xzf lua-language-server-{{ .versions.lua_language_server }}-linux-x64.tar.gz -C /usr/local/lib/lua-language-server
+    sudo tar xzf lua-language-server-{{ .versions.lua_language_server }}-linux-{{ $archlua }}.tar.gz -C /usr/local/lib/lua-language-server
     # Only the entrypoint needs to be executable. Do NOT make the tree writable:
     # /usr/local/bin/lua-language-server symlinks in here and Neovim auto-launches
     # it for every .lua file, so a world-writable tree is a local code-exec hole.
@@ -642,13 +707,16 @@ install_neovim_npm() (
 )
 runner install_neovim_npm
 
+{{- if .islocalenv }}
 {{- if (eq .chezmoi.os "darwin") }}
 # Keypress visualiser
+# GUI app: only ever wanted on a real desktop, never in codespaces or CI.
 install_keycastr() (
   set -e
   brew install --cask keycastr
 )
 runner install_keycastr
+{{- end }}
 {{- end }}
 
 {{- if .islocalenv }}
@@ -720,9 +788,12 @@ install_dbeaver() (
   {{- if (eq .chezmoi.os "darwin") }}
     brew install --cask dbeaver-community
   {{- else if (eq .chezmoi.os "linux") }}
-    wget --no-verbose https://github.com/dbeaver/dbeaver/releases/download/{{ .versions.dbeaver }}/dbeaver-ce_{{ .versions.dbeaver }}_amd64.deb
+    # NOTE: this pinned release may not carry an arm64 .deb; if the download
+    # 404s, bump .versions.dbeaver rather than reverting to the amd64 file,
+    # which cannot install on this machine anyway.
+    wget --no-verbose https://github.com/dbeaver/dbeaver/releases/download/{{ .versions.dbeaver }}/dbeaver-ce_{{ .versions.dbeaver }}_{{ $arch }}.deb
     # Install the package
-    apt_get install ./dbeaver-ce_{{ .versions.dbeaver }}_amd64.deb
+    apt_get install ./dbeaver-ce_{{ .versions.dbeaver }}_{{ $arch }}.deb
   {{- end }}
 )
 optional_runner install_dbeaver
@@ -737,11 +808,11 @@ install_golang() (
   {{- else if (eq .chezmoi.os "linux") }}
     # Resolve the latest stable Go release so this doesn't rot to a pinned version
     GO_VERSION="$(curl -fsSL 'https://go.dev/VERSION?m=text' | head -n1)"
-    wget --no-verbose "https://go.dev/dl/${GO_VERSION}.linux-amd64.tar.gz"
+    wget --no-verbose "https://go.dev/dl/${GO_VERSION}.linux-{{ $arch }}.tar.gz"
     # Remove any previous install before extracting, per the official upgrade docs
     sudo rm -rf /usr/local/go
-    sudo tar -C /usr/local -xzf "${GO_VERSION}.linux-amd64.tar.gz"
-    rm -f "${GO_VERSION}.linux-amd64.tar.gz"
+    sudo tar -C /usr/local -xzf "${GO_VERSION}.linux-{{ $arch }}.tar.gz"
+    rm -f "${GO_VERSION}.linux-{{ $arch }}.tar.gz"
   {{- end }}
 )
 runner install_golang
@@ -799,11 +870,17 @@ optional_runner install_pdftk
 # xournal++ (for annotaing pdfs + handwriting notes)
 install_xournal() (
   set -e
+  {{- if eq $arch "amd64" }}
   # Install required deps
   apt_get install libportaudio2 libportaudiocpp0 libzip5
   wget --no-verbose https://github.com/xournalpp/xournalpp/releases/download/v{{ .versions.xournalpp }}/xournalpp-{{ .versions.xournalpp }}-Ubuntu-focal-x86_64.deb
   # Install the package
   apt_get install ./xournalpp-{{ .versions.xournalpp }}-Ubuntu-focal-x86_64.deb
+  {{- else }}
+  # Upstream publishes x86_64 .debs only, so on {{ $arch }} use the distro
+  # package instead of downloading something that cannot be installed.
+  apt_get install xournalpp
+  {{- end }}
 )
 runner install_xournal
 {{- end }}
@@ -818,12 +895,20 @@ install_signal() (
   {{- else if (eq .chezmoi.os "darwin") }}
     install_dmg https://updates.signal.org/desktop/signal-desktop-mac-universal-{{ .versions.signal }}.dmg
   {{- else if (eq .chezmoi.os "linux") }}
+    {{- if ne $arch "amd64" }}
+    # Signal Desktop for Linux is published for amd64 only. Adding the repo
+    # anyway would leave every subsequent `apt update` failing on a missing
+    # {{ $arch }} index, so bail out cleanly instead.
+    echo "Skipping Signal: upstream publishes no Linux {{ $arch }} build."
+    exit 0
+    {{- else }}
     wget -qO- https://updates.signal.org/desktop/apt/keys.asc | gpg --dearmor > signal-desktop-keyring.gpg
     cat signal-desktop-keyring.gpg | sudo tee -a /usr/share/keyrings/signal-desktop-keyring.gpg > /dev/null
- 
-    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/signal-desktop-keyring.gpg] https://updates.signal.org/desktop/apt `lsb_release -cs` main" | sudo tee -a /etc/apt/sources.list.d/signal-`lsb_release -cs`.list
+
+    echo "deb [arch={{ $arch }} signed-by=/usr/share/keyrings/signal-desktop-keyring.gpg] https://updates.signal.org/desktop/apt `lsb_release -cs` main" | sudo tee -a /etc/apt/sources.list.d/signal-`lsb_release -cs`.list
 
     apt_get update && apt_get install signal-desktop
+    {{- end }}
   {{- end }}
 )
 optional_runner install_signal
@@ -1040,10 +1125,10 @@ install_mkcert() (
     brew install nss
   {{- else if (eq .chezmoi.os "linux") }}
     apt_get install libnss3-tools
-    wget --no-verbose https://github.com/FiloSottile/mkcert/releases/download/v{{ .versions.mkcert }}/mkcert-v{{ .versions.mkcert }}-linux-amd64
-    sudo mv mkcert-v{{ .versions.mkcert }}-linux-amd64 /usr/local/bin/
-    sudo chmod a+x /usr/local/bin/mkcert-v{{ .versions.mkcert }}-linux-amd64
-    sudo ln -s /usr/local/bin/mkcert-v{{ .versions.mkcert }}-linux-amd64 /usr/local/bin/mkcert
+    wget --no-verbose https://github.com/FiloSottile/mkcert/releases/download/v{{ .versions.mkcert }}/mkcert-v{{ .versions.mkcert }}-linux-{{ $arch }}
+    sudo mv mkcert-v{{ .versions.mkcert }}-linux-{{ $arch }} /usr/local/bin/
+    sudo chmod a+x /usr/local/bin/mkcert-v{{ .versions.mkcert }}-linux-{{ $arch }}
+    sudo ln -s /usr/local/bin/mkcert-v{{ .versions.mkcert }}-linux-{{ $arch }} /usr/local/bin/mkcert
   {{- end }}
 )
 optional_runner install_mkcert

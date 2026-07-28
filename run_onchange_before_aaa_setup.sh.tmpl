@@ -3,8 +3,10 @@
 # install homebrew
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
-# Ensure it's available on the path
-eval "$(/opt/homebrew/bin/brew shellenv)"
+# Ensure it's available on the path.
+# Homebrew's prefix is /opt/homebrew on Apple Silicon but /usr/local on Intel,
+# so probe both rather than assuming one.
+eval "$(/opt/homebrew/bin/brew shellenv 2>/dev/null || /usr/local/bin/brew shellenv)"
 echo "Installed brew"
 {{- end }}
 
