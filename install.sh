@@ -27,7 +27,7 @@ fi
 script_dir="$(cd -P -- "$(dirname -- "$(command -v -- "$0")")" && pwd -P)"
 
 # +x is to detect an empty env var: https://stackoverflow.com/a/13864829
-if [ -z "${CODESPACES+x}" ] || [ -z "${CI+x}" ] || [ -z "${SPIN+x}" ]; then
+if [ -z "${CODESPACES+x}" ] || [ -z "${CI+x}" ]; then
   # --no-tty because we can't do anything interactive in these environments
   chezmoi_args="--no-tty"
 else

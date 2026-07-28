@@ -74,7 +74,7 @@ optional_runner() {
 {{- /* Use for doing different things on different machines
 
 {{- if not .islocalenv }}
-# Setup for codespaces / CI / spin
+# Setup for codespaces / CI
 {{- else if (eq .chezmoi.os "darwin") }}
 # Setup for MacOS
 {{- else if (eq .chezmoi.os "linux") }}
@@ -143,12 +143,10 @@ install_dev_deps() (
   {{- if (eq .chezmoi.os "darwin") }}
     brew install wget git findutils coreutils parallel tree patchutils
   {{- else if (eq .chezmoi.os "linux") }}
-    {{- if not .spin }}
-      # latest git
-      sudo add-apt-repository ppa:git-core/ppa
-      apt_get update
-      apt_get install git
-    {{- end }}
+    # latest git
+    sudo add-apt-repository ppa:git-core/ppa
+    apt_get update
+    apt_get install git
     {{- if .islocalenv }}
       apt_get install parallel
     {{- end }}
@@ -231,29 +229,14 @@ install_neovim() (
            not re-evaluated, so the literal would survive into the script. */}}
     {{- $nvimbinary = printf "/usr/local/nvim-osx64-%s/bin/nvim" $nvimversion }}
   {{- else if (eq .chezmoi.os "linux") }}
-    {{- if .spin }}
-      if [ ! -d "/usr/local/bin/nvim-{{ $nvimversion }}" ]; then
-        wget --no-verbose https://github.com/neovim/neovim/releases/download/v{{ $nvimversion }}/nvim-linux-arm64.appimage
-        {{- /* spin does not have fuse, so extract the image ready for use */}}
-        sudo chmod a+x ./nvim-linux-arm64.appimage
-        ./nvim-linux-arm64.appimage --appimage-extract 1>/dev/null
-        sudo mv ./squashfs-root /usr/local/bin/nvim-{{ $nvimversion }}
-      fi
-      {{- $nvimbinary = printf "/usr/local/bin/nvim-%s/usr/bin/nvim" $nvimversion }}
-    {{- else }}
-      if [ ! -f "/usr/local/bin/nvim-{{ $nvimversion }}.appimage" ]; then
-        wget --no-verbose https://github.com/neovim/neovim/releases/download/v{{ $nvimversion }}/nvim-linux-arm64.appimage
-        sudo mv nvim-linux-arm64.appimage /usr/local/bin/nvim-{{ $nvimversion }}.appimage
-      fi
-      {{- $nvimbinary = printf "/usr/local/bin/nvim-%s.appimage" $nvimversion }}
-    {{- end }}
+    if [ ! -f "/usr/local/bin/nvim-{{ $nvimversion }}.appimage" ]; then
+      wget --no-verbose https://github.com/neovim/neovim/releases/download/v{{ $nvimversion }}/nvim-linux-arm64.appimage
+      sudo mv nvim-linux-arm64.appimage /usr/local/bin/nvim-{{ $nvimversion }}.appimage
+    fi
+    {{- $nvimbinary = printf "/usr/local/bin/nvim-%s.appimage" $nvimversion }}
   {{- end }}
 
   {{- $term := "alacritty" }}
-  {{- if .spin }}
-    {{- /* Use iTerm2 at Shopify */}}
-    {{- $term = "iterm2" }}
-  {{- end }}
 
   sudo chmod a+x {{ $nvimbinary }}
 
@@ -503,30 +486,11 @@ then
 fi
 {{- end }}
 
-{{- if .spin }}
-# nvm (node version manager)
-install_nvm() (
-  set -e
-  curl -sSo- https://raw.githubusercontent.com/nvm-sh/nvm/v{{ .versions.nvm }}/install.sh | bash
-)
-runner install_nvm
-
-export NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" || printf %s "${XDG_CONFIG_HOME}/nvm")"
-# Load nvm in this shell (can't be in the install_nvm function since that's a
-# subshell)
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-{{- end }}
-
 # node
 install_node() (
   set -e
-{{- if .spin }}
-  nvm install v{{ .versions.node }}
-  nvm alias default v{{ .versions.node }}
-{{- else }}
   $HOME/.fnm/fnm install v{{ .versions.node }}
   $HOME/.fnm/fnm default v{{ .versions.node }}
-{{- end }}
 )
 runner install_node
 
@@ -1191,10 +1155,6 @@ configure_macos() (
   defaults write NSGlobalDomain AppleEnableSwipeNavigateWithScrolls -bool false
   defaults write com.google.Chrome AppleEnableMouseSwipeNavigateWithScrolls -bool false
   defaults write com.google.Chrome AppleEnableSwipeNavigateWithScrolls -bool false
-
-  # Tell iterm2 where to find the config file
-  defaults write com.googlecode.iterm2 LoadPrefsFromCustomFolder -bool true
-  defaults write com.googlecode.iterm2 PrefsCustomFolder -string "~/.config/iterm2"
 
   # Rectangle window manager (installed by install_rectangle above).
   # These used to live as a checked-in ~/Library/Preferences plist, but macOS

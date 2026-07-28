@@ -4,7 +4,7 @@
 {{- /* Interactive setup, so we've prompted for an email address */}}
   email = {{ .gitemail | quote }}
 {{- else }}
-{{- /* GitHub Codespaces & spin should have this set already, and CI doesn't care */}}
+{{- /* GitHub Codespaces should have this set already, and CI doesn't care */}}
 {{- end }}
 [rerere]
   enabled = true
