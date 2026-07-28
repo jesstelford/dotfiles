@@ -32,6 +32,5 @@ Library/
 Library/
 .lexaloffle/
 .config/karabiner/karabiner.json
-.config/alacritty/
 scripts/install-pico8.js
 {{- end }}
