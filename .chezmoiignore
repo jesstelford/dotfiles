@@ -6,6 +6,12 @@ scripts/
 # so we globally ignore it as we never want chezmoi to try use it
 install.sh
 
+# lazy.nvim rewrites this on every `:Lazy update`/`:Lazy sync`, so a managed copy
+# is permanently dirty and would need a manual `chezmoi re-add` after every plugin
+# bump (which, with autoCommit/autoPush on, publishes immediately). A lockfile
+# that is only half-maintained is worse than no lockfile, so leave it unmanaged.
+.config/nvim/lazy-lock.json
+
 {{- if ne .chezmoi.os "darwin" }}
 # OSX only files
 .config/karabiner/karabiner.json

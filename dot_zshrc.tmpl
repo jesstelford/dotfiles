@@ -53,6 +53,9 @@ export PATH="$HOME/.config/yarn/global/node_modules/.bin:$PATH"
 export PATH="/usr/local/opt/python/libexec/bin:$PATH"
 export PATH="/usr/local/go/bin:$PATH"
 export PATH="$HOME/go/bin:$PATH"
+# pipx installs its shims here. Appended (not prepended) so pipx-managed apps
+# never shadow a project-local or version-manager binary of the same name.
+[ -d "$HOME/.local/bin" ] && export PATH="$PATH:$HOME/.local/bin"
 
 export FZF_DEFAULT_COMMAND='rg --files --hidden --glob "!**/node_modules" --glob "!**/.git"'
 # Use nvim for editing, falling back to vi if it can't be found
@@ -142,6 +145,9 @@ bindkey "ç" fzf-cd-widget
 # Added by serverless binary installer
 export PATH="$HOME/.serverless/bin:$PATH"
 
+# bun completions (the -s test is the guard: no bun, no file, no-op)
+[ -s "$HOME/.bun/_bun" ] && source "$HOME/.bun/_bun"
+
 load_p10k() {
   # To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
   [ -f ~/.zsh/powerlevel10k/powerlevel10k.zsh-theme ] && source ~/.zsh/powerlevel10k/powerlevel10k.zsh-theme
@@ -161,4 +167,9 @@ fi
 {{- else }}
 load_p10k
 {{- end }}
+
+# direnv must hook AFTER anything that installs a precmd/prompt (p10k above),
+# otherwise its export hook gets clobbered and .envrc files stop loading.
+command -v direnv >/dev/null 2>&1 && eval "$(direnv hook zsh)"
+
 eval "$(uv generate-shell-completion zsh)"

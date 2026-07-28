@@ -1196,6 +1196,25 @@ configure_macos() (
   defaults write com.googlecode.iterm2 LoadPrefsFromCustomFolder -bool true
   defaults write com.googlecode.iterm2 PrefsCustomFolder -string "~/.config/iterm2"
 
+  # Rectangle window manager (installed by install_rectangle above).
+  # These used to live as a checked-in ~/Library/Preferences plist, but macOS
+  # caches prefs in cfprefsd and rewrites that file whenever Rectangle quits, so
+  # a chezmoi-managed copy could never stay clean. Driving it through `defaults`
+  # is the only stable way. Rectangle has to be stopped first, otherwise it
+  # flushes its own in-memory prefs over the top of ours when it next exits.
+  killall Rectangle 2>/dev/null || true
+  # Spectacle-compatible shortcuts rather than Rectangle's own defaults
+  defaults write com.knollsoft.Rectangle alternateDefaultShortcuts -bool true
+  defaults write com.knollsoft.Rectangle launchOnLogin -bool true
+  # 0 = double-clicking a title bar does nothing (keeps macOS zoom out of the way)
+  defaults write com.knollsoft.Rectangle doubleClickTitleBar -int 0
+  # 3 = repeating the same shortcut cycles through sizes (e.g. 1/2 -> 2/3 -> 1/3)
+  defaults write com.knollsoft.Rectangle subsequentExecutionMode -int 3
+  # modifierFlags 786432 = control+option. keyCode 11 = "b", keyCode 45 = "n".
+  defaults write com.knollsoft.Rectangle toggleTodo -dict keyCode -int 11 modifierFlags -int 786432
+  defaults write com.knollsoft.Rectangle reflowTodo -dict keyCode -int 45 modifierFlags -int 786432
+  open -g -a Rectangle 2>/dev/null || true
+
   # Get rid of the annoying blue arrow on Sonoma which insists capslocks is on when it's not
   mkdir -p /Library/Preferences/FeatureFlags/Domains
   defaults write /Library/Preferences/FeatureFlags/Domain/UIKit redesigned_text_cursor:Enabled -bool false

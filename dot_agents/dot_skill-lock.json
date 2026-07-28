@@ -9,6 +9,105 @@
       "skillFolderHash": "3013fdeb8a11b10b1eb795ec3ae8bfca38f7c26d",
       "installedAt": "2026-03-29T00:30:30.280Z",
       "updatedAt": "2026-03-29T00:30:30.280Z"
+    },
+    "frontend-design": {
+      "source": "pbakaus/impeccable",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/pbakaus/impeccable.git",
+      "skillPath": ".agents/skills/frontend-design/SKILL.md",
+      "skillFolderHash": "f189767c1df18165c019c0354874fe46064d592b",
+      "installedAt": "2026-03-29T02:39:00.225Z",
+      "updatedAt": "2026-03-29T02:39:00.225Z"
+    },
+    "prompt-master": {
+      "source": "nidhinjs/prompt-master",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/nidhinjs/prompt-master.git",
+      "skillPath": "SKILL.md",
+      "skillFolderHash": "292299af9c3239f7cd3f47d887ecbe2c5b92d497",
+      "installedAt": "2026-03-29T03:18:31.740Z",
+      "updatedAt": "2026-03-29T03:18:31.740Z"
+    },
+    "superpowers-backlog": {
+      "source": "jesstelford/superpowers-backlog",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/jesstelford/superpowers-backlog.git",
+      "skillPath": "skills/superpowers-backlog/SKILL.md",
+      "skillFolderHash": "ea665e780719aa584e82692957da5e71709d5a0c",
+      "installedAt": "2026-03-29T04:49:38.700Z",
+      "updatedAt": "2026-03-29T04:49:38.700Z"
+    },
+    "superpowers-backlog-manage": {
+      "source": "jesstelford/superpowers-backlog",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/jesstelford/superpowers-backlog.git",
+      "skillPath": "skills/superpowers-backlog-manage/SKILL.md",
+      "skillFolderHash": "df94d45f765f0b461d5d85195197c16c9129b83b",
+      "installedAt": "2026-03-29T04:49:39.361Z",
+      "updatedAt": "2026-03-29T04:49:39.361Z"
+    },
+    "superpowers-backlog-workflow": {
+      "source": "jesstelford/superpowers-backlog",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/jesstelford/superpowers-backlog.git",
+      "skillPath": "skills/superpowers-backlog-workflow/SKILL.md",
+      "skillFolderHash": "8f4cc79bcedb951b7c4b33df8717d051bd1915fc",
+      "installedAt": "2026-03-29T04:49:39.949Z",
+      "updatedAt": "2026-03-29T04:49:39.949Z"
+    },
+    "caveman-stats": {
+      "source": "JuliusBrussee/caveman",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/JuliusBrussee/caveman.git",
+      "skillPath": "skills/caveman-stats/SKILL.md",
+      "skillFolderHash": "62b175240e2851f0b9be4f279737cbd74ed2e769",
+      "installedAt": "2026-07-04T08:45:32.545Z",
+      "updatedAt": "2026-07-04T08:45:32.545Z"
+    },
+    "caveman-review": {
+      "source": "JuliusBrussee/caveman",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/JuliusBrussee/caveman.git",
+      "skillPath": "skills/caveman-review/SKILL.md",
+      "skillFolderHash": "2d9762b7aec395b9713fde57fb8965bc3bbd2c3f",
+      "installedAt": "2026-07-04T08:45:32.556Z",
+      "updatedAt": "2026-07-04T08:45:32.556Z"
+    },
+    "caveman-help": {
+      "source": "JuliusBrussee/caveman",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/JuliusBrussee/caveman.git",
+      "skillPath": "skills/caveman-help/SKILL.md",
+      "skillFolderHash": "b4f5ebc5f3ce9bfa652996b5161bbe3cc0b88297",
+      "installedAt": "2026-07-04T08:45:32.557Z",
+      "updatedAt": "2026-07-04T08:45:32.557Z"
+    },
+    "caveman-compress": {
+      "source": "JuliusBrussee/caveman",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/JuliusBrussee/caveman.git",
+      "skillPath": "skills/caveman-compress/SKILL.md",
+      "skillFolderHash": "1284ac809fbdaeb9e871f84ee850aebe10c85030",
+      "installedAt": "2026-07-04T08:45:32.557Z",
+      "updatedAt": "2026-07-04T08:45:32.557Z"
+    },
+    "caveman-commit": {
+      "source": "JuliusBrussee/caveman",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/JuliusBrussee/caveman.git",
+      "skillPath": "skills/caveman-commit/SKILL.md",
+      "skillFolderHash": "6ba13fa3503e9607eed8f94828b524510d83b7ef",
+      "installedAt": "2026-07-04T08:45:32.558Z",
+      "updatedAt": "2026-07-04T08:45:32.558Z"
+    },
+    "caveman": {
+      "source": "JuliusBrussee/caveman",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/JuliusBrussee/caveman.git",
+      "skillPath": "skills/caveman/SKILL.md",
+      "skillFolderHash": "166040c027f7764d43df36abc5df0079bfc6394b",
+      "installedAt": "2026-07-04T08:45:32.558Z",
+      "updatedAt": "2026-07-04T08:45:32.558Z"
     }
   },
   "dismissed": {
@@ -17,15 +116,17 @@
   "lastSelectedAgents": [
     "amp",
     "antigravity",
+    "antigravity-cli",
     "cline",
     "codex",
     "cursor",
     "deepagents",
     "gemini-cli",
     "github-copilot",
-    "kimi-cli",
+    "kimi-code-cli",
     "opencode",
     "warp",
+    "zed",
     "claude-code"
   ]
 }
