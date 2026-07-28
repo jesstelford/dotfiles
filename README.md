@@ -54,3 +54,13 @@ scripts.
 1. Get the latest changes: `chezmoi git pull`
 2. See the scripts that will be run: `chezmoi diff -r -i scripts`
 3. Re-run scripts: `chezmoi apply -i scripts`
+
+### Refresh the vendored git checkouts
+
+powerlevel10k, zsh-autosuggestions, zsh-syntax-highlighting and (off macOS)
+`~/.fzf` are declared in `.chezmoiexternal.toml` rather than cloned by the setup
+script. `chezmoi apply` clones whichever are missing and `git pull`s the rest at
+most once a week.
+
+- Pull them now, ignoring that weekly limit: `chezmoi apply -R always`
+- Never touch the network for them: `chezmoi apply -R never`
