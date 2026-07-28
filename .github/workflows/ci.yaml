@@ -4,29 +4,205 @@ on:
   push:
   pull_request:
 
+# Actions hands a job a permissive, write-scoped GITHUB_TOKEN when no
+# `permissions` block is present. Nothing in this workflow writes anything back
+# to GitHub, and the install jobs below run half a dozen `curl | sh` chains as
+# part of what they are testing, so give that token nothing worth stealing. A
+# job that ever genuinely needs more can ask for it locally.
+permissions:
+  contents: read
+
 jobs:
+  # ---------------------------------------------------------------------------
+  # The gate.
+  #
+  # Deliberately first, deliberately cheap (one chezmoi binary, no package
+  # manager, no sudo, seconds rather than minutes) and deliberately blocking
+  # everything else. It exists because a template that did not parse shipped to
+  # a real laptop: every install job below died at `./install.sh: Permission
+  # denied` before chezmoi was ever invoked, so `chezmoi init --apply` had never
+  # once run in CI and nothing was checking the templates at all.
+  #
+  # Go templates are parsed in full but EXECUTED one branch at a time, so a
+  # single render only proves the branches that one environment happens to take.
+  # Two things fan the branches out — the OS, and the three shapes
+  # .chezmoi.toml.tmpl derives from $CI / $CODESPACES — so cover both.
+  # ---------------------------------------------------------------------------
+  templates:
+    name: templates (${{ matrix.os }}, ${{ matrix.shape }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        shape: [local, ci, codespaces]
+        include:
+          # An interactive machine: the promptString branch is taken, so this is
+          # the only shape that renders anything using the answers.
+          - shape: local
+            ci: ''
+            codespaces: ''
+            islocalenv: 'true'
+          - shape: ci
+            ci: 'true'
+            codespaces: ''
+            islocalenv: 'false'
+          - shape: codespaces
+            ci: ''
+            codespaces: 'true'
+            islocalenv: 'false'
+    env:
+      # Actions sets CI=true in every job, so the `local` shape has to blank it
+      # out. .chezmoi.toml.tmpl asks `env "CI" | not | not`, ie; "set AND
+      # non-empty", so an empty string reads there as absent. The assertion step
+      # below fails loudly if that ever stops holding, rather than letting
+      # `local` silently degrade into a second copy of `ci`.
+      CI: ${{ matrix.ci }}
+      CODESPACES: ${{ matrix.codespaces }}
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          # checkout writes the job's GITHUB_TOKEN into .git/config by default,
+          # where anything later in the job can read it back out. No job here
+          # pushes, so don't leave it lying around.
+          persist-credentials: false
+
+      # install.sh was committed 100644, so `./install.sh` failed with
+      # "Permission denied" in every job of the last hundred runs: a hundred
+      # failures, zero successes, and a template parse error that shipped
+      # anyway. The same bit is why Codespaces silently skipped the dotfiles
+      # bootstrap — it runs the first EXECUTABLE candidate it finds and
+      # otherwise moves on without a word.
+      - name: install.sh must be executable
+        run: test -x install.sh
+
+      - name: install.sh must be valid POSIX sh
+        run: sh -n install.sh
+
+      - name: Install chezmoi (the binary only — nothing is applied)
+        run: |
+          set -eu
+          sh -c "$(curl -fsSL https://chezmoi.io/get)" -- -b "$HOME/.local/bin"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      # `init` without `--apply` only writes the config file, and that is
+      # already a real test: it renders .chezmoi.toml.tmpl AND parses the TOML
+      # that comes out, so a template that renders to malformed TOML fails here.
+      #
+      # The --promptString answers stand in for the promptStrings in
+      # .chezmoi.toml.tmpl. Only the `local` shape reaches them. If a prompt is
+      # added or renamed there it must be added here AND in the render step
+      # below, or this job hangs waiting on a TTY it does not have.
+      - name: Generate the config for this shape
+        run: |
+          set -eu
+          chezmoi init --no-tty --source="$PWD" \
+            --promptString "Enter your git email=ci@example.com" \
+            --promptString "Enter your 1password email=ci@example.com" \
+            --promptString "Enter email to display on lock screen=ci@example.com"
+
+      - name: The shape under test must be the shape we asked for
+        run: |
+          set -eu
+          actual="$(chezmoi execute-template '{{ .islocalenv }}')"
+          if [ "$actual" != '${{ matrix.islocalenv }}' ]; then
+            echo "::error::shape '${{ matrix.shape }}' should give islocalenv=${{ matrix.islocalenv }}, got '$actual'. The CI/CODESPACES override is not taking effect, so this leg is not testing what it claims to."
+            exit 1
+          fi
+
+      # .chezmoiignore is always a template to chezmoi despite not being named
+      # .tmpl, so it is listed explicitly alongside the glob. -z / -d '' because
+      # one managed path contains a space.
+      - name: Every template must parse and render
+        run: |
+          set -eu
+          mkdir -p "$RUNNER_TEMP/rendered"
+          git ls-files -z '*.tmpl' .chezmoiignore | while IFS= read -r -d '' t; do
+            dest="$RUNNER_TEMP/rendered/${t%.tmpl}"
+            mkdir -p "$(dirname "$dest")"
+            chezmoi execute-template --init --no-tty \
+              --promptString "Enter your git email=ci@example.com" \
+              --promptString "Enter your 1password email=ci@example.com" \
+              --promptString "Enter email to display on lock screen=ci@example.com" \
+              < "$t" > "$dest" \
+              || { echo "::error file=$t::template failed to render"; exit 1; }
+          done
+
+      # THE check. A Go template does not interpolate inside a Go string
+      # literal, so `{{ $x := "{{ .chezmoi.os }}" }}` passes the braces straight
+      # through into the output. `bash -n` provably cannot catch that, because
+      # `echo {{ .chezmoi.os }}` is perfectly valid bash — only grep notices.
+      # This is the bug class that broke a real machine.
+      - name: No template action may survive into rendered output
+        run: |
+          set -eu
+          if grep -rn '{{' "$RUNNER_TEMP/rendered"; then
+            echo "::error::a template action survived into rendered output (see above). Go templates do not interpolate inside string literals — build the string with printf instead."
+            exit 1
+          fi
+
+      # Runs on macOS too, where /bin/bash is still 3.2, so this doubles as a
+      # check that the scripts stay 3.2-compatible.
+      - name: Rendered shell must be syntactically valid
+        run: |
+          set -eu
+          for f in "$RUNNER_TEMP/rendered"/run_onchange_*.sh; do
+            bash -n "$f" || { echo "::error file=$(basename "$f").tmpl::rendered script is not valid bash"; exit 1; }
+          done
+
+  # ---------------------------------------------------------------------------
+  # The install jobs.
+  #
+  # These are the first runs in this repo's history in which `./install.sh` is
+  # executable, so they are the first in which `chezmoi init --apply` actually
+  # executes rather than dying on the permission bit. Expect them to be slow,
+  # and to surface real pre-existing breakage rather than the flat, meaningless
+  # green they used to show.
+  #
+  # Environment matrix, now that Spin support has been removed from this repo:
+  #
+  #   macOS local | Linux local | Codespaces | CI
+  #
+  # Only the last two are reachable from here, and not even cleanly:
+  # `test-codespaces` is NOT a clean Codespaces cell, because Actions sets
+  # CI=true inside that container too. chezmoi therefore sees CODESPACES *and*
+  # CI and takes the same `islocalenv = false` path as `test-ubuntu`. The two
+  # local shapes are only ever covered by the render gate above, never by a
+  # real apply.
+  # ---------------------------------------------------------------------------
   test-ubuntu:
+    needs: templates
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
       - run: ./install.sh
       - name: chezmoi data
         run: '"$HOME/.local/bin/chezmoi" data'
+
   test-codespaces:
+    needs: templates
     runs-on: ubuntu-latest
     container:
       image: mcr.microsoft.com/vscode/devcontainers/base:ubuntu
       env:
         CODESPACES: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
       - run: ./install.sh
       - name: chezmoi data
         run: '"$HOME/.local/bin/chezmoi" data'
+
   test-macos:
+    needs: templates
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
       - run: ./install.sh
       - name: chezmoi data
         run: '"$HOME/.local/bin/chezmoi" data'
