@@ -186,6 +186,26 @@ install_git_absorb() (
 )
 runner install_git_absorb
 
+# git-lfs
+#
+# .gitconfig declares `[filter "lfs"] required = true`, which makes git hard-fail
+# on any clone of an LFS repo when the git-lfs binary is missing. Install it here
+# rather than leaving it as a manual step.
+#
+# Deliberately no `git lfs install`: that command's only job is to write the
+# `[filter "lfs"]` block into ~/.gitconfig, which is chezmoi-managed and already
+# contains it verbatim. Running it here (this script runs *before* chezmoi writes
+# the dotfiles) would only churn a managed file.
+install_git_lfs() (
+  set -e
+  {{- if (eq .chezmoi.os "darwin") }}
+    brew install git-lfs
+  {{- else if (eq .chezmoi.os "linux") }}
+    apt_get install git-lfs
+  {{- end }}
+)
+runner install_git_lfs
+
 # rg / ripgrep
 install_ripgrep() (
   set -e
@@ -869,7 +889,11 @@ install_pico8() (
   export PASSWORD="$ITCH_PASSWORD"
 
   # Download the binary
-  npx --package=playwright@~{{ .versions.playwright }} --yes -c 'dir=$(dirname `which playwright`)/../..; cp scripts/install-pico8.js $dir; cd $dir; node install-pico8.js'
+  #
+  # The helper is copied from the chezmoi *source* directory, not from $HOME:
+  # .chezmoiignore ignores 'scripts/', so ~/scripts/install-pico8.js has never
+  # existed and the old relative 'scripts/install-pico8.js' could never resolve.
+  npx --package=playwright@~{{ .versions.playwright }} --yes -c 'dir=$(dirname `which playwright`)/../..; cp "{{ .chezmoi.sourceDir }}/scripts/install-pico8.js" "$dir"; cd "$dir"; node install-pico8.js'
 
   # Install it
   {{- if (eq .chezmoi.os "darwin") }}
@@ -1036,6 +1060,12 @@ configure_macos() (
   while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
 
   # While applying any changes to SoftwareUpdate defaults, set software update to OFF to avoid any conflict with the defaults system cache. (Also close the System Preferences app)
+  #
+  # The trap is registered *before* the OFF so the restore is unconditional:
+  # `set -e` means any failing command below aborts this subshell, and without
+  # the trap that left the machine with automatic software updates permanently
+  # disabled. `|| true` keeps a failing restore from masking the real exit code.
+  trap 'sudo softwareupdate --schedule ON || true' EXIT
   sudo softwareupdate --schedule OFF
 
   # Disable guest login
@@ -1127,17 +1157,15 @@ configure_macos() (
   defaults write com.knollsoft.Rectangle reflowTodo -dict keyCode -int 45 modifierFlags -int 786432
   open -g -a Rectangle 2>/dev/null || true
 
-  # Get rid of the annoying blue arrow on Sonoma which insists capslocks is on when it's not
-  mkdir -p /Library/Preferences/FeatureFlags/Domains
-  defaults write /Library/Preferences/FeatureFlags/Domain/UIKit redesigned_text_cursor:Enabled -bool false
-
   # Don't autoconnect to Bluetooth headphones (MacOS aggressively steals Bluetooth source from my phone),
   # but still allow manual connection to audio devices, and auto connection to keyboard / mouse / etc.
   # See: https://apple.stackexchange.com/a/226169
-  defaults write /Library/Preferences/com.apple.Bluetooth.plist DontPageAudioDevices 1
+  #
+  # /Library/Preferences is root-owned, so this needs sudo; without it `defaults`
+  # fails and (under `set -e`) takes the rest of this function with it.
+  sudo defaults write /Library/Preferences/com.apple.Bluetooth.plist DontPageAudioDevices 1
 
-  # Now that we're done, turn software updates back on
-  sudo softwareupdate --schedule ON
+  # Software updates are turned back ON by the EXIT trap registered at the top.
 )
 runner configure_macos
 {{- end }}
@@ -1158,7 +1186,6 @@ echo ""
 echo "Some manual installation steps:"
 echo "  https://1password.com/downloads/#browsers"
 echo "  https://simpl.fyi/gmail"
-echo "  https://github.com/git-lfs/git-lfs/releases/latest"
 echo "  https://github.com/eth-p/bat-extras/blob/master/doc/prettybat.md"
 {{- if (eq .chezmoi.os "darwin") }}
 echo "  Enable Integer Scaling resolution: https://tonsky.me/blog/monitors/#integer-scaling"
