@@ -1,19 +1,15 @@
 {{- /* Detect GitHub Codespaces and store presence in $codespaces */}}
 {{- $codespaces:= env "CODESPACES" | not | not }}
 
-{{- /* Detect Shopify Spin and store presence in $spin */}}
-{{- $spin:= env "SPIN" | not | not }}
-
 {{- /* Detect CI and store presence in $ci */}}
 {{- $ci:= env "CI" | not | not }}
 
 {{- /* When available, provide a better experience when interactive */}}
-{{- $islocalenv:= (and (not $codespaces) (not $ci) (not $spin)) }}
+{{- $islocalenv:= (and (not $codespaces) (not $ci)) }}
 
 [data]
   islocalenv = {{ $islocalenv }}
   codespaces = {{ $codespaces }}
-  spin = {{ $spin }}
   ci = {{ $ci }}
 {{- if $islocalenv }}
 {{- /* promptStringOnce reuses the answer already in the config, so re-running

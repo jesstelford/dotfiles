@@ -67,36 +67,6 @@ export LSCOLORS=gxfxbEaEBxxEhEhBaDaCaD # For OSX ls?
 # Nicer less defaults for our modern terminal
 export LESS='--tabs=2 --chop-long-lines --RAW-CONTROL-CHARS --quit-if-one-screen --no-init'
 
-{{- if .spin }}
-{{- /* Can't use fnm in spin */}}
-# Node version management with nvm
-export NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" || printf %s "${XDG_CONFIG_HOME}/nvm")"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" # This loads nvm
-
-# Automatically call nvm use
-# From: https://github.com/nvm-sh/nvm#calling-nvm-use-automatically-in-a-directory-with-a-nvmrc-file
-autoload -U add-zsh-hook
-load-nvmrc() {
-  local node_version="$(nvm version)"
-  local nvmrc_path="$(nvm_find_nvmrc)"
-
-  if [ -n "$nvmrc_path" ]; then
-    local nvmrc_node_version=$(nvm version "$(cat "${nvmrc_path}")")
-
-    if [ "$nvmrc_node_version" = "N/A" ]; then
-      nvm install
-    elif [ "$nvmrc_node_version" != "$node_version" ]; then
-      nvm use
-    fi
-  elif [ "$node_version" != "$(nvm version default)" ]; then
-    echo "Reverting to nvm default version"
-    nvm use default
-  fi
-}
-add-zsh-hook chpwd load-nvmrc
-load-nvmrc
-
-{{- else }}
 # Node version management with fnm
 export PATH="$HOME/.fnm:$PATH"
 # Output redirected to avoid complaints from powerlevel10k
@@ -119,7 +89,6 @@ _fnm_autoload_hook() {
 add-zsh-hook chpwd _fnm_autoload_hook &&
 	_fnm_autoload_hook >/dev/null 2>&1
 # END: Auto-switch node versions.
-{{- end }}
 
 # Ensure fzf is on PATH (Linux git-clone install location; brew handles macOS)
 [ -d "$HOME/.fzf/bin" ] && export PATH="$HOME/.fzf/bin:$PATH"
@@ -154,19 +123,7 @@ load_p10k() {
   [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
 }
 
-{{- if .spin }}
-# Spin's /tmp directory is borked for some reason immediately as zsh is loading.
-# Putting the process to sleep & respawning seems to allow spin enough time to fix /tmp so p10k can do its setup correctly
-if [[ -f ~/.zsh-firstrun ]]; then
-  load_p10k
-else
-  touch ~/.zsh-firstrun
-  command sleep 1
-  exec zsh
-fi
-{{- else }}
 load_p10k
-{{- end }}
 
 # direnv must hook AFTER anything that installs a precmd/prompt (p10k above),
 # otherwise its export hook gets clobbered and .envrc files stop loading.

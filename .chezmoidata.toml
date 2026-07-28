@@ -13,10 +13,7 @@
 # https://github.com/neovim/neovim/releases
 nvim = "0.11.4"
 
-# https://github.com/nvm-sh/nvm/releases — the bootstrap installer URL
-nvm = "0.40.1"
-
-# Node major version, used as "v<major>" by both fnm and nvm
+# Node major version, used as "v<major>" by fnm
 node = "22"
 
 # https://roamresearch.com desktop app
