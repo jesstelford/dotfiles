@@ -1,0 +1,58 @@
+{{- /* NOTE: .chezmoiexternal.$FORMAT is always rendered as a template, with or
+       without a .tmpl extension. */}}
+# Third-party git checkouts that live in $HOME and are loaded at shell startup.
+#
+# These used to be hand-rolled `if [ -d ]; then git pull; else git clone; fi`
+# blocks in run_onchange_before_aab_setup.sh. As externals they are:
+#
+#   * idempotent by construction — chezmoi clones if missing, pulls if present;
+#   * out of that script's onchange hash, so touching an unrelated install step
+#     no longer re-runs half a dozen `git pull`s;
+#   * refreshable on demand with `chezmoi update`, or
+#     `chezmoi apply --refresh-externals` to ignore refreshPeriod.
+#
+# refreshPeriod only caps how often the *pull* runs; the initial clone always
+# happens. `--ff-only` keeps a diverged checkout a loud failure rather than
+# silently growing a merge commit in a directory nobody edits.
+#
+# Only checkouts that are runtime dependencies belong here — an external is
+# vendored into $HOME forever. Repos that are cloned transiently in order to
+# build something (nerd-fonts, alacritty) deliberately stay in the setup
+# script.
+
+# Sourced by .zshrc as ~/.zsh/powerlevel10k/powerlevel10k.zsh-theme
+[".zsh/powerlevel10k"]
+type = "git-repo"
+url = "https://github.com/romkatv/powerlevel10k.git"
+refreshPeriod = "168h"
+clone.args = ["--depth=1"]
+pull.args = ["--ff-only"]
+
+# Sourced by .zshrc as ~/.zsh/zsh-autosuggestions/zsh-autosuggestions.zsh
+[".zsh/zsh-autosuggestions"]
+type = "git-repo"
+url = "https://github.com/zsh-users/zsh-autosuggestions.git"
+refreshPeriod = "168h"
+clone.args = ["--depth=1"]
+pull.args = ["--ff-only"]
+
+# Sourced by .zshrc as
+# ~/.zsh/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+[".zsh/zsh-syntax-highlighting"]
+type = "git-repo"
+url = "https://github.com/zsh-users/zsh-syntax-highlighting.git"
+refreshPeriod = "168h"
+clone.args = ["--depth=1"]
+pull.args = ["--ff-only"]
+{{ if ne .chezmoi.os "darwin" }}
+# On macOS fzf comes from brew, which puts it on PATH and keeps it current, so
+# there is nothing to vendor. Everywhere else .zshrc expects ~/.fzf/bin on
+# PATH. This repo only provides the checkout; the matching binary is downloaded
+# by run_after_fzf-binary.sh, which has to run *after* this external exists.
+[".fzf"]
+type = "git-repo"
+url = "https://github.com/junegunn/fzf.git"
+refreshPeriod = "168h"
+clone.args = ["--depth=1"]
+pull.args = ["--ff-only"]
+{{- end }}

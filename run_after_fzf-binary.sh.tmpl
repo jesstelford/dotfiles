@@ -1,0 +1,35 @@
+{{- if ne .chezmoi.os "darwin" -}}
+#!/usr/bin/env bash
+
+# Fetch the fzf binary that matches the ~/.fzf checkout.
+#
+# ~/.fzf itself is a git-repo external (see .chezmoiexternal.toml), but the repo
+# only carries the shell integration and this installer — the binary is a
+# separate download.
+#
+# Why this is a run_after_ script rather than part of
+# run_onchange_before_aab_setup.sh:
+#
+#   * git-repo externals are materialised during the main apply pass, which
+#     happens *after* every run_before_ script. An installer invoked from the
+#     before script would not find ~/.fzf on a fresh machine.
+#   * it is deliberately not run_onchange_: the contents never change, so it
+#     would run exactly once ever and the binary would drift out of sync as the
+#     external is pulled forward. Running on every apply is cheap — the fzf
+#     installer compares `~/.fzf/bin/fzf --version` against the version in the
+#     checkout and only hits the network on a mismatch.
+#
+# --bin only fetches the binary into ~/.fzf/bin and edits no rc files; .zshrc
+# puts that directory on PATH and sources `fzf --zsh` for the keybindings and
+# completions.
+
+set -e
+
+if [ ! -x "$HOME/.fzf/install" ]; then
+  echo "⚠️  Skipped fzf binary: ~/.fzf/install is missing, so the .fzf external"
+  echo "   has not been cloned yet. Re-run 'chezmoi apply'."
+  exit 0
+fi
+
+"$HOME/.fzf/install" --bin
+{{- end }}

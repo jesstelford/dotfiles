@@ -199,27 +199,20 @@ install_ripgrep() (
 )
 runner install_ripgrep
 
+{{- if (eq .chezmoi.os "darwin") }}
 # fzf
 install_fzf() (
   set -e
-  {{- if (eq .chezmoi.os "darwin") }}
-    # brew puts fzf on PATH and keeps it current; shell integration comes from
-    # `fzf --zsh` (sourced in .zshrc)
-    brew install fzf
-  {{- else }}
-    if [ -d "$HOME/.fzf" ]; then
-      cd "$HOME/.fzf"
-      git pull
-      cd -
-    else
-      git clone --depth 1 https://github.com/junegunn/fzf.git "$HOME/.fzf"
-    fi
-    # --bin only fetches the fzf binary into ~/.fzf/bin; no rc-file edits needed
-    # since .zshrc adds it to PATH and sources `fzf --zsh`
-    "$HOME/.fzf/install" --bin
-  {{- end }}
+  # brew puts fzf on PATH and keeps it current; shell integration comes from
+  # `fzf --zsh` (sourced in .zshrc)
+  brew install fzf
 )
 runner install_fzf
+{{- else }}
+{{- /* Everywhere else fzf is the ~/.fzf git-repo external in
+       .chezmoiexternal.toml, and run_after_fzf-binary.sh downloads the
+       matching binary once that checkout exists. */}}
+{{- end }}
 
 # neovim
 install_neovim() (
@@ -301,33 +294,9 @@ install_brave() (
 )
 runner install_brave
 {{- end }}
-
-# zsh-syntax-highlighting
-install_zsh_syntax_highlighting() (
-  set -e
-  if [ -d "$HOME/.zsh/zsh-syntax-highlighting" ]; then
-    cd "$HOME/.zsh/zsh-syntax-highlighting"
-    git pull
-    cd -
-  else
-    git clone https://github.com/zsh-users/zsh-syntax-highlighting.git $HOME/.zsh/zsh-syntax-highlighting
-  fi
-)
-runner install_zsh_syntax_highlighting
-
-# zsh-autosuggestions (Fish-style history suggestions)
-install_zsh_autosuggestions() (
-  set -e
-  if [ -d "$HOME/.zsh/zsh-autosuggestions" ]; then
-    cd "$HOME/.zsh/zsh-autosuggestions"
-    git pull
-    cd -
-  else
-    git clone https://github.com/zsh-users/zsh-autosuggestions.git $HOME/.zsh/zsh-autosuggestions
-  fi
-)
-runner install_zsh_autosuggestions
-
+{{/* zsh-syntax-highlighting and zsh-autosuggestions used to be cloned here.
+     They are plain checkouts that .zshrc sources, so they are now git-repo
+     externals in .chezmoiexternal.toml. */}}
 {{- if .islocalenv }}
 # rust via rustup
 install_rust() (
@@ -568,18 +537,8 @@ install_yarn() (
 )
 optional_runner install_yarn
 
-# powerlevel10k
-install_powerlevel10k() (
-  set -e
-  if [ -d "$HOME/.zsh/powerlevel10k" ]; then
-    cd "$HOME/.zsh/powerlevel10k"
-    git pull
-    cd -
-  else
-    git clone --depth=1 https://github.com/romkatv/powerlevel10k.git $HOME/.zsh/powerlevel10k
-  fi
-)
-runner install_powerlevel10k
+{{- /* powerlevel10k used to be cloned here; it is now a git-repo external in
+       .chezmoiexternal.toml. */}}
 
 # tmux
 install_tmux() (
