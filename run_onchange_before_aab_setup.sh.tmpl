@@ -61,6 +61,53 @@
 {{-   $open = "xdg-open" }}
 {{- end }}
 
+# ---------------------------------------------------------------------------
+# Step results.
+#
+# Every install step below is wrapped in `runner` or `optional_runner`, and both
+# used to END on:
+#
+#     [[ $? -eq 0 ]] && echo "✅ $1" || echo "❌ $1"
+#
+# `echo` always succeeds, so the `&&` branch always ran, so BOTH functions
+# always returned 0. There is no top-level `set -e` here and the last statement
+# in this file is an `echo`, so the script as a whole also always exited 0.
+#
+# That is not cosmetic. chezmoi persists a `run_onchange_` script's state entry
+# only when the script exits 0 — so a run where half the steps blew up was
+# recorded as DONE and never retried. The next `chezmoi apply` saw an unchanged
+# script hash, skipped it, and the machine stayed half-provisioned forever with
+# a wall of green ticks in the scrollback.
+#
+# So: capture the status before printing anything (an `echo` clobbers `$?`),
+# print a marker, RETURN the status, remember the name, and exit non-zero at the
+# end of the file if anything failed.
+# ---------------------------------------------------------------------------
+
+# Names of steps that failed / were deliberately skipped, for the summary at the
+# end. Populated by `runner`; these are plain shell arrays, and `runner` is
+# called in the current shell (never a subshell), so the appends stick.
+failed_steps=()
+skipped_steps=()
+
+# The exit status a step uses to say "I deliberately did nothing". It has to be
+# distinct from 0, or a skip renders as a success tick, and distinct from a real
+# failure, or a skip fails the whole run. Several steps below used to `exit 0`
+# after printing a "Skipping ..." message and so were reported as ✅.
+#
+# 90 is outside every range anything here produces: 1-2 are generic shell/usage
+# errors, 64-78 are sysexits.h, 126-165 are "not executable"/"killed by signal".
+step_skipped=90
+
+# Print a reason and end the current step as SKIPPED rather than as a success.
+# Only valid inside a step subshell — `exit` ends that subshell, not the script.
+#
+# Usage: skip "Upstream publishes no linux/arm64 build."
+skip() {
+  echo "$@"
+  exit "$step_skipped"
+}
+
 # A runner for functions which perform actions, resulting in clean output for
 # successful runs.
 # Usage:
@@ -76,12 +123,14 @@
 #   # true
 #   echo "Things have happened"
 # )
-# 
-# # Execute the `example_func` function, buffering output and showing a
-# # success/failure message.
+#
+# # Execute the `example_func` function, showing a success/failure/skipped
+# # message and recording the outcome for the summary at the end of the run.
 # runner example_func "An example argument"
 
 runner() {
+  local status
+
   echo ""
   echo "Running $1..."
 
@@ -90,43 +139,51 @@ runner() {
   #    arguments are [echo "foo"], it will execute `echo "foo"`
   "$@"
 
-  # 1. This next line depends on the function being executed: It must be a
-  #    sub-shell ie; some_func() ( ... ). Notice the '(' instead of '{'. This is
-  #    to ensure we can call `set -e` within that subshell, causing it to return
-  #    with an exit code.
-  # 2. The exit code is stored in the $? variable.
-  # 3. If the command succeeded, the exit code ($?) will be 0, so we print the
-  #    tick
-  # 4. If the command failed, the exit code ($?) will be non-0, so we print the
-  #    cross, AND the output we captured above.
-  [[ $? -eq 0 ]] && echo "✅ $1" || echo "❌ $1"
+  # Grab the status FIRST. It lives in $? and $? is overwritten by the very next
+  # command — including by the `echo` that used to be tested against it.
+  #
+  # This is only meaningful because each step is a subshell, ie; some_func() (
+  # ... ) with '(' instead of '{', which lets the step `set -e` and exit with a
+  # status of its own.
+  status=$?
+
+  case "$status" in
+    0)                 echo "✅ $1" ;;
+    "$step_skipped")   echo "⏭️  Skipped $1"; skipped_steps+=("$1") ;;
+    *)                 echo "❌ $1 (exit $status)"; failed_steps+=("$1") ;;
+  esac
+
+  return "$status"
 }
 
 optional_runner() {
-  echo ""
-  read -p "[Optional] Run $1? y/n: " x;
+  local answer
 
-  if [ $x = "y" ]; then
-    echo "Running $1..."
-  
-    # 1. $@ is all the arguments passed to this function
-    # 2. Executing "$@" will execute it like a command to bash. Ie; if the
-    #    arguments are [echo "foo"], it will execute `echo "foo"`
-    "$@"
-  
-    # 1. This next line depends on the function being executed: It must be a
-    #    sub-shell ie; some_func() ( ... ). Notice the '(' instead of '{'. This is
-    #    to ensure we can call `set -e` within that subshell, causing it to return
-    #    with an exit code.
-    # 2. The exit code is stored in the $? variable.
-    # 3. If the command succeeded, the exit code ($?) will be 0, so we print the
-    #    tick
-    # 4. If the command failed, the exit code ($?) will be non-0, so we print the
-    #    cross, AND the output we captured above.
-    [[ $? -eq 0 ]] && echo "✅ $1" || echo "❌ $1"
-  else
-    echo "⚠️  Skipped $1"
-  fi
+  echo ""
+
+  # -r so a backslash in the answer isn't eaten.
+  #
+  # `|| answer=n` because `read` returns non-zero at EOF, which is what happens
+  # on every single prompt when stdin is /dev/null or a closed pipe (CI, a
+  # non-interactive `chezmoi apply`). Without it the old unquoted
+  # `if [ $x = "y" ]` expanded to `[ = y ]` and printed
+  # "[: =: unary operator expected" — which is also what you got locally just by
+  # pressing Enter.
+  #
+  # The case arm accepts the spellings people actually type; the old test
+  # matched a bare lowercase "y" and nothing else, so "Y" and "yes" were
+  # silently treated as "no".
+  read -r -p "[Optional] Run $1? [y/N]: " answer || answer=n
+
+  case "${answer:-n}" in
+    y | Y | yes | Yes | YES)
+      runner "$@"
+      ;;
+    *)
+      echo "⏭️  Skipped $1 (declined)"
+      skipped_steps+=("$1")
+      ;;
+  esac
 }
 
 # Move the current shell into a fresh, empty, throwaway directory.
@@ -526,8 +583,7 @@ install_roam_research() (
     # The .deb filename here was hardcoded to _amd64 regardless of machine, so
     # on {{ $arch }} this downloaded a package dpkg then refused to install.
     # Upstream published no arm64 build of this release, so say so and stop.
-    echo "Skipping Roam Research: upstream publishes no Linux {{ $arch }} build."
-    exit 0
+    skip "Skipping Roam Research: upstream publishes no Linux {{ $arch }} build."
     {{- else }}
     use_temp_dir
     wget --no-verbose https://roam-electron-deploy.s3.us-east-2.amazonaws.com/roam-research_{{ $roamversion }}_amd64.deb
@@ -1079,8 +1135,7 @@ install_one_password_cli() (
   {{- else if (eq .chezmoi.os "linux") }}
     # The apt repo dance is documented upstream and changes often enough that
     # it's not worth freezing a copy of it here.
-    echo "Install manually: https://developer.1password.com/docs/cli/get-started/"
-    exit 0
+    skip "Install manually: https://developer.1password.com/docs/cli/get-started/"
   {{- end }}
 )
 optional_runner install_one_password_cli
@@ -1153,8 +1208,7 @@ install_signal() (
     # Signal Desktop for Linux is published for amd64 only. Adding the repo
     # anyway would leave every subsequent `apt update` failing on a missing
     # {{ $arch }} index, so bail out cleanly instead.
-    echo "Skipping Signal: upstream publishes no Linux {{ $arch }} build."
-    exit 0
+    skip "Skipping Signal: upstream publishes no Linux {{ $arch }} build."
     {{- else }}
     use_temp_dir
     # Both of these used to be `tee -a`. Appending a second copy of the dearmored
@@ -1210,9 +1264,8 @@ install_pico8() (
   fi
 
   if ! command -v op > /dev/null 2>&1; then
-    echo "Skipping PICO-8: the 1Password CLI ('op') still isn't on PATH, so the"
-    echo "itch.io credentials can't be read."
-    exit 0
+    skip "Skipping PICO-8: the 1Password CLI ('op') still isn't on PATH, so the
+itch.io credentials can't be read."
   fi
 
   # A single fetch doubles as the signed-in check: if the session is locked or
@@ -1226,9 +1279,8 @@ install_pico8() (
   fi
 
   if ! ITCH_USERNAME="$(op item get "$ITCH_ITEM" --fields label=username --reveal 2> /dev/null)"; then
-    echo "Skipping PICO-8: couldn't read the itch.io credentials from 1Password."
-    echo "Run 'op signin' by hand, then re-run 'chezmoi apply'."
-    exit 0
+    skip "Skipping PICO-8: couldn't read the itch.io credentials from 1Password.
+Run 'op signin' by hand, then re-run 'chezmoi apply'."
   fi
   ITCH_PASSWORD="$(op item get "$ITCH_ITEM" --fields label=password --reveal)"
 
@@ -1567,7 +1619,6 @@ fix_zsh_permissions() (
 )
 runner fix_zsh_permissions
 
-echo "🎉 Done!"
 echo ""
 # TODO: How can I automate these?
 echo "Some manual installation steps:"
@@ -1578,5 +1629,25 @@ echo "  https://github.com/eth-p/bat-extras/blob/master/doc/prettybat.md"
 echo "  Enable Integer Scaling resolution: https://tonsky.me/blog/monitors/#integer-scaling"
 echo "  Disable True Tone: https://support.apple.com/en-au/HT208909"
 {{- end }}
+
+if [ "${#skipped_steps[@]}" -gt 0 ]; then
+  echo ""
+  echo "⏭️  Skipped ${#skipped_steps[@]} step(s):"
+  printf '     %s\n' "${skipped_steps[@]}"
+fi
+
+if [ "${#failed_steps[@]}" -gt 0 ]; then
+  echo ""
+  echo "❌ ${#failed_steps[@]} step(s) FAILED:"
+  printf '     %s\n' "${failed_steps[@]}"
+  echo ""
+  echo "Exiting non-zero on purpose. chezmoi only records a run_onchange_ script"
+  echo "as done when it exits 0, so failing here means the next 'chezmoi apply'"
+  echo "runs this script again instead of declaring a half-provisioned machine"
+  echo "finished. Scroll up for the individual errors."
+  exit 1
+fi
+
 echo ""
+echo "🎉 Done!"
 echo "Now reboot"
