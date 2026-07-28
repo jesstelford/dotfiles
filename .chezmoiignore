@@ -1,3 +1,38 @@
+# ---------------------------------------------------------------------------
+# Secrets deny-list
+#
+# This repo is PUBLIC. Nothing below is managed today and nothing below has ever
+# been committed — this list exists so that stays true by construction rather
+# than by remembering. chezmoi skips ignored targets when adding, so a fat-
+# fingered `chezmoi add ~/.ssh` or a bulk add over a wide diff is a no-op here
+# instead of a disclosure.
+#
+# If one of these ever genuinely needs managing, add it explicitly with
+# `chezmoi add --encrypt` and remove the specific line — deliberately, in a
+# commit that says why. Do not delete the list wholesale.
+#
+# Both bare and `**/` forms are listed because chezmoi matches patterns against
+# the whole target path, so a bare `*.pem` would only cover the top level.
+# ---------------------------------------------------------------------------
+.ssh
+.ssh/**
+.aws
+.aws/**
+.gnupg
+.gnupg/**
+.netrc
+.npmrc
+.pypirc
+.docker/config.json
+.config/gh
+.config/gh/**
+.config/op
+.config/op/**
+*.pem
+**/*.pem
+*.key
+**/*.key
+
 # Common files to ignore
 README.md
 scripts/
@@ -8,8 +43,8 @@ install.sh
 
 # lazy.nvim rewrites this on every `:Lazy update`/`:Lazy sync`, so a managed copy
 # is permanently dirty and would need a manual `chezmoi re-add` after every plugin
-# bump (which, with autoCommit/autoPush on, publishes immediately). A lockfile
-# that is only half-maintained is worse than no lockfile, so leave it unmanaged.
+# bump (which, with autoCommit on, lands a commit immediately). A lockfile that
+# is only half-maintained is worse than no lockfile, so leave it unmanaged.
 .config/nvim/lazy-lock.json
 
 {{- if ne .chezmoi.os "darwin" }}
