@@ -12,23 +12,48 @@
   bat, delta, Go, mkcert, lua-language-server and the apt sources on the very
   same Linux host assumed amd64, so at least one group was always wrong.
 
-  Three upstream spellings are in play, so derive all of them once, here:
+  Four upstream spellings are in play, so derive all of them once, here:
 
-    $arch      amd64  | arm64   dpkg / .deb assets / Go's own tarballs
-    $archnvim  x86_64 | arm64   Neovim release assets
-    $archlua   x64    | arm64   lua-language-server release assets
+    $arch      amd64  | arm64     dpkg / .deb assets / Go's own tarballs
+    $archnvim  x86_64 | arm64     Neovim release assets
+    $archlua   x64    | arm64     lua-language-server release assets
+    $archgnu   x86_64 | aarch64   GNU triplet spelling; DBeaver release assets
 
-  A handful of pinned downloads (FontForge 2020, xournalpp 1.1.1, Signal) only
-  ever published an x86_64 build; those are called out individually below with
-  an arch-appropriate fallback rather than being silently wrong.
+  A handful of downloads (Signal for Linux, Roam Research) only ever published
+  an x86_64 build; those are called out individually below and bail out cleanly
+  rather than being silently wrong.
 */}}
 {{- $arch := .chezmoi.arch }}
 {{- $archnvim := $arch }}
 {{- $archlua := $arch }}
+{{- $archgnu := "aarch64" }}
 {{- if eq $arch "amd64" }}
 {{-   $archnvim = "x86_64" }}
 {{-   $archlua = "x64" }}
+{{-   $archgnu = "x86_64" }}
 {{- end }}
+
+{{- /*
+  Download integrity.
+
+  Every download below arrives over TLS, which authenticates the host and says
+  nothing whatsoever about the bytes. A hijacked release asset, a compromised
+  bucket or a tampering mirror all still hand back a 200 — and several of these
+  files are then unpacked into /usr/local or handed to `apt-get install` as
+  root. So: where a download is pinned to a version, the SHA-256 of that exact
+  asset is pinned next to it and checked before anything is installed.
+
+  Both the pins and their digests live in .chezmoidata.toml, per-arch where
+  upstream publishes a per-arch asset, so a version bump and its digests are one
+  contiguous edit in one file rather than edits in two places that can drift
+  apart — and so this script stays splittable per domain without scattering
+  them. That file's header documents how to refresh a digest without
+  downloading anything, and where the current values came from.
+
+  Rolling "latest" URLs (Brave, Discord, Rocket, 1Password, Wally for macOS)
+  cannot be pinned by construction and are left unverified; installing those
+  from Homebrew casks instead would fix that, and is the obvious follow-up.
+*/}}
 
 {{- /* Opening a URL in the desktop browser: `open` is macOS-only */}}
 {{- $open := "open" }}
@@ -125,6 +150,43 @@ use_temp_dir() {
   cd "$dir"
 }
 
+# Check a downloaded file against its pinned SHA-256 before anything is done
+# with it. See the "Download integrity" note at the top of this file for why.
+#
+# Returns non-zero on a mismatch, which -- because every install step is a
+# `( set -e ... )` subshell -- aborts that step before the bad bytes are
+# installed, and the `runner` wrapper reports it as a failure.
+#
+# `shasum -a 256` is the portable spelling: macOS ships it and no `sha256sum`,
+# Linux ships `sha256sum` and usually (not always) `shasum`. Prefer whichever
+# is present.
+#
+# Usage:
+# verify_sha256 ./bat_0.25.0_amd64.deb 7e6afdff...
+verify_sha256() {
+  local file="$1"
+  local expected="$2"
+  local actual
+
+  if command -v sha256sum > /dev/null 2>&1; then
+    actual="$(sha256sum "$file" | cut -d' ' -f1)"
+  elif command -v shasum > /dev/null 2>&1; then
+    actual="$(shasum -a 256 "$file" | cut -d' ' -f1)"
+  else
+    echo "❌ Neither sha256sum nor shasum found; refusing to install $file unverified."
+    return 1
+  fi
+
+  if [ "$actual" != "$expected" ]; then
+    echo "❌ Checksum mismatch for $file"
+    echo "   expected: $expected"
+    echo "   actual:   $actual"
+    echo "   Refusing to install it. If upstream legitimately re-cut this"
+    echo "   release, update the pinned digest in this script deliberately."
+    return 1
+  fi
+}
+
 {{- /* Use for doing different things on different machines
 
 {{- if not .islocalenv }}
@@ -177,28 +239,31 @@ use_temp_dir() {
   # NOTE: This is running as a subshell '(' so we can use 'set -e' to bail
   # immediately from the function if anything errors.
   #
+  # $2, when given, is the expected SHA-256 of the .dmg and is checked before
+  # the image is mounted. It is optional because several of these downloads
+  # resolve to a rolling "latest" URL, which cannot be pinned at all.
+  #
+  # The "pkg" strategy this used to carry had exactly one caller,
+  # Karabiner-Elements, which is a Homebrew cask now. Dead branches in a
+  # privileged installer are not worth keeping around on spec.
+  #
   # Usage:
   # install_dmg https://referrals.brave.com/latest/Brave-Browser.dmg
+  # install_dmg https://example.com/pinned-1.2.3.dmg deadbeef...
   install_dmg() (
     set -e
-    STRATEGY="${2:-app}"
     # Download into a throwaway directory rather than ~/installer.dmg: `set -e`
     # means a failed mount skips the `rm -f` below and leaves the .dmg sitting in
     # the home directory forever.
     use_temp_dir
-    wget --no-verbose $1 -O ./installer.dmg
+    wget --no-verbose "$1" -O ./installer.dmg
+    if [ -n "${2:-}" ]; then
+      verify_sha256 ./installer.dmg "$2"
+    fi
     # Mount the .dmg and capture the directory it mounted to
     MOUNTDIR=$(echo `hdiutil mount ./installer.dmg | tail -1 | awk '{$1=$2=""; print $0}'` | xargs -0 echo)
-    case "$STRATEGY" in
-    "app")
-      # Copy out the .app file to /Applications
-      sudo cp -R "${MOUNTDIR}"/*.app /Applications
-      ;;
-    "pkg")
-      # Run the package installer script
-      open -nW "${MOUNTDIR}"/*.pkg
-      ;;
-    esac
+    # Copy out the .app file to /Applications
+    sudo cp -R "${MOUNTDIR}"/*.app /Applications
     # Cleanup
     hdiutil unmount "$MOUNTDIR"
     rm -f ./installer.dmg
@@ -227,9 +292,24 @@ install_dev_deps() (
     {{- if .islocalenv }}
       apt_get install parallel
     {{- end }}
-    # Ubuntu 22.04 no longer ships with libfuse2, which is required by
-    # AppImages. See: https://askubuntu.com/a/1404084
-    apt_get install libfuse2*
+    # Ubuntu 22.04 no longer ships with libfuse2, which is required by the
+    # Neovim AppImage. See: https://askubuntu.com/a/1404084
+    #
+    # This used to be an unquoted `libfuse2*`. Two things wrong with that:
+    #   - the glob is unquoted, so if a file matching it happened to exist in
+    #     the cwd the shell would expand it away before apt ever saw it;
+    #   - apt only treats an argument as a *regex* when it matches no package
+    #     name literally, and `libfuse2*` does not, so it fell through to regex
+    #     matching. As a regex `libfuse2*` means "libfuse" then zero-or-more
+    #     "2"s, unanchored -- which matches libfuse-dev, libfuse3-3, libfuse3-dev
+    #     and friends, and pulled the lot in.
+    # 24.04 renamed the package to libfuse2t64 as part of the 64-bit time_t
+    # transition, so pick by what the release actually has rather than globbing.
+    if apt-cache show libfuse2t64 > /dev/null 2>&1; then
+      apt_get install libfuse2t64
+    else
+      apt_get install libfuse2
+    fi
   {{- end }}
 )
 runner install_dev_deps
@@ -321,8 +401,16 @@ install_neovim() (
   {{- if (eq .chezmoi.os "darwin") }}
     if [ ! -d "/usr/local/nvim-osx64-{{ $nvimversion }}" ]; then
       wget --no-verbose https://github.com/neovim/neovim/releases/download/v{{ $nvimversion }}/nvim-macos-{{ $archnvim }}.tar.gz
-      # to avoid "unknown developer" warning
-      xattr -c ./nvim-macos-{{ $archnvim }}.tar.gz
+      # There used to be an `xattr -c` here, described as avoiding the "unknown
+      # developer" warning. What it actually did was strip com.apple.quarantine
+      # so Gatekeeper would not evaluate a binary that is then `sudo mv`d into
+      # /usr/local and put on PATH as `nvim` — i.e. it disabled the one check
+      # standing between a bad download and root-owned code execution.
+      #
+      # The pinned digest below is the honest version of that: it says exactly
+      # which bytes are expected. Whatever Gatekeeper wants to say about them
+      # afterwards, it now gets to say — accept the one-time prompt.
+      verify_sha256 ./nvim-macos-{{ $archnvim }}.tar.gz {{ index .digests.nvim_macos $arch }}
       tar xzvf nvim-macos-{{ $archnvim }}.tar.gz
       sudo mv ./nvim-macos-{{ $archnvim }} /usr/local/nvim-osx64-{{ $nvimversion }}
     fi
@@ -332,6 +420,7 @@ install_neovim() (
   {{- else if (eq .chezmoi.os "linux") }}
     if [ ! -f "/usr/local/bin/nvim-{{ $nvimversion }}.appimage" ]; then
       wget --no-verbose https://github.com/neovim/neovim/releases/download/v{{ $nvimversion }}/nvim-linux-{{ $archnvim }}.appimage
+      verify_sha256 ./nvim-linux-{{ $archnvim }}.appimage {{ index .digests.nvim_linux $arch }}
       sudo mv nvim-linux-{{ $archnvim }}.appimage /usr/local/bin/nvim-{{ $nvimversion }}.appimage
     fi
     {{- $nvimbinary = printf "/usr/local/bin/nvim-%s.appimage" $nvimversion }}
@@ -431,11 +520,20 @@ install_roam_research() (
   set -e
   {{- $roamversion := .versions.roam }}
   {{- if (eq .chezmoi.os "darwin") }}
-    install_dmg https://roam-electron-deploy.s3.us-east-2.amazonaws.com/Roam+Research-{{ $roamversion }}.dmg
+    install_dmg https://roam-electron-deploy.s3.us-east-2.amazonaws.com/Roam+Research-{{ $roamversion }}.dmg {{ .digests.roam_dmg }}
   {{- else if (eq .chezmoi.os "linux") }}
+    {{- if ne $arch "amd64" }}
+    # The .deb filename here was hardcoded to _amd64 regardless of machine, so
+    # on {{ $arch }} this downloaded a package dpkg then refused to install.
+    # Upstream published no arm64 build of this release, so say so and stop.
+    echo "Skipping Roam Research: upstream publishes no Linux {{ $arch }} build."
+    exit 0
+    {{- else }}
     use_temp_dir
     wget --no-verbose https://roam-electron-deploy.s3.us-east-2.amazonaws.com/roam-research_{{ $roamversion }}_amd64.deb
+    verify_sha256 ./roam-research_{{ $roamversion }}_amd64.deb {{ .digests.roam_deb }}
     apt_get install ./roam-research_{{ $roamversion }}_amd64.deb
+    {{- end }}
   {{- end }}
 )
 optional_runner install_roam_research
@@ -443,25 +541,28 @@ optional_runner install_roam_research
 
 {{- if .islocalenv }}
 # fontforge for patching Input Mono later
+#
+# This is only ever used headlessly, by install_fonts below, to run nerd-fonts'
+# `font-patcher` script. It is not a GUI app anyone opens, so install the
+# command-line build on both platforms and let both branches call the same
+# `fontforge` on PATH.
+#
+# Was: the pinned 20201107 release. That is an Intel-only 2020 .app.dmg on
+# macOS, and on Linux an AppImage that needed the libfuse2 shim and a symlink
+# dance. The macOS side also meant install_fonts had to reach inside the app
+# bundle at /Applications/FontForge.app/Contents/MacOS/FontForge, a path that
+# only holds for as long as upstream keeps that bundle layout.
 install_fontforge() (
   set -e
   {{- if (eq .chezmoi.os "darwin") }}
-    install_dmg https://github.com/fontforge/fontforge/releases/download/{{ .versions.fontforge }}/FontForge-{{ .versions.fontforge_build }}.app.dmg
+    # The formula, not the `fontforge-app` cask: the formula puts `fontforge` on
+    # PATH and is built against python, which is what `fontforge -script` needs.
+    # It is also what nerd-fonts documents as the macOS prerequisite.
+    brew install fontforge
   {{- else if (eq .chezmoi.os "linux") }}
-    {{- if eq $arch "amd64" }}
-      use_temp_dir
-      wget --no-verbose https://github.com/fontforge/fontforge/releases/download/{{ .versions.fontforge }}/FontForge-{{ .versions.fontforge_build }}-x86_64.AppImage
-      sudo mv FontForge-{{ .versions.fontforge_build }}-x86_64.AppImage /usr/local/bin
-      sudo chmod a+x /usr/local/bin/FontForge-{{ .versions.fontforge_build }}-x86_64.AppImage
-      # rm -f first: `ln -s` onto an existing symlink is an error, which would
-      # abort this step on every re-run (same idiom as install_fd below)
-      sudo rm -f /usr/local/bin/fontforge
-      sudo ln -s /usr/local/bin/FontForge-{{ .versions.fontforge_build }}-x86_64.AppImage /usr/local/bin/fontforge
-    {{- else }}
-      # FontForge only ever published an x86_64 AppImage, so on {{ $arch }} use
-      # the distro package. install_fonts just needs a `fontforge` on PATH.
-      apt_get install fontforge
-    {{- end }}
+    # Ubuntu has shipped a current fontforge with python scripting since 22.04,
+    # for both architectures, signed by the archive key. No download to rot.
+    apt_get install fontforge
   {{- end }}
 )
 runner install_fontforge
@@ -526,20 +627,31 @@ install_fonts() (
     # Required deps. See: https://github.com/FontCustom/fontcustom/issues/382
     brew tap bramstein/webfonttools
     brew install woff2 sfnt2woff eot-utils
-
-    # Patch the fonts
-    find fonts/ -maxdepth 1 -name 'InputMono*.ttf' | parallel -j $(nproc) /Applications/FontForge.app/Contents/MacOS/FontForge -script font-patcher --no-progressbars --careful --complete --makegroups 0 --outputdir fonts/InputMono-NerdFont {} \;
-  {{- else if (eq .chezmoi.os "linux") }}
-    # Patch the fonts
-    find fonts/ -maxdepth 1 -name 'InputMono*.ttf' | parallel -j $(nproc) fontforge -script font-patcher --no-progressbars --careful --complete --makegroups 0 --outputdir fonts/InputMono-NerdFont {} \;
   {{- end }}
 
+  # Patch the fonts.
+  #
+  # Both branches used to differ here only because macOS reached inside
+  # /Applications/FontForge.app/Contents/MacOS/FontForge. install_fontforge
+  # installs the CLI build on both platforms now, so there is one line.
+  #
+  # getconf, not nproc: `nproc` is GNU coreutils and macOS has no such command
+  # (Homebrew's coreutils installs it as `gnproc`), so on macOS this expanded to
+  # an empty string and `parallel -j` then took the next word as its argument.
+  find fonts/ -maxdepth 1 -name 'InputMono*.ttf' | parallel -j "$(getconf _NPROCESSORS_ONLN)" fontforge -script font-patcher --no-progressbars --careful --complete --makegroups 0 --outputdir fonts/InputMono-NerdFont {} \;
+
   {{- if (eq .chezmoi.os "linux") }}
-    # Get the latest emoji font for Ubuntu.
+    {{- /*
+      Pinned to a tag rather than tracking `main`. An unpinned raw.github URL
+      cannot be checksummed even in principle, and this one is a font that gets
+      installed for the user without review.
+    */}}
+    # Emoji font for Ubuntu.
     # -O rather than -P: wget won't overwrite, so `-P fonts` left a second copy
     # as fonts/NotoColorEmoji.ttf.1 on every re-run and the stale original was
     # the one that got installed.
-    wget --no-verbose -O fonts/NotoColorEmoji.ttf https://github.com/googlefonts/noto-emoji/raw/main/fonts/NotoColorEmoji.ttf
+    wget --no-verbose -O fonts/NotoColorEmoji.ttf https://github.com/googlefonts/noto-emoji/raw/{{ .versions.noto_emoji }}/fonts/NotoColorEmoji.ttf
+    verify_sha256 fonts/NotoColorEmoji.ttf {{ .digests.noto_emoji }}
   {{- end }}
 
   # Move all the fonts into the correct directory
@@ -637,6 +749,7 @@ install_bat() (
   {{- else if (eq .chezmoi.os "linux") }}
     use_temp_dir
     wget --no-verbose https://github.com/sharkdp/bat/releases/download/v{{ .versions.bat }}/bat_{{ .versions.bat }}_{{ $arch }}.deb
+    verify_sha256 ./bat_{{ .versions.bat }}_{{ $arch }}.deb {{ index .digests.bat $arch }}
     apt_get install ./bat_{{ .versions.bat }}_{{ $arch }}.deb
   {{- end }}
 )
@@ -677,6 +790,7 @@ install_delta() (
   {{- else if (eq .chezmoi.os "linux") }}
     use_temp_dir
     wget --no-verbose https://github.com/dandavison/delta/releases/download/{{ .versions.delta }}/git-delta_{{ .versions.delta }}_{{ $arch }}.deb
+    verify_sha256 ./git-delta_{{ .versions.delta }}_{{ $arch }}.deb {{ index .digests.delta $arch }}
     apt_get install ./git-delta_{{ .versions.delta }}_{{ $arch }}.deb
   {{- end }}
 )
@@ -721,6 +835,7 @@ install_lua_lsp() (
   {{- else if (eq .chezmoi.os "linux") }}
     use_temp_dir
     wget --no-verbose https://github.com/LuaLS/lua-language-server/releases/download/{{ .versions.lua_language_server }}/lua-language-server-{{ .versions.lua_language_server }}-linux-{{ $archlua }}.tar.gz
+    verify_sha256 ./lua-language-server-{{ .versions.lua_language_server }}-linux-{{ $archlua }}.tar.gz {{ index .digests.lua_language_server $arch }}
     sudo mkdir -p /usr/local/lib/lua-language-server
     sudo tar xzf lua-language-server-{{ .versions.lua_language_server }}-linux-{{ $archlua }}.tar.gz -C /usr/local/lib/lua-language-server
     # Only the entrypoint needs to be executable. Do NOT make the tree writable:
@@ -795,26 +910,70 @@ install_mongodb() (
   {{- if (eq .chezmoi.os "darwin") }}
     # TODO
   {{- else if (eq .chezmoi.os "linux") }}
-    # From  https://docs.mongodb.com/manual/tutorial/install-mongodb-on-ubuntu/
-    apt_get install gnupg
-    # apt-key is deprecated/removed on modern Ubuntu; use a signed-by keyring
-    wget -qO - https://www.mongodb.org/static/pgp/server-{{ .versions.mongodb_series }}.asc | sudo gpg --dearmor -o /usr/share/keyrings/mongodb-server-{{ .versions.mongodb_series }}.gpg
-    # NOTE: TODO: FIXME: Only for Ubuntu 20.04
-    echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-{{ .versions.mongodb_series }}.gpg ] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/{{ .versions.mongodb_series }} multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-{{ .versions.mongodb_series }}.list
+    # From https://www.mongodb.com/docs/manual/tutorial/install-mongodb-on-ubuntu/
+    #
+    # Bumped from 4.4/focal. 4.4 reached end of life in February 2024 and the
+    # focal index it came from is for Ubuntu 20.04 — this step carried its own
+    # "NOTE: TODO: FIXME: Only for Ubuntu 20.04" admitting as much. On anything
+    # newer, apt would 404 on that index and then fail *every* later
+    # `apt update` on the machine, not just this step.
+    #
+    # The exact-version pins (=4.4.5) and the five `dpkg --set-selections` holds
+    # are gone with it. Holding a package at one patch release is precisely what
+    # let this rot silently for four years, and nothing here needs a specific
+    # patch — {{ .versions.mongodb }} is the current GA series and apt can keep it
+    # current on its own.
+    apt_get install gnupg lsb-release
+
+    # A previous run of this script left a dead 4.4/focal source behind. apt
+    # fails the whole `update` when any single index 404s, so a machine that ran
+    # the old version of this step has a broken apt until this is removed.
+    sudo rm -f /etc/apt/sources.list.d/mongodb-org-4.4.list /usr/share/keyrings/mongodb-server-4.4.gpg
+
+    # MongoDB publishes per-release indexes, and only for Ubuntu LTS codenames.
+    # Pointing apt at one that does not exist breaks apt globally (see above),
+    # so fall back to the newest supported LTS on a non-LTS or newer release.
+    mongo_codename="$(lsb_release -cs)"
+    case "$mongo_codename" in
+      jammy|noble) ;;
+      *)
+        echo "No MongoDB {{ .versions.mongodb }} index for '$mongo_codename'; using the noble one."
+        mongo_codename=noble
+        ;;
+    esac
+
+    # apt-key is deprecated/removed on modern Ubuntu; use a signed-by keyring.
+    # Truncating `tee` rather than `gpg -o`, which refuses to overwrite an
+    # existing file and would fail every re-run.
+    wget -qO- https://www.mongodb.org/static/pgp/server-{{ .versions.mongodb }}.asc \
+      | gpg --dearmor \
+      | sudo tee /usr/share/keyrings/mongodb-server-{{ .versions.mongodb }}.gpg > /dev/null
+    # apt reads the keyring as the unprivileged `_apt` user
+    sudo chmod go+r /usr/share/keyrings/mongodb-server-{{ .versions.mongodb }}.gpg
+
+    echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-{{ .versions.mongodb }}.gpg ] https://repo.mongodb.org/apt/ubuntu ${mongo_codename}/mongodb-org/{{ .versions.mongodb }} multiverse" \
+      | sudo tee /etc/apt/sources.list.d/mongodb-org-{{ .versions.mongodb }}.list > /dev/null
     apt_get update
-    # Remove system-instaled mongo version
-    apt_get remove mongodb-org mongodb-org-tools mongodb-server-core mongo-tools
-    apt_get install -y mongodb-org={{ .versions.mongodb }} mongodb-org-server={{ .versions.mongodb }} mongodb-org-shell={{ .versions.mongodb }} mongodb-org-mongos={{ .versions.mongodb }} mongodb-org-tools={{ .versions.mongodb }}
-    echo "mongodb-org hold" | sudo dpkg --set-selections
-    echo "mongodb-org-server hold" | sudo dpkg --set-selections
-    echo "mongodb-org-shell hold" | sudo dpkg --set-selections
-    echo "mongodb-org-mongos hold" | sudo dpkg --set-selections
-    echo "mongodb-org-tools hold" | sudo dpkg --set-selections
+
+    # Ubuntu's own `mongodb*` packages conflict with mongodb-org. Remove them
+    # only when actually installed: `apt-get remove` on a name that is not in
+    # the index at all is a hard error, and under `set -e` that aborted this
+    # whole step. The old line named `mongo-tools`, which has not existed as an
+    # Ubuntu package since 18.04.
+    for pkg in mongodb mongodb-clients mongodb-server mongodb-server-core; do
+      if dpkg -s "$pkg" > /dev/null 2>&1; then
+        apt_get remove "$pkg"
+      fi
+    done
+
+    apt_get install mongodb-org
 
     # Mongo not working? Probably because there are old databases that can't be
     # upgraded directly to this version, so we have to either delete the physical
     # database file or rollback mongo version to oldver+1, run the daemon, then
     # upgrade to the next version etc. :(
+    # Going 4.4 -> {{ .versions.mongodb }} is several such hops; an existing dbpath
+    # from the old pin will not start under {{ .versions.mongodb }} without them.
   {{- end }}
 )
 optional_runner install_mongodb
@@ -827,13 +986,22 @@ install_dbeaver() (
   {{- if (eq .chezmoi.os "darwin") }}
     brew install --cask dbeaver-community
   {{- else if (eq .chezmoi.os "linux") }}
-    # NOTE: this pinned release may not carry an arm64 .deb; if the download
-    # 404s, bump .versions.dbeaver rather than reverting to the amd64 file,
-    # which cannot install on this machine anyway.
+    {{- /*
+      Bumped from 22.1.0 (June 2022). That release predates DBeaver's arm64
+      .debs entirely, so on Apple-silicon Linux or an arm64 VM the old URL was a
+      guaranteed 404. Upstream also renamed the assets somewhere between then
+      and now: `dbeaver-ce_22.1.0_amd64.deb` became
+      `dbeaver-ce-26.1.3-linux-x86_64.deb` — underscores to hyphens, dpkg arch
+      names to GNU triplet names.
+
+      The pin and its digest both live in .chezmoidata.toml; refresh them
+      together with the `curl` snippet in the header of that file.
+    */}}
     use_temp_dir
-    wget --no-verbose https://github.com/dbeaver/dbeaver/releases/download/{{ .versions.dbeaver }}/dbeaver-ce_{{ .versions.dbeaver }}_{{ $arch }}.deb
+    wget --no-verbose https://github.com/dbeaver/dbeaver/releases/download/{{ .versions.dbeaver }}/dbeaver-ce-{{ .versions.dbeaver }}-linux-{{ $archgnu }}.deb
+    verify_sha256 ./dbeaver-ce-{{ .versions.dbeaver }}-linux-{{ $archgnu }}.deb {{ index .digests.dbeaver $arch }}
     # Install the package
-    apt_get install ./dbeaver-ce_{{ .versions.dbeaver }}_{{ $arch }}.deb
+    apt_get install ./dbeaver-ce-{{ .versions.dbeaver }}-linux-{{ $archgnu }}.deb
   {{- end }}
 )
 optional_runner install_dbeaver
@@ -849,11 +1017,34 @@ install_golang() (
     use_temp_dir
     # Resolve the latest stable Go release so this doesn't rot to a pinned version
     GO_VERSION="$(curl -fsSL 'https://go.dev/VERSION?m=text' | head -n1)"
-    wget --no-verbose "https://go.dev/dl/${GO_VERSION}.linux-{{ $arch }}.tar.gz"
+    GO_TARBALL="${GO_VERSION}.linux-{{ $arch }}.tar.gz"
+
+    # This one is deliberately not pinned, so its digest can't be pinned either.
+    # Go publishes the SHA-256 of every release file in its own download index,
+    # so fetch that alongside the tarball and check against it. Same TLS trust
+    # root as the download itself, so it is not a defence against a compromised
+    # go.dev — it is a defence against a corrupted or substituted mirror
+    # response, which is the realistic failure here.
+    #
+    # `include=all` so a brand-new release that hasn't rolled onto the default
+    # (stable-only) listing yet still resolves.
+    GO_SHA256="$(curl -fsSL 'https://go.dev/dl/?mode=json&include=all' \
+      | grep -A5 "\"filename\": \"${GO_TARBALL}\"" \
+      | grep '"sha256"' \
+      | head -n1 \
+      | cut -d'"' -f4)"
+
+    if [ -z "$GO_SHA256" ]; then
+      echo "❌ No published SHA-256 for ${GO_TARBALL}; refusing to install it unverified."
+      exit 1
+    fi
+
+    wget --no-verbose "https://go.dev/dl/${GO_TARBALL}"
+    verify_sha256 "./${GO_TARBALL}" "$GO_SHA256"
     # Remove any previous install before extracting, per the official upgrade docs
     sudo rm -rf /usr/local/go
-    sudo tar -C /usr/local -xzf "${GO_VERSION}.linux-{{ $arch }}.tar.gz"
-    rm -f "${GO_VERSION}.linux-{{ $arch }}.tar.gz"
+    sudo tar -C /usr/local -xzf "${GO_TARBALL}"
+    rm -f "${GO_TARBALL}"
   {{- end }}
 )
 runner install_golang
@@ -900,9 +1091,12 @@ optional_runner install_one_password_cli
 install_pdftk() (
   set -e
   {{- if (eq .chezmoi.os "darwin") }}
-    use_temp_dir
-    wget --no-verbose https://www.pdflabs.com/tools/pdftk-the-pdf-toolkit/pdftk_server-{{ .versions.pdftk }}-mac_osx-10.11-setup.pkg
-    open -nW pdftk_server-{{ .versions.pdftk }}-mac_osx-10.11-setup.pkg
+    # Was pdftk_server 2.02 "mac_osx-10.11", built in 2013: an unsigned,
+    # un-notarised, Intel-only .pkg that a modern macOS refuses to run. Its
+    # installer also drops a launchd job and its own libgcj runtime into
+    # /usr/local. pdftk-java is the maintained port, is the same `pdftk` CLI,
+    # and comes as a normal formula with a JRE dependency Homebrew resolves.
+    brew install pdftk-java
   {{- else if (eq .chezmoi.os "linux") }}
     apt_get install pdftk
   {{- end }}
@@ -913,20 +1107,23 @@ optional_runner install_pdftk
 {{- if .islocalenv }}
 {{- if (eq .chezmoi.os "linux") }}
 # xournal++ (for annotaing pdfs + handwriting notes)
+#
+# Was: the pinned 1.1.1 "Ubuntu-focal" .deb (2021) plus a hand-installed
+# libzip5. Three separate reasons that no longer works:
+#   - libzip5 was dropped after 20.04; 22.04 and later carry libzip4/libzip5t64
+#     under different names, so the dep line failed outright;
+#   - a focal-built .deb links against focal's libraries, which is not what a
+#     22.04+ machine has;
+#   - upstream published no arm64 .deb for it, so half the machines this repo
+#     targets could never use this branch at all.
+#
+# Ubuntu has packaged xournalpp itself since 20.04, for both architectures.
+# That build is a point release or so behind upstream, which is a fair trade for
+# a package that is signed by the archive key, gets security updates without
+# this script being re-run, and needs no per-codename URL to keep current.
 install_xournal() (
   set -e
-  {{- if eq $arch "amd64" }}
-  # Install required deps
-  apt_get install libportaudio2 libportaudiocpp0 libzip5
-  use_temp_dir
-  wget --no-verbose https://github.com/xournalpp/xournalpp/releases/download/v{{ .versions.xournalpp }}/xournalpp-{{ .versions.xournalpp }}-Ubuntu-focal-x86_64.deb
-  # Install the package
-  apt_get install ./xournalpp-{{ .versions.xournalpp }}-Ubuntu-focal-x86_64.deb
-  {{- else }}
-  # Upstream publishes x86_64 .debs only, so on {{ $arch }} use the distro
-  # package instead of downloading something that cannot be installed.
   apt_get install xournalpp
-  {{- end }}
 )
 runner install_xournal
 {{- end }}
@@ -939,7 +1136,18 @@ install_signal() (
   {{- if .codespaces }}
     # Not on Codespaces
   {{- else if (eq .chezmoi.os "darwin") }}
-    install_dmg https://updates.signal.org/desktop/signal-desktop-mac-universal-{{ .versions.signal }}.dmg
+    # Was a pinned 5.47.0 .dmg from 2022. Signal Desktop hard-expires builds a
+    # few months after release: that one installs fine and then refuses to
+    # launch, showing only "this version has expired". Pinning a Signal version
+    # is therefore never right — the cask tracks current releases, which is the
+    # only supported state for this app.
+    #
+    # On a machine that ran the old .dmg branch there is already a
+    # /Applications/Signal.app that Homebrew did not put there, and the cask
+    # will refuse rather than clobber it. That is the correct behaviour; delete
+    # the old app by hand once and this step succeeds from then on. Deliberately
+    # not automated: nothing here should be `rm -rf`ing /Applications.
+    brew install --cask signal
   {{- else if (eq .chezmoi.os "linux") }}
     {{- if ne $arch "amd64" }}
     # Signal Desktop for Linux is published for amd64 only. Adding the repo
@@ -1098,7 +1306,16 @@ runner install_alttab
 {{- if (eq .chezmoi.os "darwin") }}
 install_karabiner_elements() (
   set -e
-  install_dmg https://github.com/pqrs-org/Karabiner-Elements/releases/download/v{{ .versions.karabiner }}/Karabiner-Elements-{{ .versions.karabiner }}.dmg pkg
+  # Was a pinned 14.4.0 .dmg from 2022. Karabiner is a DriverKit system
+  # extension, not just an app: 14.x targets macOS 10.15-12 and its extension
+  # will not load at all on a current macOS, so the install "succeeded" and then
+  # nothing was remapped. The cask also runs upstream's uninstall script when
+  # replacing an old version, which matters for something that leaves a driver
+  # and three launchd agents behind.
+  #
+  # The managed dot_config/private_karabiner/private_karabiner.json is already
+  # in the post-15 format (it uses `keyboard_type_v2`), so it carries over.
+  brew install --cask karabiner-elements
 )
 runner install_karabiner_elements
 {{- end }}
@@ -1109,7 +1326,7 @@ runner install_karabiner_elements
 {{- if (eq .chezmoi.os "darwin") }}
 install_licecap() (
   set -e
-  install_dmg https://www.cockos.com/licecap/licecap{{ .versions.licecap }}.dmg
+  install_dmg https://www.cockos.com/licecap/licecap{{ .versions.licecap }}.dmg {{ .digests.licecap }}
   # Set the default directory
   defaults write com.cockos.LICEcap.plist NSNavLastRootDirectory -string "~/Movies"
 )
@@ -1176,6 +1393,15 @@ EOF
     # Install Wally, the EZ / ZSA flashing tool
     use_temp_dir
     wget --no-verbose https://github.com/zsa/wally/releases/download/{{ .versions.wally }}-linux/wally
+    {{- if eq $arch "amd64" }}
+    # Raw binary, moved into /usr/local/bin as root, and its whole job is to
+    # write firmware to a device over USB. Check it.
+    verify_sha256 ./wally {{ .digests.wally_amd64 }}
+    {{- else }}
+    # Upstream ships a single unlabelled x86_64 `wally` asset for this release,
+    # so there is no {{ $arch }} build to pin a digest for. It will not run here.
+    echo "⚠️  Wally is x86_64-only; the binary installed below will not run on {{ $arch }}."
+    {{- end }}
     sudo mv wally /usr/local/bin/wally
     sudo chmod a+x /usr/local/bin/wally
   {{- end }}
@@ -1194,6 +1420,9 @@ install_mkcert() (
     apt_get install libnss3-tools
     use_temp_dir
     wget --no-verbose https://github.com/FiloSottile/mkcert/releases/download/v{{ .versions.mkcert }}/mkcert-v{{ .versions.mkcert }}-linux-{{ $arch }}
+    # This is a raw binary that gets moved into /usr/local/bin as root and then
+    # asked to write a trust anchor into the system CA store. Check it first.
+    verify_sha256 ./mkcert-v{{ .versions.mkcert }}-linux-{{ $arch }} {{ index .digests.mkcert $arch }}
     sudo mv mkcert-v{{ .versions.mkcert }}-linux-{{ $arch }} /usr/local/bin/
     sudo chmod a+x /usr/local/bin/mkcert-v{{ .versions.mkcert }}-linux-{{ $arch }}
     sudo rm -f /usr/local/bin/mkcert
