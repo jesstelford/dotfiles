@@ -1,14 +1,14 @@
-# Detect which `ls` flavor is in use
-if ls --color > /dev/null 2>&1; then # GNU `ls`
-	colorflag="--color"
-else # OS X `ls`
-	colorflag="-G"
-fi
-
 # Prefer eza (modern ls: git status column, icons); fall back to system ls
 if command -v eza > /dev/null 2>&1; then
 	alias ls="eza --long --all --group-directories-first --git --icons=auto"
 else
+	# Detect which `ls` flavor is in use. Only probed on the fallback path — the
+	# probe forks, and there is no point paying for it when eza is what we use.
+	if ls --color > /dev/null 2>&1; then # GNU `ls`
+		colorflag="--color"
+	else # OS X `ls`
+		colorflag="-G"
+	fi
 	alias ls="ls -hAl ${colorflag}"
 fi
 alias fif='find ./ -type f -iname'
@@ -17,22 +17,15 @@ alias tmux="TERM=screen-256color-bce tmux"
 alias recent='for k in `git branch|sed s/^..//`;do echo -e `git log -1 --pretty=format:"%Cgreen%ci %Cblue%cr%Creset" "$k"`\\t"$k";done|sort'
 alias rgv='rg --no-ignore-vcs --hidden --glob "!**/.git"'
 
-
-# See: https://unix.stackexchange.com/a/273658/94874
-case `uname` in
-  Darwin)
-    # commands for OS X go here
-  ;;
-  Linux)
-    # commands for Linux go here
-  ;;
-esac
-
 # From https://github.com/BurntSushi/ripgrep/issues/86#issuecomment-425744884
 function rg(){
     # If outputting (fd 1 = stdout) directly to a terminal, page automatically:
     if [ -t 1 ]; then
         command rg --pretty "$@" | less
+        # Report ripgrep's status, not less's. Without this the function always
+        # succeeded (less exits 0 on empty input), so `rg foo && echo found`
+        # printed "found" even when there were zero matches.
+        return ${pipestatus[1]}
     else
         command rg "$@"
     fi

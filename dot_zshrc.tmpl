@@ -9,65 +9,195 @@ if [[ -v ZSH_PROF ]]; then
   zmodload zsh/zprof
 fi
 
-fpath=( "$HOME/.zsh/site-functions" $fpath )
-fpath=( "$HOME/.zsh_functions" $fpath )
+# Keep PATH/FPATH free of duplicates. Without this, re-sourcing ~/.zshrc (which
+# every `exec zsh` and every p10k reload does) grows PATH by ~one entry per
+# prepend, forever. Note the -U semantics: appending an element that is already
+# present is a no-op that leaves it where it is, while prepending one MOVES it to
+# the front. The ordering below relies on that.
+typeset -U path fpath PATH FPATH
+
 {{- if (eq .chezmoi.os "darwin") }}
+
+# ---------------------------------------------------------------------------
+# Homebrew — MUST come before any other PATH manipulation.
+#
+# `brew shellenv` runs /usr/libexec/path_helper internally, and path_helper
+# re-emits PATH with Homebrew's bin/sbin forced to the FRONT. This file used to
+# run it near the bottom, which meant every carefully-ordered prepend above it
+# (cargo, go, fnm, ~/bin, ...) silently lost to Homebrew. Running it first, and
+# then building our PATH on top of its output, gives the precedence the rest of
+# this file is clearly trying to express.
+#
+# The output is static, so cache it and only regenerate when the brew binary
+# itself changes. `brew shellenv` costs ~19ms; sourcing the cache is free.
+#
 # Homebrew's prefix is /opt/homebrew on Apple Silicon but /usr/local on Intel,
-# so probe for it rather than assuming. Used again further down to run
-# `brew shellenv`.
-if [ -x /opt/homebrew/bin/brew ]; then
-  _brew_prefix=/opt/homebrew
-elif [ -x /usr/local/bin/brew ]; then
-  _brew_prefix=/usr/local
+# so probe for it rather than assuming.
+# ---------------------------------------------------------------------------
+if [[ -x /opt/homebrew/bin/brew ]]; then
+  _brew_bin=/opt/homebrew/bin/brew
+elif [[ -x /usr/local/bin/brew ]]; then
+  _brew_bin=/usr/local/bin/brew
 fi
-# Autocompletions supplied by homebrew. Must be set before compinit below.
-[ -n "$_brew_prefix" ] && fpath=( "$_brew_prefix/share/zsh/site-functions" $fpath )
+if [[ -n $_brew_bin ]]; then
+  _brew_env="${XDG_CACHE_HOME:-$HOME/.cache}/brew-shellenv.zsh"
+  if [[ ! -s $_brew_env || $_brew_bin -nt $_brew_env ]]; then
+    mkdir -p "${_brew_env:h}"
+    # Written via a temp file so an interrupted or failed run can never leave a
+    # truncated cache behind that every future shell would then source. The
+    # shell is named explicitly rather than left to brew's parent-process sniff.
+    if "$_brew_bin" shellenv zsh > "$_brew_env.$$"; then
+      mv -f "$_brew_env.$$" "$_brew_env"
+    else
+      rm -f "$_brew_env.$$"
+    fi
+  fi
+  # This also prepends $HOMEBREW_PREFIX/share/zsh/site-functions to fpath, which
+  # is why there is no separate line doing that any more.
+  [[ -s $_brew_env ]] && source "$_brew_env"
+  unset _brew_env
+fi
+unset _brew_bin
 {{- end }}
 
-# Enable auto complete.
-# Only rebuild the completion dump (and run the slow security audit) once a day;
-# otherwise load the cached dump with `compinit -C`. This keeps shell startup
-# fast since compinit would otherwise rescan all of fpath on every launch.
-autoload -Uz compinit
-if [[ -n ${HOME}/.zcompdump(#qN.mh+24) ]]; then
-  compinit
-else
-  compinit -C
+# ---------------------------------------------------------------------------
+# PATH
+#
+# Built once, front to back, as an array. The order here is deliberate rather
+# than an accident of where a line happened to land in the file — that accident
+# is how ~/.serverless/bin (a directory that does not exist on this machine)
+# ended up FIRST in the resolved PATH, so every single command lookup stat'd it.
+#
+# Every entry carries the (N-/) glob qualifier: N = drop it if it doesn't match,
+# - = resolve symlinks first, / = must be a directory. Non-existent directories
+# are therefore dropped once here instead of being probed on every lookup.
+# ---------------------------------------------------------------------------
+path=(
+  $HOME/bin(N-/)                                    # personal scripts win outright
+  $HOME/.fnm(N-/)                                   # fnm itself; `fnm env` adds node below
+  $HOME/.cargo/bin(N-/)
+  $HOME/.yarn/bin(N-/)
+  $HOME/.config/yarn/global/node_modules/.bin(N-/)
+  $HOME/go/bin(N-/)
+  /usr/local/go/bin(N-/)
+  # Python "user base" scripts. `python` has not shipped with macOS since 12.3,
+  # so the old `$(python -c 'import site; ...')` probe printed "command not
+  # found" on every single shell start, and its python3 twin was the most
+  # expensive fork in this file (~26ms for the pair). This glob resolves the
+  # same directory without forking anything. site.USER_BASE is
+  # ~/Library/Python/<ver> on macOS; on Linux it is ~/.local, which is added at
+  # the END of PATH below, deliberately.
+  $HOME/Library/Python/*/bin(N/)
+  /usr/local/opt/python/libexec/bin(N-/)
+  $HOME/adb-fastboot/platform-tools(N-/)
+  $HOME/.serverless/bin(N-/)                        # added by the serverless installer
+  $path
+)
+{{- if ne .chezmoi.os "darwin" }}
+
+# fzf is installed by git clone into ~/.fzf on Linux (see the setup script).
+# Deliberately NOT done on macOS: there brew owns fzf and keeps it current, and
+# this never-updated clone would permanently shadow it.
+path=( $HOME/.fzf/bin(N-/) $path )
+{{- end }}
+
+# pipx installs its shims into ~/.local/bin (as does `pip install --user` on
+# Linux). Appended, not prepended, so pipx-managed apps never shadow a
+# project-local or version-manager binary of the same name.
+path=( $path $HOME/.local/bin(N/) )
+
+# Sweep the whole thing once more, which also catches junk inherited from the
+# login environment. $^path applies the qualifier to each element in turn
+# instead of treating the joined array as a single pattern.
+path=( $^path(N-/) )
+
+# ---------------------------------------------------------------------------
+# Completion
+# ---------------------------------------------------------------------------
+# The setup script writes completions to ~/.zsh/completion (this used to point at
+# ~/.zsh/site-functions, which nothing has ever written to — which is why fnm tab
+# completion never worked).
+fpath=( $HOME/.zsh/completion(N-/) $HOME/.zsh_functions(N-/) $fpath )
+
+# uv's zsh completion is static, so generate it into fpath once instead of
+# forking `uv generate-shell-completion` on every shell start. The old call was
+# unguarded AND the last line of this file, so on a machine without uv
+# "command not found: uv" was the last thing printed before the prompt.
+if (( $+commands[uv] )); then
+  _uv_comp="$HOME/.zsh/completion/_uv"
+  if [[ ! -s $_uv_comp || $commands[uv] -nt $_uv_comp ]]; then
+    mkdir -p "${_uv_comp:h}"
+    if uv generate-shell-completion zsh > "$_uv_comp"; then
+      # A brand new completion function won't be in the cached dump yet.
+      _zcompdump_force=1
+    fi
+  fi
+  unset _uv_comp
 fi
 
+# Only rebuild the completion dump (and run compinit's slow security audit +
+# full fpath rescan) once a day; load the cached dump with `compinit -C`
+# otherwise. Worth 17-31ms.
+#
+# The staleness test has to happen somewhere zsh actually performs filename
+# generation, and it does NOT do that inside [[ ... ]]. The previous
+#     [[ -n ${HOME}/.zcompdump(#qN.mh+24) ]]
+# was therefore just a non-empty test on a literal string: always true, so the
+# fast path never once ran. (The (#q...) spelling additionally requires
+# EXTENDED_GLOB, which this file never sets — with it unset that line is a parse
+# error anywhere globbing does happen.) An array assignment does glob, so use one.
+autoload -Uz compinit
+_zcompdump="${ZDOTDIR:-$HOME}/.zcompdump"
+_zcompdump_stale=( $_zcompdump(N.mh+24) )
+if (( _zcompdump_force )) || (( ${#_zcompdump_stale} )) || [[ ! -s $_zcompdump ]]; then
+  compinit -d "$_zcompdump"
+  # compinit only rewrites the dump when the *set* of completion files changed,
+  # so the dump's mtime is not by itself a "last audited" stamp. Without this
+  # touch, a dump whose contents never change stays >24h old forever and we pay
+  # for the audit on every single start — i.e. the fast path would still never
+  # fire, just for a subtler reason than the old broken guard.
+  touch -- "$_zcompdump"
+else
+  compinit -C -d "$_zcompdump"
+fi
+# Byte-compile the dump so the next `compinit -C` mmaps it instead of parsing
+# tens of thousands of lines of zsh. Costs ~18ms, at most once a day.
+if [[ ! -s $_zcompdump.zwc || $_zcompdump -nt $_zcompdump.zwc ]]; then
+  # Unlink rather than overwrite: compinit above may have left this shell with
+  # the old .zwc mmap'd, and rewriting a mapped file in place is how you get a
+  # zsh that segfaults later. Unlinking leaves the existing mapping valid.
+  rm -f -- "$_zcompdump.zwc"
+  zcompile -- "$_zcompdump" 2>/dev/null
+fi
+unset _zcompdump _zcompdump_stale _zcompdump_force
+
+# ---------------------------------------------------------------------------
+# History
+#
+# Without this we inherit /etc/zshrc's HISTSIZE=2000 / SAVEHIST=1000, no dedup,
+# no sharing between tmux panes and no timestamps.
+# ---------------------------------------------------------------------------
+HISTFILE="$HOME/.zsh_history"
+HISTSIZE=100000
+SAVEHIST=100000
+setopt EXTENDED_HISTORY       # record start time + duration per entry
+setopt SHARE_HISTORY          # live sharing between concurrent shells (tmux panes)
+setopt HIST_EXPIRE_DUPS_FIRST # when trimming, drop duplicates before uniques
+setopt HIST_IGNORE_DUPS       # don't record a command identical to the one before
+setopt HIST_IGNORE_SPACE      # a leading space keeps a command out of history
+setopt HIST_FIND_NO_DUPS      # don't show the same line twice while searching
+setopt HIST_SAVE_NO_DUPS      # don't write duplicate entries to the file
+setopt HIST_REDUCE_BLANKS     # tidy up superfluous whitespace
+setopt HIST_VERIFY            # expand !! into the buffer instead of running it blind
+
+# Sourced after PATH is built so that probes inside it (e.g. `command -v eza`)
+# can actually see Homebrew-installed tools.
 [ -f $HOME/.zsh_aliases ] && source $HOME/.zsh_aliases
 
-# If you come from bash you might have to change your $PATH.
-export PATH=$HOME/bin:/usr/local/bin:$PATH
-
-PY_USER_BIN=$(python -c 'import site; print(site.USER_BASE + "/bin")')
-PY3_USER_BIN=$(python3 -c 'import site; print(site.USER_BASE + "/bin")')
-
-if [ -d "$PY_USER_BIN" ] ; then
-  export PATH="$PY_USER_BIN:$PATH"
-fi
-
-if [ -d "$PY3_USER_BIN" ] ; then
-  export PATH="$PY3_USER_BIN:$PATH"
-fi
-
-if [ -d "$HOME/adb-fastboot/platform-tools" ] ; then
-   export PATH="$HOME/adb-fastboot/platform-tools:$PATH"
-fi
-
-export PATH="$HOME/.cargo/bin:$PATH"
-export PATH="$HOME/.yarn/bin:$PATH"
-export PATH="$HOME/.config/yarn/global/node_modules/.bin:$PATH"
-export PATH="/usr/local/opt/python/libexec/bin:$PATH"
-export PATH="/usr/local/go/bin:$PATH"
-export PATH="$HOME/go/bin:$PATH"
-# pipx installs its shims here. Appended (not prepended) so pipx-managed apps
-# never shadow a project-local or version-manager binary of the same name.
-[ -d "$HOME/.local/bin" ] && export PATH="$PATH:$HOME/.local/bin"
-
 export FZF_DEFAULT_COMMAND='rg --files --hidden --glob "!**/node_modules" --glob "!**/.git"'
-# Use nvim for editing, falling back to vi if it can't be found
-export VISUAL="$(command -v nvim 2>/dev/null || command -v vi)"
+# Use nvim for editing, falling back to vi if it can't be found. $commands is
+# zsh's own PATH lookup hash, so this costs no forks.
+export VISUAL="${commands[nvim]:-${commands[vi]}}"
 export EDITOR="$VISUAL"
 
 export LSCOLORS=gxfxbEaEBxxEhEhBaDaCaD # For OSX ls?
@@ -75,53 +205,30 @@ export LSCOLORS=gxfxbEaEBxxEhEhBaDaCaD # For OSX ls?
 # Nicer less defaults for our modern terminal
 export LESS='--tabs=2 --chop-long-lines --RAW-CONTROL-CHARS --quit-if-one-screen --no-init'
 
-# Node version management with fnm
-export PATH="$HOME/.fnm:$PATH"
-# Output redirected to avoid complaints from powerlevel10k
-eval "$(fnm env)" >/dev/null 2>&1
+# Node version management with fnm.
+#
+# `--use-on-cd` installs fnm's own chpwd hook and `--version-file-strategy=
+# recursive` makes `fnm use` walk UP from $PWD looking for .node-version/.nvmrc.
+# Both are needed: the hand-rolled hook this replaces only ever tested $PWD
+# itself, so `cd project/src` silently reverted to the default Node version —
+# and so does fnm's own hook under the default "local" strategy.
+#
+# Output is redirected to keep p10k's instant prompt from complaining about
+# anything fnm prints on the initial call.
+if (( $+commands[fnm] )); then
+  eval "$(fnm env --use-on-cd --version-file-strategy=recursive --shell zsh)" >/dev/null 2>&1
+fi
 
-# Auto-switch node versions.
-# From: https://github.com/Schniz/fnm/issues/144#issuecomment-734387810
-FNM_USING_LOCAL_VERSION=0
-autoload -U add-zsh-hook
-_fnm_autoload_hook() {
-	if [[ -f .nvmrc && -r .nvmrc || -f .node-version && -r .node-version ]]; then
-		FNM_USING_LOCAL_VERSION=1
-		fnm use --install-if-missing
-	elif [ $FNM_USING_LOCAL_VERSION -eq 1 ]; then
-		FNM_USING_LOCAL_VERSION=0
-		fnm use default
-	fi
-}
-# Output redirected to avoid complaints from powerlevel10k
-add-zsh-hook chpwd _fnm_autoload_hook &&
-	_fnm_autoload_hook >/dev/null 2>&1
-# END: Auto-switch node versions.
-
-# Ensure fzf is on PATH (Linux git-clone install location; brew handles macOS)
-[ -d "$HOME/.fzf/bin" ] && export PATH="$HOME/.fzf/bin:$PATH"
 # fzf shell integration (keybindings + completion). Built into fzf >= 0.48,
 # so we no longer need the generated ~/.fzf.zsh snapshot.
-command -v fzf >/dev/null 2>&1 && source <(fzf --zsh)
-
-# Get Alt-c working for FZF (NOTE: Can also Type ESC-c)
-# From: https://github.com/junegunn/fzf/issues/164#issuecomment-581837757
-bindkey "ç" fzf-cd-widget
-
-# Fish-style suggestions from history. Source before syntax-highlighting.
-[ -f ~/.zsh/zsh-autosuggestions/zsh-autosuggestions.zsh ] && source ~/.zsh/zsh-autosuggestions/zsh-autosuggestions.zsh
-
-# NOTE: zsh-syntax-highlighting must be sourced last (after autosuggestions).
-[ -f ~/.zsh/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh ] && source ~/.zsh/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
-
-{{- if (eq .chezmoi.os "darwin") }}
-# Make homebrew available ($_brew_prefix is probed near the top of this file)
-[ -n "$_brew_prefix" ] && eval "$("$_brew_prefix/bin/brew" shellenv)"
-unset _brew_prefix
-{{- end }}
-
-# Added by serverless binary installer
-export PATH="$HOME/.serverless/bin:$PATH"
+if (( $+commands[fzf] )); then
+  source <(fzf --zsh)
+  # Get Alt-c working for FZF (NOTE: Can also Type ESC-c). Inside the guard
+  # because fzf-cd-widget only exists once the integration above has been
+  # sourced; unguarded it errored on any machine without fzf.
+  # From: https://github.com/junegunn/fzf/issues/164#issuecomment-581837757
+  bindkey "ç" fzf-cd-widget
+fi
 
 # bun completions (the -s test is the guard: no bun, no file, no-op)
 [ -s "$HOME/.bun/_bun" ] && source "$HOME/.bun/_bun"
@@ -138,4 +245,11 @@ load_p10k
 # otherwise its export hook gets clobbered and .envrc files stop loading.
 command -v direnv >/dev/null 2>&1 && eval "$(direnv hook zsh)"
 
-eval "$(uv generate-shell-completion zsh)"
+# Fish-style suggestions from history. Source before syntax-highlighting.
+[ -f ~/.zsh/zsh-autosuggestions/zsh-autosuggestions.zsh ] && source ~/.zsh/zsh-autosuggestions/zsh-autosuggestions.zsh
+
+# NOTE: zsh-syntax-highlighting wraps every ZLE widget that exists at the moment
+# it is sourced, so it must be genuinely LAST — anything that defines a widget
+# after it (fzf, autosuggestions, a prompt theme) silently loses highlighting.
+# Keep this the final line of the file.
+[ -f ~/.zsh/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh ] && source ~/.zsh/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
