@@ -104,6 +104,27 @@ optional_runner() {
   fi
 }
 
+# Move the current shell into a fresh, empty, throwaway directory.
+#
+# chezmoi runs these scripts with the cwd set to $HOME, so every bare
+# `wget <url>` below used to download straight into the home directory. That is
+# not just untidy, it is wrong on a re-run: wget refuses to overwrite and writes
+# `foo.deb.1` instead, while the install line right underneath keeps consuming
+# the STALE `foo.deb` from the first run forever.
+#
+# Call this at the top of a downloading step. Every step is a `( ... )` subshell
+# (see the `runner` docs above), so the `cd` is contained to that one step and
+# cannot leak into the next.
+#
+# The 755 matters on Linux: apt-get drops to the unprivileged `_apt` user to
+# read a local .deb, and mktemp -d creates the directory as 0700.
+use_temp_dir() {
+  local dir
+  dir="$(mktemp -d)"
+  chmod 755 "$dir"
+  cd "$dir"
+}
+
 {{- /* Use for doing different things on different machines
 
 {{- if not .islocalenv }}
@@ -161,9 +182,13 @@ optional_runner() {
   install_dmg() (
     set -e
     STRATEGY="${2:-app}"
-    wget --no-verbose $1 -O ~/installer.dmg
+    # Download into a throwaway directory rather than ~/installer.dmg: `set -e`
+    # means a failed mount skips the `rm -f` below and leaves the .dmg sitting in
+    # the home directory forever.
+    use_temp_dir
+    wget --no-verbose $1 -O ./installer.dmg
     # Mount the .dmg and capture the directory it mounted to
-    MOUNTDIR=$(echo `hdiutil mount ~/installer.dmg | tail -1 | awk '{$1=$2=""; print $0}'` | xargs -0 echo)
+    MOUNTDIR=$(echo `hdiutil mount ./installer.dmg | tail -1 | awk '{$1=$2=""; print $0}'` | xargs -0 echo)
     case "$STRATEGY" in
     "app")
       # Copy out the .app file to /Applications
@@ -176,7 +201,7 @@ optional_runner() {
     esac
     # Cleanup
     hdiutil unmount "$MOUNTDIR"
-    rm -f ~/installer.dmg
+    rm -f ./installer.dmg
   )
 {{- end }}
 
@@ -211,7 +236,10 @@ runner install_dev_deps
 
 # Some prep for ZSH
 mkdir -p $HOME/.zsh
-mkdir -p /usr/local/bin
+# sudo: on a fresh macOS /usr/local/bin does not exist yet and /usr/local is
+# root-owned, so an unprivileged mkdir fails here — and then every `sudo tee` and
+# `ln -s` into that directory further down fails too.
+sudo mkdir -p /usr/local/bin
 
 install_zsh() (
   set -e
@@ -287,6 +315,7 @@ runner install_fzf
 # neovim
 install_neovim() (
   set -e
+  use_temp_dir
   {{- $nvimbinary := "" }}
   {{- $nvimversion := .versions.nvim }}
   {{- if (eq .chezmoi.os "darwin") }}
@@ -404,6 +433,7 @@ install_roam_research() (
   {{- if (eq .chezmoi.os "darwin") }}
     install_dmg https://roam-electron-deploy.s3.us-east-2.amazonaws.com/Roam+Research-{{ $roamversion }}.dmg
   {{- else if (eq .chezmoi.os "linux") }}
+    use_temp_dir
     wget --no-verbose https://roam-electron-deploy.s3.us-east-2.amazonaws.com/roam-research_{{ $roamversion }}_amd64.deb
     apt_get install ./roam-research_{{ $roamversion }}_amd64.deb
   {{- end }}
@@ -419,9 +449,13 @@ install_fontforge() (
     install_dmg https://github.com/fontforge/fontforge/releases/download/{{ .versions.fontforge }}/FontForge-{{ .versions.fontforge_build }}.app.dmg
   {{- else if (eq .chezmoi.os "linux") }}
     {{- if eq $arch "amd64" }}
+      use_temp_dir
       wget --no-verbose https://github.com/fontforge/fontforge/releases/download/{{ .versions.fontforge }}/FontForge-{{ .versions.fontforge_build }}-x86_64.AppImage
       sudo mv FontForge-{{ .versions.fontforge_build }}-x86_64.AppImage /usr/local/bin
       sudo chmod a+x /usr/local/bin/FontForge-{{ .versions.fontforge_build }}-x86_64.AppImage
+      # rm -f first: `ln -s` onto an existing symlink is an error, which would
+      # abort this step on every re-run (same idiom as install_fd below)
+      sudo rm -f /usr/local/bin/fontforge
       sudo ln -s /usr/local/bin/FontForge-{{ .versions.fontforge_build }}-x86_64.AppImage /usr/local/bin/fontforge
     {{- else }}
       # FontForge only ever published an x86_64 AppImage, so on {{ $arch }} use
@@ -438,9 +472,19 @@ install_fonts() (
   set -e
   # Patch fonts for use with powerlevel10k
   # https://github.com/ryanoasis/nerd-fonts/issues/400#issuecomment-687229777
-  # Do a sparse-checkout of only the files we need
-  git clone https://github.com/ryanoasis/nerd-fonts.git --depth 1 --filter=blob:none --sparse $HOME/dev/nerd-fonts
-  cd $HOME/dev/nerd-fonts
+  # Do a sparse-checkout of only the files we need.
+  #
+  # This is a mandatory runner, so an unguarded `git clone` meant the second and
+  # every subsequent run died right here with "destination path already exists"
+  # — i.e. the fonts could never be re-patched or updated. Same guard as
+  # install_fzf / install_powerlevel10k / the zsh plugins above.
+  if [ -d "$HOME/dev/nerd-fonts" ]; then
+    cd "$HOME/dev/nerd-fonts"
+    git pull
+  else
+    git clone https://github.com/ryanoasis/nerd-fonts.git --depth 1 --filter=blob:none --sparse $HOME/dev/nerd-fonts
+    cd $HOME/dev/nerd-fonts
+  fi
   git sparse-checkout set --no-cone /src/glyphs /font-patcher
   sudo chmod a+x font-patcher
 
@@ -454,19 +498,24 @@ install_fonts() (
   # function used to call it on Linux too, where it aborted the whole step.
   {{ $open }} 'https://fonts.google.com/download?family=Lato'
   read -p "Once download complete, press y: " x;
-  unzip ~/Downloads/Lato.zip -d ./fonts
-  rm ~/Downloads/Lato.zip
+  # -o: never stop to ask "replace ...? [y]es, [n]o, [A]ll". chezmoi wires this
+  # script's stdin through, so an unanswered unzip prompt hangs the whole apply.
+  # -q: the file list is noise.
+  unzip -o -q ~/Downloads/Lato.zip -d ./fonts
+  rm -f ~/Downloads/Lato.zip
 
   # Open Sans Font (for RoamResearch theme)
   {{ $open }} 'https://fonts.google.com/download?family=Open%20Sans'
   read -p "Once download complete, press y: " x;
-  unzip ~/Downloads/Open_Sans.zip -d ./fonts
-  rm ~/Downloads/Open_Sans.zip
+  unzip -o -q ~/Downloads/Open_Sans.zip -d ./fonts
+  rm -f ~/Downloads/Open_Sans.zip
 
   # InputMono Font
-  curl "https://input.djr.com/build/?fontSelection=whole&a=0&g=0&i=0&l=0&zero=0&asterisk=0&braces=0&preset=default&line-height=1.2&accept=I+do&email=" -sSLo InputMono-Font.zip 
-  unzip InputMono-Font.zip -d InputMono-Font
-  mv InputMono-Font/Input_Fonts/InputMono/InputMono/InputMono-*.ttf fonts
+  curl "https://input.djr.com/build/?fontSelection=whole&a=0&g=0&i=0&l=0&zero=0&asterisk=0&braces=0&preset=default&line-height=1.2&accept=I+do&email=" -sSLo InputMono-Font.zip
+  unzip -o -q InputMono-Font.zip -d InputMono-Font
+  # -f: on a re-run these .ttf files already exist in fonts/, and an
+  # unanswerable "override ...?" prompt would hang the apply
+  mv -f InputMono-Font/Input_Fonts/InputMono/InputMono/InputMono-*.ttf fonts
   rm -rf InputMono-Font InputMono-Font.zip
 
   # Patch Input Mono font for use with powerlevel10k
@@ -486,8 +535,11 @@ install_fonts() (
   {{- end }}
 
   {{- if (eq .chezmoi.os "linux") }}
-    # Get the latest emoji font for Ubuntu
-    wget --no-verbose https://github.com/googlefonts/noto-emoji/raw/main/fonts/NotoColorEmoji.ttf -P fonts
+    # Get the latest emoji font for Ubuntu.
+    # -O rather than -P: wget won't overwrite, so `-P fonts` left a second copy
+    # as fonts/NotoColorEmoji.ttf.1 on every re-run and the stale original was
+    # the one that got installed.
+    wget --no-verbose -O fonts/NotoColorEmoji.ttf https://github.com/googlefonts/noto-emoji/raw/main/fonts/NotoColorEmoji.ttf
   {{- end }}
 
   # Move all the fonts into the correct directory
@@ -583,6 +635,7 @@ install_bat() (
   {{- if (eq .chezmoi.os "darwin") }}
     brew install bat
   {{- else if (eq .chezmoi.os "linux") }}
+    use_temp_dir
     wget --no-verbose https://github.com/sharkdp/bat/releases/download/v{{ .versions.bat }}/bat_{{ .versions.bat }}_{{ $arch }}.deb
     apt_get install ./bat_{{ .versions.bat }}_{{ $arch }}.deb
   {{- end }}
@@ -622,6 +675,7 @@ install_delta() (
   {{- if (eq .chezmoi.os "darwin") }}
     brew install git-delta
   {{- else if (eq .chezmoi.os "linux") }}
+    use_temp_dir
     wget --no-verbose https://github.com/dandavison/delta/releases/download/{{ .versions.delta }}/git-delta_{{ .versions.delta }}_{{ $arch }}.deb
     apt_get install ./git-delta_{{ .versions.delta }}_{{ $arch }}.deb
   {{- end }}
@@ -681,6 +735,7 @@ install_lua_lsp() (
   {{- if (eq .chezmoi.os "darwin") }}
     brew install lua-language-server
   {{- else if (eq .chezmoi.os "linux") }}
+    use_temp_dir
     wget --no-verbose https://github.com/LuaLS/lua-language-server/releases/download/{{ .versions.lua_language_server }}/lua-language-server-{{ .versions.lua_language_server }}-linux-{{ $archlua }}.tar.gz
     sudo mkdir -p /usr/local/lib/lua-language-server
     sudo tar xzf lua-language-server-{{ .versions.lua_language_server }}-linux-{{ $archlua }}.tar.gz -C /usr/local/lib/lua-language-server
@@ -791,6 +846,7 @@ install_dbeaver() (
     # NOTE: this pinned release may not carry an arm64 .deb; if the download
     # 404s, bump .versions.dbeaver rather than reverting to the amd64 file,
     # which cannot install on this machine anyway.
+    use_temp_dir
     wget --no-verbose https://github.com/dbeaver/dbeaver/releases/download/{{ .versions.dbeaver }}/dbeaver-ce_{{ .versions.dbeaver }}_{{ $arch }}.deb
     # Install the package
     apt_get install ./dbeaver-ce_{{ .versions.dbeaver }}_{{ $arch }}.deb
@@ -806,6 +862,7 @@ install_golang() (
     # brew keeps Go current; avoids pinning a pkg URL that rots
     brew install go
   {{- else if (eq .chezmoi.os "linux") }}
+    use_temp_dir
     # Resolve the latest stable Go release so this doesn't rot to a pinned version
     GO_VERSION="$(curl -fsSL 'https://go.dev/VERSION?m=text' | head -n1)"
     wget --no-verbose "https://go.dev/dl/${GO_VERSION}.linux-{{ $arch }}.tar.gz"
@@ -822,8 +879,11 @@ runner install_golang
 install_one_password_desktop() (
   set -e
   {{- if (eq .chezmoi.os "darwin") }}
+    use_temp_dir
     wget --no-verbose https://downloads.1password.com/mac/1Password.zip
-    unzip 1Password.zip -d onepassword
+    # -o: an unzip overwrite prompt has nowhere to be answered — chezmoi passes
+    # this script's stdin straight through, so it hangs the entire apply
+    unzip -o -q 1Password.zip -d onepassword
     open -nW "onepassword/1Password Installer.app"
   {{- else if (eq .chezmoi.os "linux") }}
     # Stable channel deliberately: this is a password manager, --edge tracks
@@ -856,6 +916,7 @@ optional_runner install_one_password_cli
 install_pdftk() (
   set -e
   {{- if (eq .chezmoi.os "darwin") }}
+    use_temp_dir
     wget --no-verbose https://www.pdflabs.com/tools/pdftk-the-pdf-toolkit/pdftk_server-{{ .versions.pdftk }}-mac_osx-10.11-setup.pkg
     open -nW pdftk_server-{{ .versions.pdftk }}-mac_osx-10.11-setup.pkg
   {{- else if (eq .chezmoi.os "linux") }}
@@ -873,6 +934,7 @@ install_xournal() (
   {{- if eq $arch "amd64" }}
   # Install required deps
   apt_get install libportaudio2 libportaudiocpp0 libzip5
+  use_temp_dir
   wget --no-verbose https://github.com/xournalpp/xournalpp/releases/download/v{{ .versions.xournalpp }}/xournalpp-{{ .versions.xournalpp }}-Ubuntu-focal-x86_64.deb
   # Install the package
   apt_get install ./xournalpp-{{ .versions.xournalpp }}-Ubuntu-focal-x86_64.deb
@@ -902,10 +964,18 @@ install_signal() (
     echo "Skipping Signal: upstream publishes no Linux {{ $arch }} build."
     exit 0
     {{- else }}
+    use_temp_dir
+    # Both of these used to be `tee -a`. Appending a second copy of the dearmored
+    # key to an existing binary keyring corrupts it, and appending the same `deb`
+    # line again makes every later `apt update` warn about a duplicate source.
+    # Truncating `tee` (the idiom used by install_brave / install_gh above) makes
+    # a re-run a no-op instead.
     wget -qO- https://updates.signal.org/desktop/apt/keys.asc | gpg --dearmor > signal-desktop-keyring.gpg
-    cat signal-desktop-keyring.gpg | sudo tee -a /usr/share/keyrings/signal-desktop-keyring.gpg > /dev/null
+    sudo tee /usr/share/keyrings/signal-desktop-keyring.gpg < signal-desktop-keyring.gpg > /dev/null
+    # apt reads the keyring as the unprivileged `_apt` user
+    sudo chmod go+r /usr/share/keyrings/signal-desktop-keyring.gpg
 
-    echo "deb [arch={{ $arch }} signed-by=/usr/share/keyrings/signal-desktop-keyring.gpg] https://updates.signal.org/desktop/apt `lsb_release -cs` main" | sudo tee -a /etc/apt/sources.list.d/signal-`lsb_release -cs`.list
+    echo "deb [arch={{ $arch }} signed-by=/usr/share/keyrings/signal-desktop-keyring.gpg] https://updates.signal.org/desktop/apt `lsb_release -cs` main" | sudo tee /etc/apt/sources.list.d/signal-`lsb_release -cs`.list
 
     apt_get update && apt_get install signal-desktop
     {{- end }}
@@ -986,16 +1056,26 @@ install_pico8() (
 
   # Install it
   {{- if (eq .chezmoi.os "darwin") }}
-    unzip {{ $pico8zip }} -d /tmp
-    mv /tmp/pico-8/PICO-8.app /Applications/
-    sudo tee -a /usr/local/bin/pico8 > /dev/null <<EOF
+    # -o: /tmp/pico-8 survives from the previous run, and an unzip overwrite
+    # prompt hangs the whole apply (chezmoi passes stdin through). Unpack into a
+    # fresh directory so there is nothing half-extracted to trip over either.
+    PICO8_DIR="$(mktemp -d)"
+    unzip -o -q {{ $pico8zip }} -d "$PICO8_DIR"
+    # mv onto an existing PICO-8.app fails with "Directory not empty"
+    sudo rm -rf /Applications/PICO-8.app
+    mv "$PICO8_DIR/pico-8/PICO-8.app" /Applications/
+    # rm -f + truncating tee, as in install_neovim: `tee -a` wrote a second
+    # shebang and a second exec line, so `pico8` launched PICO-8 twice in a row.
+    sudo rm -f /usr/local/bin/pico8
+    sudo tee /usr/local/bin/pico8 > /dev/null <<EOF
 #!/usr/bin/env bash
 /Applications/PICO-8.app/Contents/MacOS/pico8 "\$@"
 EOF
     sudo chmod a+x /usr/local/bin/pico8
   {{- else if (eq .chezmoi.os "linux") }}
-    sudo unzip {{ $pico8zip }} -d /usr/lib
+    sudo unzip -o -q {{ $pico8zip }} -d /usr/lib
     sudo chmod a+x /usr/lib/pico-8/pico8
+    sudo rm -f /usr/local/bin/pico8
     sudo ln -s /usr/lib/pico-8/pico8 /usr/local/bin/pico8
   {{- end }}
 
@@ -1064,6 +1144,7 @@ install_discord() (
     install_dmg "https://discord.com/api/download?platform=osx"
   {{- else if (eq .chezmoi.os "linux") }}
     # Use the "latest" download endpoint so this doesn't pin a stale version
+    use_temp_dir
     wget --no-verbose -O discord.deb "https://discord.com/api/download?platform=linux&format=deb"
     apt_get install ./discord.deb
   {{- end }}
@@ -1085,9 +1166,11 @@ install_moonlander() (
     # So the flashing tool can write to the keyboard
     apt_get install libusb-1.0-0-dev
     
-    # Setup udev rules so the flashing tool can receive the correct events
-    sudo touch /etc/udev/rules.d/50-wally.rules
-    sudo tee -a /etc/udev/rules.d/50-wally.rules > /dev/null <<EOF
+    # Setup udev rules so the flashing tool can receive the correct events.
+    # Truncating `tee`, not `tee -a`: appending re-added the same rules on every
+    # run, and udev then logs a duplicate-rule warning for each copy. The
+    # separate `touch` is redundant, `tee` creates the file.
+    sudo tee /etc/udev/rules.d/50-wally.rules > /dev/null <<EOF
 # STM32 rules for the Moonlander and Planck EZ
 SUBSYSTEMS=="usb", ATTRS{idVendor}=="0483", ATTRS{idProduct}=="df11", \
     MODE:="0666", \
@@ -1095,8 +1178,7 @@ SUBSYSTEMS=="usb", ATTRS{idVendor}=="0483", ATTRS{idProduct}=="df11", \
 EOF
 
     # Setup udev rules for the training software to receive the correct events
-    sudo touch /etc/udev/rules.d/50-oryx.rules
-    sudo tee -a /etc/udev/rules.d/50-oryx.rules > /dev/null <<EOF
+    sudo tee /etc/udev/rules.d/50-oryx.rules > /dev/null <<EOF
 # Rule for all ZSA keyboards
 SUBSYSTEM=="usb", ATTR{idVendor}=="3297", GROUP="plugdev"
 # Rule for the Moonlander
@@ -1108,6 +1190,7 @@ SUBSYSTEM=="usb", ATTR{idVendor}=="feed", ATTR{idProduct}=="6060", GROUP="plugde
 EOF
 
     # Install Wally, the EZ / ZSA flashing tool
+    use_temp_dir
     wget --no-verbose https://github.com/zsa/wally/releases/download/{{ .versions.wally }}-linux/wally
     sudo mv wally /usr/local/bin/wally
     sudo chmod a+x /usr/local/bin/wally
@@ -1125,9 +1208,11 @@ install_mkcert() (
     brew install nss
   {{- else if (eq .chezmoi.os "linux") }}
     apt_get install libnss3-tools
+    use_temp_dir
     wget --no-verbose https://github.com/FiloSottile/mkcert/releases/download/v{{ .versions.mkcert }}/mkcert-v{{ .versions.mkcert }}-linux-{{ $arch }}
     sudo mv mkcert-v{{ .versions.mkcert }}-linux-{{ $arch }} /usr/local/bin/
     sudo chmod a+x /usr/local/bin/mkcert-v{{ .versions.mkcert }}-linux-{{ $arch }}
+    sudo rm -f /usr/local/bin/mkcert
     sudo ln -s /usr/local/bin/mkcert-v{{ .versions.mkcert }}-linux-{{ $arch }} /usr/local/bin/mkcert
   {{- end }}
 )
