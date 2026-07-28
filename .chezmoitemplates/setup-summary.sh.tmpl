@@ -1,0 +1,34 @@
+{{- /* Closing block for every .chezmoiscripts/run_*_before_<NN>-*.sh setup
+       script. Included with:
+
+         {{ template "setup-summary.sh.tmpl" . }}
+
+       as the LAST thing in the script, and paired with
+       {{ template "setup-helpers.sh.tmpl" . }} at the top.
+
+       Why every script needs its own copy: `runner` records outcomes in plain
+       shell arrays, and each of these scripts is a separate bash process, so
+       the arrays only ever describe the steps in THIS script. Reporting and
+       exiting has to happen per script.
+
+       That is also what makes the failure propagation work per domain now:
+       chezmoi records a run_onchange_ script as done only when it exits 0, so a
+       script whose steps failed is retried on the next apply while the ones
+       that succeeded are not. */ -}}
+if [ "${#skipped_steps[@]}" -gt 0 ]; then
+  echo ""
+  echo "⏭️  Skipped ${#skipped_steps[@]} step(s):"
+  printf '     %s\n' "${skipped_steps[@]}"
+fi
+
+if [ "${#failed_steps[@]}" -gt 0 ]; then
+  echo ""
+  echo "❌ ${#failed_steps[@]} step(s) FAILED:"
+  printf '     %s\n' "${failed_steps[@]}"
+  echo ""
+  echo "Exiting non-zero on purpose. chezmoi only records a run_onchange_ script"
+  echo "as done when it exits 0, so failing here means the next 'chezmoi apply'"
+  echo "runs this script again instead of declaring a half-provisioned machine"
+  echo "finished. Scroll up for the individual errors."
+  exit 1
+fi

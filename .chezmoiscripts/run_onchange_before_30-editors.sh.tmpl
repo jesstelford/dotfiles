@@ -1,0 +1,97 @@
+#!/usr/bin/env bash
+{{- /* Neovim: the pinned release, verified against its digest, plus the
+       /usr/local/bin/nvim shim that pins TERM for tmux. The Neovim *config*
+       is managed as dotfiles, not here. */}}
+{{- /*
+  Architecture spellings. .chezmoi.arch is Go's GOARCH — "amd64" or "arm64" on
+  every machine this repo targets — and upstreams spell it four different ways:
+
+    $arch      amd64  | arm64     dpkg / .deb assets / Go's own tarballs
+    $archnvim  x86_64 | arm64     Neovim release assets
+    $archlua   x64    | arm64     lua-language-server release assets
+    $archgnu   x86_64 | aarch64   GNU triplet spelling; DBeaver release assets
+
+  Derived per script rather than once globally: a template variable set inside
+  an included .chezmoitemplates file is scoped to that template, so it cannot be
+  shared the way the shell helpers are. Each script derives only the spellings
+  it actually uses.
+*/}}
+{{- $arch := .chezmoi.arch }}
+{{- $archnvim := $arch }}
+{{- if eq $arch "amd64" }}
+{{-   $archnvim = "x86_64" }}
+{{- end }}
+{{- /*
+  Download integrity.
+
+  Every download here arrives over TLS, which authenticates the host and says
+  nothing whatsoever about the bytes. So: where a download is pinned to a
+  version, the SHA-256 of that exact asset is pinned beside it in
+  .chezmoidata.toml and checked with verify_sha256 before anything is
+  installed. See that file's header for how to refresh a digest.
+*/}}
+
+{{ template "setup-helpers.sh.tmpl" . }}
+
+# neovim
+install_neovim() (
+  set -e
+  use_temp_dir
+  {{- $nvimbinary := "" }}
+  {{- $nvimversion := .versions.nvim }}
+  {{- if (eq .chezmoi.os "darwin") }}
+    if [ ! -d "/usr/local/nvim-osx64-{{ $nvimversion }}" ]; then
+      wget --no-verbose https://github.com/neovim/neovim/releases/download/v{{ $nvimversion }}/nvim-macos-{{ $archnvim }}.tar.gz
+      # There used to be an `xattr -c` here, described as avoiding the "unknown
+      # developer" warning. What it actually did was strip com.apple.quarantine
+      # so Gatekeeper would not evaluate a binary that is then `sudo mv`d into
+      # /usr/local and put on PATH as `nvim` — i.e. it disabled the one check
+      # standing between a bad download and root-owned code execution.
+      #
+      # The pinned digest below is the honest version of that: it says exactly
+      # which bytes are expected. Whatever Gatekeeper wants to say about them
+      # afterwards, it now gets to say — accept the one-time prompt.
+      verify_sha256 ./nvim-macos-{{ $archnvim }}.tar.gz {{ index .digests.nvim_macos $arch }}
+      tar xzvf nvim-macos-{{ $archnvim }}.tar.gz
+      sudo mv ./nvim-macos-{{ $archnvim }} /usr/local/nvim-osx64-{{ $nvimversion }}
+    fi
+    {{- /* printf, not a nested "{{ }}" inside the string: template actions are
+           not re-evaluated, so the literal would survive into the script. */}}
+    {{- $nvimbinary = printf "/usr/local/nvim-osx64-%s/bin/nvim" $nvimversion }}
+  {{- else if (eq .chezmoi.os "linux") }}
+    if [ ! -f "/usr/local/bin/nvim-{{ $nvimversion }}.appimage" ]; then
+      wget --no-verbose https://github.com/neovim/neovim/releases/download/v{{ $nvimversion }}/nvim-linux-{{ $archnvim }}.appimage
+      verify_sha256 ./nvim-linux-{{ $archnvim }}.appimage {{ index .digests.nvim_linux $arch }}
+      sudo mv nvim-linux-{{ $archnvim }}.appimage /usr/local/bin/nvim-{{ $nvimversion }}.appimage
+    fi
+    {{- $nvimbinary = printf "/usr/local/bin/nvim-%s.appimage" $nvimversion }}
+  {{- end }}
+
+  {{- /* Ghostty is the terminal now; it ships the xterm-ghostty terminfo. */}}
+  {{- $term := "xterm-ghostty" }}
+
+  sudo chmod a+x {{ $nvimbinary }}
+
+  sudo rm -f /usr/local/bin/nvim
+  sudo tee -a /usr/local/bin/nvim > /dev/null <<EOF
+#!/usr/bin/env bash
+# Explicitly set the terminal here so nvim knows it is running inside
+# {{ $term }} (necessary when running inside tmux, which advertises its own
+# TERM). Environments without that terminfo -- codespaces and CI never install
+# Ghostty -- keep whatever TERM they already had rather than getting an unknown
+# one.
+term={{ $term }}
+if ! infocmp "\$term" > /dev/null 2>&1; then
+  term="\$TERM"
+fi
+if test \$# -gt 0; then
+  TERM="\$term" {{ $nvimbinary }} "\$@"
+else
+  TERM="\$term" {{ $nvimbinary }}
+fi
+EOF
+  sudo chmod a+x /usr/local/bin/nvim
+)
+runner install_neovim
+
+{{ template "setup-summary.sh.tmpl" . }}

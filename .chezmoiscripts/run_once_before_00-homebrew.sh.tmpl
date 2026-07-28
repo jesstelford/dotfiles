@@ -1,4 +1,15 @@
 #!/usr/bin/env bash
+{{- /* Homebrew bootstrap, and nothing else.
+
+       run_once_, not run_onchange_: installing Homebrew is a once-per-machine
+       bootstrap. As a run_onchange_ script any edit to it re-ran the upstream
+       installer, which re-prompts for sudo.
+
+       Deliberately does NOT include .chezmoitemplates/setup-helpers.sh.tmpl:
+       that helper block probes for `brew shellenv` on macOS, and brew does not
+       exist yet at the top of the script that installs brew. Nothing here is
+       wrapped in `runner` for the same reason, so there is no summary block
+       either. */}}
 {{- if (eq .chezmoi.os "darwin") }}
 # install homebrew
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"

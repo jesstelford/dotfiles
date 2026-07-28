@@ -1,0 +1,258 @@
+#!/usr/bin/env bash
+{{- /* Desktop-only things, all of them gated on .islocalenv: Brave, Rust
+       via rustup, the emoji picker, Roam Research, and FontForge plus the
+       nerd-fonts patching run that needs it.
+
+       Named "desktop" because that is what the bulk of it is; rust is here
+       because this is where it sat in the original single script and the
+       ordering of these scripts has to match it. */}}
+{{- /*
+  Architecture spellings. .chezmoi.arch is Go's GOARCH — "amd64" or "arm64" on
+  every machine this repo targets — and upstreams spell it four different ways:
+
+    $arch      amd64  | arm64     dpkg / .deb assets / Go's own tarballs
+    $archnvim  x86_64 | arm64     Neovim release assets
+    $archlua   x64    | arm64     lua-language-server release assets
+    $archgnu   x86_64 | aarch64   GNU triplet spelling; DBeaver release assets
+
+  Derived per script rather than once globally: a template variable set inside
+  an included .chezmoitemplates file is scoped to that template, so it cannot be
+  shared the way the shell helpers are. Each script derives only the spellings
+  it actually uses.
+*/}}
+{{- $arch := .chezmoi.arch }}
+{{- if eq $arch "amd64" }}
+{{- end }}
+{{- /* Opening a URL in the desktop browser: `open` is macOS-only */}}
+{{- $open := "open" }}
+{{- if (eq .chezmoi.os "linux") }}
+{{-   $open = "xdg-open" }}
+{{- end }}
+{{- /*
+  Download integrity.
+
+  Every download here arrives over TLS, which authenticates the host and says
+  nothing whatsoever about the bytes. So: where a download is pinned to a
+  version, the SHA-256 of that exact asset is pinned beside it in
+  .chezmoidata.toml and checked with verify_sha256 before anything is
+  installed. See that file's header for how to refresh a digest.
+*/}}
+
+{{ template "setup-helpers.sh.tmpl" . }}
+
+{{- if .islocalenv }}
+# Brave browser
+install_brave() (
+  set -e
+  {{- if (eq .chezmoi.os "darwin") }}
+    install_dmg https://referrals.brave.com/latest/Brave-Browser.dmg
+  {{- else if (eq .chezmoi.os "linux") }}
+    # see: https://brave.com/linux/
+    apt_get install apt-transport-https curl
+    sudo curl -fsSLo /usr/share/keyrings/brave-browser-archive-keyring.gpg https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg
+    echo "deb [signed-by=/usr/share/keyrings/brave-browser-archive-keyring.gpg arch={{ $arch }}] https://brave-browser-apt-release.s3.brave.com/ stable main"|sudo tee /etc/apt/sources.list.d/brave-browser-release.list
+    apt_get update
+    apt_get install brave-browser
+
+    # Set brave as the default browser
+    sudo update-alternatives --config x-www-browser
+    sudo update-alternatives --config gnome-www-browser
+    xdg-settings set default-web-browser brave-browser.desktop
+  {{- end }}
+)
+runner install_brave
+{{- end }}
+{{/* zsh-syntax-highlighting and zsh-autosuggestions used to be cloned here.
+     They are plain checkouts that .zshrc sources, so they are now git-repo
+     externals in .chezmoiexternal.toml. */}}
+{{- if .islocalenv }}
+# rust via rustup
+install_rust() (
+  set -e
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+  source $HOME/.cargo/env
+)
+runner install_rust
+
+if [ -f "$HOME/.cargo/env" ];
+then
+  # NOTE: Has to be done outside the subshell to ensure it's available for
+  # following commands
+  source $HOME/.cargo/env
+fi
+{{- end }}
+
+{{- if .islocalenv }}
+# Emoji picker
+install_emoji_picker() (
+  set -e
+  {{- if (eq .chezmoi.os "darwin") }}
+    # Rocket emoji picker
+    install_dmg https://macrelease.matthewpalmer.net/Rocket.dmg
+    # Set shortcut to "~"
+    defaults write net.matthewpalmer.Rocket.plist "hot-key-b8-iaK-thyib-yoV-Kep-It" -string "~"
+    defaults write net.matthewpalmer.Rocket.plist "launch-at-login" -bool true
+  {{- else if (eq .chezmoi.os "linux") }}
+    # Emote emoji picker
+    # default shortcut is Ctrl-Alt-e, remapped to Ctrl-Super-Space)
+    sudo snap install emote
+  {{- end }}
+)
+runner install_emoji_picker
+{{- end }}
+
+{{- if .islocalenv }}
+# Install RoamResearch
+install_roam_research() (
+  set -e
+  {{- $roamversion := .versions.roam }}
+  {{- if (eq .chezmoi.os "darwin") }}
+    install_dmg https://roam-electron-deploy.s3.us-east-2.amazonaws.com/Roam+Research-{{ $roamversion }}.dmg {{ .digests.roam_dmg }}
+  {{- else if (eq .chezmoi.os "linux") }}
+    {{- if ne $arch "amd64" }}
+    # The .deb filename here was hardcoded to _amd64 regardless of machine, so
+    # on {{ $arch }} this downloaded a package dpkg then refused to install.
+    # Upstream published no arm64 build of this release, so say so and stop.
+    skip "Skipping Roam Research: upstream publishes no Linux {{ $arch }} build."
+    {{- else }}
+    use_temp_dir
+    wget --no-verbose https://roam-electron-deploy.s3.us-east-2.amazonaws.com/roam-research_{{ $roamversion }}_amd64.deb
+    verify_sha256 ./roam-research_{{ $roamversion }}_amd64.deb {{ .digests.roam_deb }}
+    apt_get install ./roam-research_{{ $roamversion }}_amd64.deb
+    {{- end }}
+  {{- end }}
+)
+optional_runner install_roam_research
+{{- end }}
+
+{{- if .islocalenv }}
+# fontforge for patching Input Mono later
+#
+# This is only ever used headlessly, by install_fonts below, to run nerd-fonts'
+# `font-patcher` script. It is not a GUI app anyone opens, so install the
+# command-line build on both platforms and let both branches call the same
+# `fontforge` on PATH.
+#
+# Was: the pinned 20201107 release. That is an Intel-only 2020 .app.dmg on
+# macOS, and on Linux an AppImage that needed the libfuse2 shim and a symlink
+# dance. The macOS side also meant install_fonts had to reach inside the app
+# bundle at /Applications/FontForge.app/Contents/MacOS/FontForge, a path that
+# only holds for as long as upstream keeps that bundle layout.
+install_fontforge() (
+  set -e
+  {{- if (eq .chezmoi.os "darwin") }}
+    # The formula, not the `fontforge-app` cask: the formula puts `fontforge` on
+    # PATH and is built against python, which is what `fontforge -script` needs.
+    # It is also what nerd-fonts documents as the macOS prerequisite.
+    brew install fontforge
+  {{- else if (eq .chezmoi.os "linux") }}
+    # Ubuntu has shipped a current fontforge with python scripting since 22.04,
+    # for both architectures, signed by the archive key. No download to rot.
+    apt_get install fontforge
+  {{- end }}
+)
+runner install_fontforge
+{{- end }}
+
+{{- if .islocalenv }}
+install_fonts() (
+  set -e
+  # Patch fonts for use with powerlevel10k
+  # https://github.com/ryanoasis/nerd-fonts/issues/400#issuecomment-687229777
+  # Do a sparse-checkout of only the files we need.
+  #
+  # This is a mandatory runner, so an unguarded `git clone` meant the second and
+  # every subsequent run died right here with "destination path already exists"
+  # — i.e. the fonts could never be re-patched or updated. Same guard as
+  # install_fzf / install_powerlevel10k / the zsh plugins above.
+  if [ -d "$HOME/dev/nerd-fonts" ]; then
+    cd "$HOME/dev/nerd-fonts"
+    git pull
+  else
+    git clone https://github.com/ryanoasis/nerd-fonts.git --depth 1 --filter=blob:none --sparse $HOME/dev/nerd-fonts
+    cd $HOME/dev/nerd-fonts
+  fi
+  git sparse-checkout set --no-cone /src/glyphs /font-patcher
+  sudo chmod a+x font-patcher
+
+  # Install some custom fonts
+
+  # temporary directory to extract fonts to
+  mkdir -p fonts
+
+  # Lato Font (for RoamResearch theme)
+  # NOTE: the opener is templated per-OS: `open` is macOS-only, and this
+  # function used to call it on Linux too, where it aborted the whole step.
+  {{ $open }} 'https://fonts.google.com/download?family=Lato'
+  read -p "Once download complete, press y: " x;
+  # -o: never stop to ask "replace ...? [y]es, [n]o, [A]ll". chezmoi wires this
+  # script's stdin through, so an unanswered unzip prompt hangs the whole apply.
+  # -q: the file list is noise.
+  unzip -o -q ~/Downloads/Lato.zip -d ./fonts
+  rm -f ~/Downloads/Lato.zip
+
+  # Open Sans Font (for RoamResearch theme)
+  {{ $open }} 'https://fonts.google.com/download?family=Open%20Sans'
+  read -p "Once download complete, press y: " x;
+  unzip -o -q ~/Downloads/Open_Sans.zip -d ./fonts
+  rm -f ~/Downloads/Open_Sans.zip
+
+  # InputMono Font
+  curl "https://input.djr.com/build/?fontSelection=whole&a=0&g=0&i=0&l=0&zero=0&asterisk=0&braces=0&preset=default&line-height=1.2&accept=I+do&email=" -sSLo InputMono-Font.zip
+  unzip -o -q InputMono-Font.zip -d InputMono-Font
+  # -f: on a re-run these .ttf files already exist in fonts/, and an
+  # unanswerable "override ...?" prompt would hang the apply
+  mv -f InputMono-Font/Input_Fonts/InputMono/InputMono/InputMono-*.ttf fonts
+  rm -rf InputMono-Font InputMono-Font.zip
+
+  # Patch Input Mono font for use with powerlevel10k
+  # https://github.com/ryanoasis/nerd-fonts/issues/400#issuecomment-687229777
+  # Prepare the output folder
+  mkdir -p fonts/InputMono-NerdFont/
+  {{- if (eq .chezmoi.os "darwin") }}
+    # Required deps. See: https://github.com/FontCustom/fontcustom/issues/382
+    brew tap bramstein/webfonttools
+    brew install woff2 sfnt2woff eot-utils
+  {{- end }}
+
+  # Patch the fonts.
+  #
+  # Both branches used to differ here only because macOS reached inside
+  # /Applications/FontForge.app/Contents/MacOS/FontForge. install_fontforge
+  # installs the CLI build on both platforms now, so there is one line.
+  #
+  # getconf, not nproc: `nproc` is GNU coreutils and macOS has no such command
+  # (Homebrew's coreutils installs it as `gnproc`), so on macOS this expanded to
+  # an empty string and `parallel -j` then took the next word as its argument.
+  find fonts/ -maxdepth 1 -name 'InputMono*.ttf' | parallel -j "$(getconf _NPROCESSORS_ONLN)" fontforge -script font-patcher --no-progressbars --careful --complete --makegroups 0 --outputdir fonts/InputMono-NerdFont {} \;
+
+  {{- if (eq .chezmoi.os "linux") }}
+    {{- /*
+      Pinned to a tag rather than tracking `main`. An unpinned raw.github URL
+      cannot be checksummed even in principle, and this one is a font that gets
+      installed for the user without review.
+    */}}
+    # Emoji font for Ubuntu.
+    # -O rather than -P: wget won't overwrite, so `-P fonts` left a second copy
+    # as fonts/NotoColorEmoji.ttf.1 on every re-run and the stale original was
+    # the one that got installed.
+    wget --no-verbose -O fonts/NotoColorEmoji.ttf https://github.com/googlefonts/noto-emoji/raw/{{ .versions.noto_emoji }}/fonts/NotoColorEmoji.ttf
+    verify_sha256 fonts/NotoColorEmoji.ttf {{ .digests.noto_emoji }}
+  {{- end }}
+
+  # Move all the fonts into the correct directory
+  {{- if (eq .chezmoi.os "darwin") }}
+    mkdir -p $HOME/Library/Fonts
+    cp -r fonts/* $HOME/Library/Fonts
+  {{- else if (eq .chezmoi.os "linux") }}
+    mkdir -p $HOME/.fonts
+    cp -r fonts/* $HOME/.fonts
+
+    # NOTE: No sudo; we want to update the current user's font cache
+    fc-cache -f -v
+  {{- end }}
+)
+runner install_fonts
+{{- end }}
+
+{{ template "setup-summary.sh.tmpl" . }}

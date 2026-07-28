@@ -3,10 +3,10 @@
 # Third-party git checkouts that live in $HOME and are loaded at shell startup.
 #
 # These used to be hand-rolled `if [ -d ]; then git pull; else git clone; fi`
-# blocks in run_onchange_before_aab_setup.sh. As externals they are:
+# blocks in the setup script. As externals they are:
 #
 #   * idempotent by construction — chezmoi clones if missing, pulls if present;
-#   * out of that script's onchange hash, so touching an unrelated install step
+#   * out of those scripts' onchange hashes, so touching an unrelated install step
 #     no longer re-runs half a dozen `git pull`s;
 #   * refreshable on demand with `chezmoi update`, or
 #     `chezmoi apply --refresh-externals` to ignore refreshPeriod.

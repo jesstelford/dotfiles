@@ -73,11 +73,51 @@ with `chezmoi add --encrypt`.
 2. See the scripts that will be run: `chezmoi diff -r -i scripts`
 3. Re-run scripts: `chezmoi apply -i scripts`
 
+### Setup scripts
+
+The install steps live in `.chezmoiscripts/`, one file per domain, run in
+numeric order before anything else is applied:
+
+| Script | Covers |
+| --- | --- |
+| `00-homebrew` | Homebrew itself (macOS) |
+| `10-dev-deps` | base build/dev packages |
+| `20-shell` | zsh, git-absorb, git-lfs, ripgrep, fzf |
+| `30-editors` | Neovim |
+| `40-desktop` | Brave, Rust, emoji picker, Roam, FontForge, fonts |
+| `50-languages` | fnm, Node, yarn |
+| `60-cli-tools` | tmux, bat, eza, fd, delta, uv, language servers, … |
+| `70-dev-tools` | KeyCastr, gh, MongoDB, DBeaver, Go |
+| `80-apps` | 1Password, Signal, PICO-8, Rectangle, Discord, mkcert, … |
+| `90-macos-defaults` | `defaults write` system settings |
+| `99-finalise` | zsh permissions fixup and the closing banner |
+
+Living in `.chezmoiscripts/` keeps them out of `$HOME`: chezmoi runs them but
+never writes them to a target path.
+
+Most are `run_onchange_`, so chezmoi re-runs a script only when *that* script's
+rendered contents change — bumping the Neovim version in `.chezmoidata.toml` no
+longer replays 60 install steps. `00-homebrew` and `90-macos-defaults` are
+`run_once_` instead, because they are once-per-machine bootstraps rather than
+things to re-apply.
+
+Helpers every script needs (`runner`, `optional_runner`, `apt_get`,
+`install_dmg`, `use_temp_dir`, `verify_sha256`) live in
+`.chezmoitemplates/setup-helpers.sh.tmpl`, and the closing "what failed"
+summary in `.chezmoitemplates/setup-summary.sh.tmpl`; each script is its own
+bash process, so both have to be included in each one. That is also what makes
+a failure re-run only its own domain: chezmoi records a `run_onchange_` script
+as done only when it exits 0.
+
+Numbering goes up in tens so a new step can be slotted in without renaming
+everything. Order matters in places: Node before the npm-installed tooling, and
+the 1Password CLI before PICO-8 reads its itch.io credentials with `op`.
+
 ### Refresh the vendored git checkouts
 
 powerlevel10k, zsh-autosuggestions, zsh-syntax-highlighting and (off macOS)
 `~/.fzf` are declared in `.chezmoiexternal.toml` rather than cloned by the setup
-script. `chezmoi apply` clones whichever are missing and `git pull`s the rest at
+scripts. `chezmoi apply` clones whichever are missing and `git pull`s the rest at
 most once a week.
 
 - Pull them now, ignoring that weekly limit: `chezmoi apply -R always`
