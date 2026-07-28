@@ -1,3 +1,12 @@
+{{- /*
+PICO-8 rewrites this whole file every time it exits, so anything volatile in
+here guarantees permanent `chezmoi status` drift. The `sessions` (run counter)
+and `version` keys are therefore deliberately omitted -- PICO-8 re-adds both,
+with correct values, the first time it quits. Note also that PICO-8 rewrites
+the comments below from its own defaults, so don't hand-annotate this file:
+put explanations in Go template comments like this one, which render to
+nothing and so survive.
+*/ -}}
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 // Configuration for pico-8
 // 
@@ -16,10 +25,12 @@ show_fps 0 // Draw frames per second in the corner
 
 // :: Window Settings
 
-windowed 1 // 1 to start up in windowed mode
+windowed 0 // 1 to start up in windowed mode
 window_position -1 -1 // x and y position of window (-1, -1 to let the window manager decide)
 frameless 0 // 1 to use a window with no frame
 fullscreen_method 1 // 0 maximized window (linux)  1 borderless desktop-sized window  2 hardware fullscreen (warning: erratic behaviour under some drivers)
+blit_method 0  // 0 auto  1 software (slower but sometimes more reliable)  2 hardware (can do filtered scaling) 
+
 
 
 // :: System Settings
@@ -28,7 +39,6 @@ foreground_sleep_ms 2 // number of milliseconds to sleep each frame. Try 10 to c
 
 background_sleep_ms 10 // number of milliseconds to sleep each frame when running in the background
 
-sessions 336 // number of times program has been run
 
 // (scancode) hold this key down and left-click to simulate right-click
 rmb_key 0 // 0 for none  226 for LALT
@@ -52,28 +62,41 @@ music_volume 256 // 0..256
 mix_buffer_size 1024
 
 
-// :: 
+// :: map scancodes. Format: 44=47,80=89,..  (scancode a, scancode b -- when press a, generates b)
+// run the program with -scancodes to determine which scancodes to use
+map_scancodes 
 
-version 0.2.4C
+
+use_wget 0 // (Linux) 1 to use wget for downloads instead of libcurl (must be installed)
+
+
+
+// :: pico-8 
+
 
 // audio volume: 0..256 
 volume 256
 
 
 // Location of pico-8's root folder
-root_path {{ .chezmoi.homeDir -}}/dev/pico-8/carts/
+root_path {{ .chezmoi.homeDir }}/dev/pico-8/carts/
 
 
 // Location of cartridge save data
-cdata_path {{ .chezmoi.homeDir -}}/dev/pico-8/cdata/
+cdata_path {{ .chezmoi.homeDir }}/dev/pico-8/cdata/
 
 
 // Specify which player index joystick control begins at (0..7)
 joystick_index 0
 
 
-// Custom keyboard scancodes for buttons. player0 0..6, player1 0..5
-button_keys 0 0 0 0 0 0 0 0 0 0 0 0 0 
+// Treat the first n controllers as if they were a single merged controller
+// e.g. merge_joysticks 2 --> P0 gets controllers 0,1, P1 gets controller 2..
+merge_joysticks 0
+
+
+// Custom keyboard scancodes for buttons. player0 0..6, player1 0..5, menu_button, player2 0..5, player3 0..5
+button_keys 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
 
 // Play notes as they are plotted in frequency mode
 live_notes 0
@@ -94,12 +117,15 @@ gif_len 30
 // when 1, reset the recording when pressing ctrl-9 (useful for creating a non-overlapping sequence)
 gif_reset_mode 0
 
-// 0 for off. 1 to allow control of a cart's framerate due to host machine's cpu capacity (recommended)
+// 0 for off. 1 for auto. 2 to allow control of a cart's framerate due to host machine's cpu capacity
 host_framerate_control 1
 
 // filter splore cartridges
 // 0 off   1 on (exclude cartridge tagged as 'mature' by community)
 splore_filter 0
+
+// 0 off   1 on: always start in splore (same as pico8 -splore)
+boot_to_splore 0
 
 // tab display width (1 ~ 4 spaces)
 tab_width 1
@@ -134,6 +160,17 @@ periodic_backups 20
 //  135 rotate CW 270 degrees
 transform_screen 0
 
-// 0 off 1 on: show pixel grid in the gfx editor at zoom:8 and zoom:4
+// 0 off  > 1: colour to draw pixel grid in the gfx editor at zoom:8 and zoom:4 (16 for black)
 gfx_grid_lines 0
+
+// file naming for screenshot / gif / wav captures
+// 0 sequential (foo_0.png, foo_1.png)    1 timestamp (foo_20240115_120823.png)
+capture_timestamps 0
+
+// how many threads to use for downloading carts in the background while in splore
+// 0 to turn off pre-fetching -> carts are only downloaded once they are selected
+max_prefetch_threads 4
+
+// 1 to allow cartridges to load even if created by a future version of PICO-8
+accept_future 0
 
