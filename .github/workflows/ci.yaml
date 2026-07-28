@@ -143,12 +143,28 @@ jobs:
 
       # Runs on macOS too, where /bin/bash is still 3.2, so this doubles as a
       # check that the scripts stay 3.2-compatible.
+      #
+      # `find`, not a glob: the setup scripts live under .chezmoiscripts/ and a
+      # top-level `run_onchange_*.sh` glob silently matches nothing there — a
+      # check that quietly stops checking is worse than no check. The `-print`
+      # count below fails the step if the search ever comes back empty.
+      #
+      # .chezmoitemplates/setup-*.sh is included by those scripts rather than
+      # run on its own, so it is a fragment and not valid bash in isolation;
+      # it is covered by every script that pulls it in.
       - name: Rendered shell must be syntactically valid
         run: |
           set -eu
-          for f in "$RUNNER_TEMP/rendered"/run_onchange_*.sh; do
-            bash -n "$f" || { echo "::error file=$(basename "$f").tmpl::rendered script is not valid bash"; exit 1; }
+          scripts="$(find "$RUNNER_TEMP/rendered" -type f -name 'run_*.sh' -not -path '*/.chezmoitemplates/*' | sort)"
+          if [ -z "$scripts" ]; then
+            echo "::error::found no rendered setup scripts to syntax-check. The search path is wrong, so this job would pass without checking anything."
+            exit 1
+          fi
+          echo "$scripts" | while IFS= read -r f; do
+            bash -n "$f" || { echo "::error file=${f#$RUNNER_TEMP/rendered/}.tmpl::rendered script is not valid bash"; exit 1; }
           done
+          echo "syntax-checked:"
+          echo "$scripts"
 
   # ---------------------------------------------------------------------------
   # The install jobs.

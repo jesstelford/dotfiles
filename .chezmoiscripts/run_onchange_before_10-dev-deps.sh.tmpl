@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+{{- /* Base build and dev dependencies: the packages every later script
+       assumes are already there (wget, unzip, git, findutils/coreutils,
+       parallel, tree, patchutils; libfuse2 on Linux for the Neovim AppImage).
+
+       Runs first because install_neovim, install_fonts and friends all shell
+       out to wget/parallel.
+
+       Shared helpers live in .chezmoitemplates/setup-helpers.sh.tmpl so there
+       is exactly one copy of them across these scripts, and the closing
+       summary in .chezmoitemplates/setup-summary.sh.tmpl. */}}
+
+{{ template "setup-helpers.sh.tmpl" . }}
+
+install_dev_deps() (
+  set -e
+  {{- if (eq .chezmoi.os "darwin") }}
+    brew install wget git findutils coreutils parallel tree patchutils
+  {{- else if (eq .chezmoi.os "linux") }}
+    apt_get update
+    # Baseline tools the rest of this script assumes exist. None of them are
+    # guaranteed on a minimal Ubuntu image or a devcontainer:
+    #   wget                      - how nearly every download below is fetched
+    #   unzip                     - fonts, PICO-8, 1Password
+    #   patchutils                - lsdiff, for parity with the macOS branch
+    #   software-properties-common - add-apt-repository, used on the next line
+    apt_get install wget unzip patchutils software-properties-common
+    # latest git
+    # -y because this also runs unattended in CI/codespaces, where the
+    # "press [ENTER] to continue" prompt has no one to answer it.
+    sudo add-apt-repository -y ppa:git-core/ppa
+    apt_get update
+    apt_get install git
+    {{- if .islocalenv }}
+      apt_get install parallel
+    {{- end }}
+    # Ubuntu 22.04 no longer ships with libfuse2, which is required by the
+    # Neovim AppImage. See: https://askubuntu.com/a/1404084
+    #
+    # This used to be an unquoted `libfuse2*`. Two things wrong with that:
+    #   - the glob is unquoted, so if a file matching it happened to exist in
+    #     the cwd the shell would expand it away before apt ever saw it;
+    #   - apt only treats an argument as a *regex* when it matches no package
+    #     name literally, and `libfuse2*` does not, so it fell through to regex
+    #     matching. As a regex `libfuse2*` means "libfuse" then zero-or-more
+    #     "2"s, unanchored -- which matches libfuse-dev, libfuse3-3, libfuse3-dev
+    #     and friends, and pulled the lot in.
+    # 24.04 renamed the package to libfuse2t64 as part of the 64-bit time_t
+    # transition, so pick by what the release actually has rather than globbing.
+    if apt-cache show libfuse2t64 > /dev/null 2>&1; then
+      apt_get install libfuse2t64
+    else
+      apt_get install libfuse2
+    fi
+  {{- end }}
+)
+runner install_dev_deps
+
+{{ template "setup-summary.sh.tmpl" . }}

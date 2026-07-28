@@ -1,0 +1,191 @@
+#!/usr/bin/env bash
+{{- /* Command-line tools: tmux, cmux, Claude Code, bat, eza, fd, delta, uv,
+       and the handful of language servers/formatters that are useful outside
+       Neovim (the rest are Mason's job). */}}
+{{- /*
+  Architecture spellings. .chezmoi.arch is Go's GOARCH — "amd64" or "arm64" on
+  every machine this repo targets — and upstreams spell it four different ways:
+
+    $arch      amd64  | arm64     dpkg / .deb assets / Go's own tarballs
+    $archnvim  x86_64 | arm64     Neovim release assets
+    $archlua   x64    | arm64     lua-language-server release assets
+    $archgnu   x86_64 | aarch64   GNU triplet spelling; DBeaver release assets
+
+  Derived per script rather than once globally: a template variable set inside
+  an included .chezmoitemplates file is scoped to that template, so it cannot be
+  shared the way the shell helpers are. Each script derives only the spellings
+  it actually uses.
+*/}}
+{{- $arch := .chezmoi.arch }}
+{{- $archlua := $arch }}
+{{- if eq $arch "amd64" }}
+{{-   $archlua = "x64" }}
+{{- end }}
+{{- /*
+  Download integrity.
+
+  Every download here arrives over TLS, which authenticates the host and says
+  nothing whatsoever about the bytes. So: where a download is pinned to a
+  version, the SHA-256 of that exact asset is pinned beside it in
+  .chezmoidata.toml and checked with verify_sha256 before anything is
+  installed. See that file's header for how to refresh a digest.
+*/}}
+
+{{ template "setup-helpers.sh.tmpl" . }}
+
+{{- /* powerlevel10k used to be cloned here; it is now a git-repo external in
+       .chezmoiexternal.toml. */}}
+
+# tmux
+install_tmux() (
+  set -e
+  {{- if (eq .chezmoi.os "darwin") }}
+    brew install tmux
+  {{- else if (eq .chezmoi.os "linux") }}
+    apt_get install tmux
+  {{- end }}
+)
+runner install_tmux
+
+{{- if .islocalenv }}
+{{- if (eq .chezmoi.os "darwin") }}
+# cmux
+# GUI app: only ever wanted on a real desktop, never in codespaces or CI.
+install_cmux() (
+  set -e
+  brew tap manaflow-ai/cmux
+  brew install --cask cmux
+)
+runner install_cmux
+{{- end }}
+{{- end }}
+
+# Claude Code (Anthropic's agentic coding CLI)
+install_claude_code() (
+  set -e
+  # No brew on Linux; use the native installer (auto-updates in the background)
+  curl -fsSL https://claude.ai/install.sh | bash
+)
+runner install_claude_code
+
+# bat
+install_bat() (
+  set -e
+  {{- if (eq .chezmoi.os "darwin") }}
+    brew install bat
+  {{- else if (eq .chezmoi.os "linux") }}
+    use_temp_dir
+    wget --no-verbose https://github.com/sharkdp/bat/releases/download/v{{ .versions.bat }}/bat_{{ .versions.bat }}_{{ $arch }}.deb
+    verify_sha256 ./bat_{{ .versions.bat }}_{{ $arch }}.deb {{ index .digests.bat $arch }}
+    apt_get install ./bat_{{ .versions.bat }}_{{ $arch }}.deb
+  {{- end }}
+)
+runner install_bat
+
+# eza (modern ls replacement; the `ls` alias falls back to system ls if absent)
+install_eza() (
+  set -e
+  {{- if (eq .chezmoi.os "darwin") }}
+    brew install eza
+  {{- else if (eq .chezmoi.os "linux") }}
+    # eza is in apt on Ubuntu 24.04+; on older releases this fails harmlessly
+    # and the ls alias falls back to system ls
+    apt_get install eza
+  {{- end }}
+)
+runner install_eza
+
+# fd
+install_fd() (
+  set -e
+  {{- if (eq .chezmoi.os "darwin") }}
+    brew install fd
+  {{- else if (eq .chezmoi.os "linux") }}
+    apt_get install fd-find
+    # Override the other `fd` binary that comes with Ubuntu
+    sudo rm -f /usr/local/bin/fd
+    sudo ln -s $(which fdfind) /usr/local/bin/fd
+  {{- end }}
+)
+runner install_fd
+
+# delta
+install_delta() (
+  set -e
+  {{- if (eq .chezmoi.os "darwin") }}
+    brew install git-delta
+  {{- else if (eq .chezmoi.os "linux") }}
+    use_temp_dir
+    wget --no-verbose https://github.com/dandavison/delta/releases/download/{{ .versions.delta }}/git-delta_{{ .versions.delta }}_{{ $arch }}.deb
+    verify_sha256 ./git-delta_{{ .versions.delta }}_{{ $arch }}.deb {{ index .digests.delta $arch }}
+    apt_get install ./git-delta_{{ .versions.delta }}_{{ $arch }}.deb
+  {{- end }}
+)
+runner install_delta
+
+# uv (python package manager)
+install_uv() (
+  set -e
+  {{- if (eq .chezmoi.os "darwin") }}
+    brew install uv
+  {{- else if (eq .chezmoi.os "linux") }}
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+  {{- end }}
+)
+runner install_uv
+
+# Language servers are Mason's job, not this script's: LazyVim drives Mason from
+# the extras enabled in dot_config/nvim/lazyvim.json, so anything installed here
+# is either a duplicate or an orphan. Only the servers Mason cannot reasonably
+# own are provisioned below.
+
+# html / css / json / eslint servers. Kept here rather than left to Mason
+# because they are also useful outside Neovim.
+install_vscode_lsp() (
+  set -e
+  npm install -g vscode-langservers-extracted --silent
+)
+runner install_vscode_lsp
+
+# The TypeScript compiler itself, for `tsc` on the command line. NOT a language
+# server: LazyVim's typescript extra uses vtsls, installed by Mason.
+install_typescript() (
+  set -e
+  npm install -g typescript --silent
+)
+runner install_typescript
+
+install_lua_lsp() (
+  set -e
+  {{- if (eq .chezmoi.os "darwin") }}
+    brew install lua-language-server
+  {{- else if (eq .chezmoi.os "linux") }}
+    use_temp_dir
+    wget --no-verbose https://github.com/LuaLS/lua-language-server/releases/download/{{ .versions.lua_language_server }}/lua-language-server-{{ .versions.lua_language_server }}-linux-{{ $archlua }}.tar.gz
+    verify_sha256 ./lua-language-server-{{ .versions.lua_language_server }}-linux-{{ $archlua }}.tar.gz {{ index .digests.lua_language_server $arch }}
+    sudo mkdir -p /usr/local/lib/lua-language-server
+    sudo tar xzf lua-language-server-{{ .versions.lua_language_server }}-linux-{{ $archlua }}.tar.gz -C /usr/local/lib/lua-language-server
+    # Only the entrypoint needs to be executable. Do NOT make the tree writable:
+    # /usr/local/bin/lua-language-server symlinks in here and Neovim auto-launches
+    # it for every .lua file, so a world-writable tree is a local code-exec hole.
+    sudo chmod a+x /usr/local/lib/lua-language-server/bin/lua-language-server
+    sudo rm -f /usr/local/bin/lua-language-server
+    sudo ln -s /usr/local/lib/lua-language-server/bin/lua-language-server /usr/local/bin/lua-language-server
+  {{- end }}
+)
+runner install_lua_lsp
+
+install_prettierd() (
+  set -e
+  npm install -g @fsouza/prettierd --silent
+)
+runner install_prettierd
+
+# For neovim support in lazyvim (or something, not sure tbh)
+install_neovim_npm() (
+  set -e
+  npm install -g neovim --silent
+)
+runner install_neovim_npm
+
+{{ template "setup-summary.sh.tmpl" . }}

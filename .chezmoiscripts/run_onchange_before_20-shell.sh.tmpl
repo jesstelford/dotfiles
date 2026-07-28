@@ -1,0 +1,87 @@
+#!/usr/bin/env bash
+{{- /* The shell itself and the tools wired into it: the ~/.zsh and
+       /usr/local/bin directories later scripts write into, zsh, git-absorb,
+       git-lfs, ripgrep, and fzf on macOS (elsewhere fzf is the ~/.fzf external
+       plus .chezmoiscripts/run_after_fzf-binary.sh). */}}
+
+{{ template "setup-helpers.sh.tmpl" . }}
+
+# Some prep for ZSH
+mkdir -p $HOME/.zsh
+# sudo: on a fresh macOS /usr/local/bin does not exist yet and /usr/local is
+# root-owned, so an unprivileged mkdir fails here — and then every `sudo tee` and
+# `ln -s` into that directory further down fails too.
+sudo mkdir -p /usr/local/bin
+
+install_zsh() (
+  set -e
+  # Install it
+  {{- if (eq .chezmoi.os "darwin") }}
+    brew install zsh
+  {{- else if (eq .chezmoi.os "linux") }}
+    apt_get install zsh
+  {{- end }}
+  # Use root to set the default shell for my user. Required when my user doesn't have permissions.
+  sudo chsh -s $(which zsh) $(whoami)
+)
+runner install_zsh
+
+# Add git absorb command: https://github.com/tummychow/git-absorb
+install_git_absorb() (
+  set -e
+  # Install it
+  {{- if (eq .chezmoi.os "darwin") }}
+    brew install git-absorb
+  {{- else if (eq .chezmoi.os "linux") }}
+    apt_get install git-absorb
+  {{- end }}
+)
+runner install_git_absorb
+
+# git-lfs
+#
+# .gitconfig declares `[filter "lfs"] required = true`, which makes git hard-fail
+# on any clone of an LFS repo when the git-lfs binary is missing. Install it here
+# rather than leaving it as a manual step.
+#
+# Deliberately no `git lfs install`: that command's only job is to write the
+# `[filter "lfs"]` block into ~/.gitconfig, which is chezmoi-managed and already
+# contains it verbatim. Running it here (this script runs *before* chezmoi writes
+# the dotfiles) would only churn a managed file.
+install_git_lfs() (
+  set -e
+  {{- if (eq .chezmoi.os "darwin") }}
+    brew install git-lfs
+  {{- else if (eq .chezmoi.os "linux") }}
+    apt_get install git-lfs
+  {{- end }}
+)
+runner install_git_lfs
+
+# rg / ripgrep
+install_ripgrep() (
+  set -e
+  {{- if (eq .chezmoi.os "darwin") }}
+    brew install ripgrep
+  {{- else if (eq .chezmoi.os "linux") }}
+    apt_get install ripgrep
+  {{- end }}
+)
+runner install_ripgrep
+
+{{- if (eq .chezmoi.os "darwin") }}
+# fzf
+install_fzf() (
+  set -e
+  # brew puts fzf on PATH and keeps it current; shell integration comes from
+  # `fzf --zsh` (sourced in .zshrc)
+  brew install fzf
+)
+runner install_fzf
+{{- else }}
+{{- /* Everywhere else fzf is the ~/.fzf git-repo external in
+       .chezmoiexternal.toml, and run_after_fzf-binary.sh downloads the
+       matching binary once that checkout exists. */}}
+{{- end }}
+
+{{ template "setup-summary.sh.tmpl" . }}

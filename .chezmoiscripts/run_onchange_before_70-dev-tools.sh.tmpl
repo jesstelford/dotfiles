@@ -1,0 +1,227 @@
+#!/usr/bin/env bash
+{{- /* Heavier development tooling: KeyCastr, the GitHub CLI and its
+       extensions, MongoDB, DBeaver, Go.
+
+       KeyCastr is here rather than in 40-desktop because it sat between the
+       npm tooling and gh in the original single script, and these scripts have
+       to run in that same order. */}}
+{{- /*
+  Architecture spellings. .chezmoi.arch is Go's GOARCH — "amd64" or "arm64" on
+  every machine this repo targets — and upstreams spell it four different ways:
+
+    $arch      amd64  | arm64     dpkg / .deb assets / Go's own tarballs
+    $archnvim  x86_64 | arm64     Neovim release assets
+    $archlua   x64    | arm64     lua-language-server release assets
+    $archgnu   x86_64 | aarch64   GNU triplet spelling; DBeaver release assets
+
+  Derived per script rather than once globally: a template variable set inside
+  an included .chezmoitemplates file is scoped to that template, so it cannot be
+  shared the way the shell helpers are. Each script derives only the spellings
+  it actually uses.
+*/}}
+{{- $arch := .chezmoi.arch }}
+{{- $archgnu := "aarch64" }}
+{{- if eq $arch "amd64" }}
+{{-   $archgnu = "x86_64" }}
+{{- end }}
+{{- /*
+  Download integrity.
+
+  Every download here arrives over TLS, which authenticates the host and says
+  nothing whatsoever about the bytes. So: where a download is pinned to a
+  version, the SHA-256 of that exact asset is pinned beside it in
+  .chezmoidata.toml and checked with verify_sha256 before anything is
+  installed. See that file's header for how to refresh a digest.
+*/}}
+
+{{ template "setup-helpers.sh.tmpl" . }}
+
+{{- if .islocalenv }}
+{{- if (eq .chezmoi.os "darwin") }}
+# Keypress visualiser
+# GUI app: only ever wanted on a real desktop, never in codespaces or CI.
+install_keycastr() (
+  set -e
+  brew install --cask keycastr
+)
+runner install_keycastr
+{{- end }}
+{{- end }}
+
+{{- if .islocalenv }}
+# GitHub CLI; gh
+install_gh() (
+  set -e
+  {{- if (eq .chezmoi.os "darwin") }}
+    brew install gh
+  {{- else if (eq .chezmoi.os "linux") }}
+    # apt-key is deprecated/removed on modern Ubuntu; use a signed-by keyring
+    # See: https://github.com/cli/cli/blob/trunk/docs/install_linux.md
+    sudo mkdir -p -m 755 /etc/apt/keyrings
+    wget -qO- https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null
+    sudo chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+    apt_get update
+    apt_get install gh
+  {{- end }}
+  gh auth login
+)
+runner install_gh
+{{- end }}
+
+{{- if .islocalenv }}
+# GitHub CLI Extensions
+install_gh_dash() (
+  set -e
+  gh extension install dlvhdr/gh-dash
+)
+runner install_gh_dash
+{{- end }}
+
+{{- if .islocalenv }}
+# mongoDB
+install_mongodb() (
+  set -e
+  {{- if (eq .chezmoi.os "darwin") }}
+    # TODO
+  {{- else if (eq .chezmoi.os "linux") }}
+    # From https://www.mongodb.com/docs/manual/tutorial/install-mongodb-on-ubuntu/
+    #
+    # Bumped from 4.4/focal. 4.4 reached end of life in February 2024 and the
+    # focal index it came from is for Ubuntu 20.04 — this step carried its own
+    # "NOTE: TODO: FIXME: Only for Ubuntu 20.04" admitting as much. On anything
+    # newer, apt would 404 on that index and then fail *every* later
+    # `apt update` on the machine, not just this step.
+    #
+    # The exact-version pins (=4.4.5) and the five `dpkg --set-selections` holds
+    # are gone with it. Holding a package at one patch release is precisely what
+    # let this rot silently for four years, and nothing here needs a specific
+    # patch — {{ .versions.mongodb }} is the current GA series and apt can keep it
+    # current on its own.
+    apt_get install gnupg lsb-release
+
+    # A previous run of this script left a dead 4.4/focal source behind. apt
+    # fails the whole `update` when any single index 404s, so a machine that ran
+    # the old version of this step has a broken apt until this is removed.
+    sudo rm -f /etc/apt/sources.list.d/mongodb-org-4.4.list /usr/share/keyrings/mongodb-server-4.4.gpg
+
+    # MongoDB publishes per-release indexes, and only for Ubuntu LTS codenames.
+    # Pointing apt at one that does not exist breaks apt globally (see above),
+    # so fall back to the newest supported LTS on a non-LTS or newer release.
+    mongo_codename="$(lsb_release -cs)"
+    case "$mongo_codename" in
+      jammy|noble) ;;
+      *)
+        echo "No MongoDB {{ .versions.mongodb }} index for '$mongo_codename'; using the noble one."
+        mongo_codename=noble
+        ;;
+    esac
+
+    # apt-key is deprecated/removed on modern Ubuntu; use a signed-by keyring.
+    # Truncating `tee` rather than `gpg -o`, which refuses to overwrite an
+    # existing file and would fail every re-run.
+    wget -qO- https://www.mongodb.org/static/pgp/server-{{ .versions.mongodb }}.asc \
+      | gpg --dearmor \
+      | sudo tee /usr/share/keyrings/mongodb-server-{{ .versions.mongodb }}.gpg > /dev/null
+    # apt reads the keyring as the unprivileged `_apt` user
+    sudo chmod go+r /usr/share/keyrings/mongodb-server-{{ .versions.mongodb }}.gpg
+
+    echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-{{ .versions.mongodb }}.gpg ] https://repo.mongodb.org/apt/ubuntu ${mongo_codename}/mongodb-org/{{ .versions.mongodb }} multiverse" \
+      | sudo tee /etc/apt/sources.list.d/mongodb-org-{{ .versions.mongodb }}.list > /dev/null
+    apt_get update
+
+    # Ubuntu's own `mongodb*` packages conflict with mongodb-org. Remove them
+    # only when actually installed: `apt-get remove` on a name that is not in
+    # the index at all is a hard error, and under `set -e` that aborted this
+    # whole step. The old line named `mongo-tools`, which has not existed as an
+    # Ubuntu package since 18.04.
+    for pkg in mongodb mongodb-clients mongodb-server mongodb-server-core; do
+      if dpkg -s "$pkg" > /dev/null 2>&1; then
+        apt_get remove "$pkg"
+      fi
+    done
+
+    apt_get install mongodb-org
+
+    # Mongo not working? Probably because there are old databases that can't be
+    # upgraded directly to this version, so we have to either delete the physical
+    # database file or rollback mongo version to oldver+1, run the daemon, then
+    # upgrade to the next version etc. :(
+    # Going 4.4 -> {{ .versions.mongodb }} is several such hops; an existing dbpath
+    # from the old pin will not start under {{ .versions.mongodb }} without them.
+  {{- end }}
+)
+optional_runner install_mongodb
+{{- end }}
+
+{{- if .islocalenv }}
+# DBeaver - PostgreSQL / MySQL / etc GUI
+install_dbeaver() (
+  set -e
+  {{- if (eq .chezmoi.os "darwin") }}
+    brew install --cask dbeaver-community
+  {{- else if (eq .chezmoi.os "linux") }}
+    {{- /*
+      Bumped from 22.1.0 (June 2022). That release predates DBeaver's arm64
+      .debs entirely, so on Apple-silicon Linux or an arm64 VM the old URL was a
+      guaranteed 404. Upstream also renamed the assets somewhere between then
+      and now: `dbeaver-ce_22.1.0_amd64.deb` became
+      `dbeaver-ce-26.1.3-linux-x86_64.deb` — underscores to hyphens, dpkg arch
+      names to GNU triplet names.
+
+      The pin and its digest both live in .chezmoidata.toml; refresh them
+      together with the `curl` snippet in the header of that file.
+    */}}
+    use_temp_dir
+    wget --no-verbose https://github.com/dbeaver/dbeaver/releases/download/{{ .versions.dbeaver }}/dbeaver-ce-{{ .versions.dbeaver }}-linux-{{ $archgnu }}.deb
+    verify_sha256 ./dbeaver-ce-{{ .versions.dbeaver }}-linux-{{ $archgnu }}.deb {{ index .digests.dbeaver $arch }}
+    # Install the package
+    apt_get install ./dbeaver-ce-{{ .versions.dbeaver }}-linux-{{ $archgnu }}.deb
+  {{- end }}
+)
+optional_runner install_dbeaver
+{{- end }}
+
+# golang
+install_golang() (
+  set -e
+  {{- if (eq .chezmoi.os "darwin") }}
+    # brew keeps Go current; avoids pinning a pkg URL that rots
+    brew install go
+  {{- else if (eq .chezmoi.os "linux") }}
+    use_temp_dir
+    # Resolve the latest stable Go release so this doesn't rot to a pinned version
+    GO_VERSION="$(curl -fsSL 'https://go.dev/VERSION?m=text' | head -n1)"
+    GO_TARBALL="${GO_VERSION}.linux-{{ $arch }}.tar.gz"
+
+    # This one is deliberately not pinned, so its digest can't be pinned either.
+    # Go publishes the SHA-256 of every release file in its own download index,
+    # so fetch that alongside the tarball and check against it. Same TLS trust
+    # root as the download itself, so it is not a defence against a compromised
+    # go.dev — it is a defence against a corrupted or substituted mirror
+    # response, which is the realistic failure here.
+    #
+    # `include=all` so a brand-new release that hasn't rolled onto the default
+    # (stable-only) listing yet still resolves.
+    GO_SHA256="$(curl -fsSL 'https://go.dev/dl/?mode=json&include=all' \
+      | grep -A5 "\"filename\": \"${GO_TARBALL}\"" \
+      | grep '"sha256"' \
+      | head -n1 \
+      | cut -d'"' -f4)"
+
+    if [ -z "$GO_SHA256" ]; then
+      echo "❌ No published SHA-256 for ${GO_TARBALL}; refusing to install it unverified."
+      exit 1
+    fi
+
+    wget --no-verbose "https://go.dev/dl/${GO_TARBALL}"
+    verify_sha256 "./${GO_TARBALL}" "$GO_SHA256"
+    # Remove any previous install before extracting, per the official upgrade docs
+    sudo rm -rf /usr/local/go
+    sudo tar -C /usr/local -xzf "${GO_TARBALL}"
+    rm -f "${GO_TARBALL}"
+  {{- end }}
+)
+runner install_golang
+
+{{ template "setup-summary.sh.tmpl" . }}
