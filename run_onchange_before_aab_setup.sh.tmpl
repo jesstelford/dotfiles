@@ -225,7 +225,7 @@ runner install_fzf
 install_neovim() (
   set -e
   {{- $nvimbinary := "" }}
-  {{- $nvimversion := "0.11.4" }}
+  {{- $nvimversion := .versions.nvim }}
   {{- if (eq .chezmoi.os "darwin") }}
     if [ ! -d "/usr/local/nvim-osx64-{{ $nvimversion }}" ]; then
       wget --no-verbose https://github.com/neovim/neovim/releases/download/v{{ $nvimversion }}/nvim-macos-arm64.tar.gz
@@ -415,7 +415,7 @@ runner install_emoji_picker
 # Install RoamResearch
 install_roam_research() (
   set -e
-  {{- $roamversion := "0.0.14" }}
+  {{- $roamversion := .versions.roam }}
   {{- if (eq .chezmoi.os "darwin") }}
     install_dmg https://roam-electron-deploy.s3.us-east-2.amazonaws.com/Roam+Research-{{ $roamversion }}.dmg
   {{- else if (eq .chezmoi.os "linux") }}
@@ -431,12 +431,12 @@ optional_runner install_roam_research
 install_fontforge() (
   set -e
   {{- if (eq .chezmoi.os "darwin") }}
-    install_dmg https://github.com/fontforge/fontforge/releases/download/20201107/FontForge-2020-11-07-21ad4a1.app.dmg
+    install_dmg https://github.com/fontforge/fontforge/releases/download/{{ .versions.fontforge }}/FontForge-{{ .versions.fontforge_build }}.app.dmg
   {{- else if (eq .chezmoi.os "linux") }}
-    wget --no-verbose https://github.com/fontforge/fontforge/releases/download/20201107/FontForge-2020-11-07-21ad4a1-x86_64.AppImage
-    sudo mv FontForge-2020-11-07-21ad4a1-x86_64.AppImage /usr/local/bin
-    sudo chmod a+x /usr/local/bin/FontForge-2020-11-07-21ad4a1-x86_64.AppImage
-    sudo ln -s /usr/local/bin/FontForge-2020-11-07-21ad4a1-x86_64.AppImage /usr/local/bin/fontforge
+    wget --no-verbose https://github.com/fontforge/fontforge/releases/download/{{ .versions.fontforge }}/FontForge-{{ .versions.fontforge_build }}-x86_64.AppImage
+    sudo mv FontForge-{{ .versions.fontforge_build }}-x86_64.AppImage /usr/local/bin
+    sudo chmod a+x /usr/local/bin/FontForge-{{ .versions.fontforge_build }}-x86_64.AppImage
+    sudo ln -s /usr/local/bin/FontForge-{{ .versions.fontforge_build }}-x86_64.AppImage /usr/local/bin/fontforge
   {{- end }}
 )
 runner install_fontforge
@@ -536,7 +536,7 @@ fi
 # nvm (node version manager)
 install_nvm() (
   set -e
-  curl -sSo- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+  curl -sSo- https://raw.githubusercontent.com/nvm-sh/nvm/v{{ .versions.nvm }}/install.sh | bash
 )
 runner install_nvm
 
@@ -550,11 +550,11 @@ export NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" || pr
 install_node() (
   set -e
 {{- if .spin }}
-  nvm install v22
-  nvm alias default v22
+  nvm install v{{ .versions.node }}
+  nvm alias default v{{ .versions.node }}
 {{- else }}
-  $HOME/.fnm/fnm install v22
-  $HOME/.fnm/fnm default v22
+  $HOME/.fnm/fnm install v{{ .versions.node }}
+  $HOME/.fnm/fnm default v{{ .versions.node }}
 {{- end }}
 )
 runner install_node
@@ -614,8 +614,8 @@ install_bat() (
   {{- if (eq .chezmoi.os "darwin") }}
     brew install bat
   {{- else if (eq .chezmoi.os "linux") }}
-    wget --no-verbose https://github.com/sharkdp/bat/releases/download/v0.25.0/bat_0.25.0_amd64.deb
-    apt_get install ./bat_0.25.0_amd64.deb
+    wget --no-verbose https://github.com/sharkdp/bat/releases/download/v{{ .versions.bat }}/bat_{{ .versions.bat }}_amd64.deb
+    apt_get install ./bat_{{ .versions.bat }}_amd64.deb
   {{- end }}
 )
 runner install_bat
@@ -653,8 +653,8 @@ install_delta() (
   {{- if (eq .chezmoi.os "darwin") }}
     brew install git-delta
   {{- else if (eq .chezmoi.os "linux") }}
-    wget --no-verbose https://github.com/dandavison/delta/releases/download/0.18.2/git-delta_0.18.2_amd64.deb
-    apt_get install ./git-delta_0.18.2_amd64.deb
+    wget --no-verbose https://github.com/dandavison/delta/releases/download/{{ .versions.delta }}/git-delta_{{ .versions.delta }}_amd64.deb
+    apt_get install ./git-delta_{{ .versions.delta }}_amd64.deb
   {{- end }}
 )
 runner install_delta
@@ -719,9 +719,9 @@ install_lua_lsp() (
   {{- if (eq .chezmoi.os "darwin") }}
     brew install lua-language-server
   {{- else if (eq .chezmoi.os "linux") }}
-    wget --no-verbose https://github.com/LuaLS/lua-language-server/releases/download/3.13.9/lua-language-server-3.13.9-linux-x64.tar.gz
+    wget --no-verbose https://github.com/LuaLS/lua-language-server/releases/download/{{ .versions.lua_language_server }}/lua-language-server-{{ .versions.lua_language_server }}-linux-x64.tar.gz
     sudo mkdir -p /usr/local/lib/lua-language-server
-    sudo tar xzf lua-language-server-3.13.9-linux-x64.tar.gz -C /usr/local/lib/lua-language-server
+    sudo tar xzf lua-language-server-{{ .versions.lua_language_server }}-linux-x64.tar.gz -C /usr/local/lib/lua-language-server
     sudo chmod a+x /usr/local/lib/lua-language-server/bin/lua-language-server
     sudo chmod a+w -R /usr/local/lib/lua-language-server
     sudo rm -f /usr/local/bin/lua-language-server
@@ -792,13 +792,13 @@ install_mongodb() (
     # From  https://docs.mongodb.com/manual/tutorial/install-mongodb-on-ubuntu/
     apt_get install gnupg
     # apt-key is deprecated/removed on modern Ubuntu; use a signed-by keyring
-    wget -qO - https://www.mongodb.org/static/pgp/server-4.4.asc | sudo gpg --dearmor -o /usr/share/keyrings/mongodb-server-4.4.gpg
+    wget -qO - https://www.mongodb.org/static/pgp/server-{{ .versions.mongodb_series }}.asc | sudo gpg --dearmor -o /usr/share/keyrings/mongodb-server-{{ .versions.mongodb_series }}.gpg
     # NOTE: TODO: FIXME: Only for Ubuntu 20.04
-    echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-4.4.gpg ] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/4.4 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-4.4.list
+    echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-{{ .versions.mongodb_series }}.gpg ] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/{{ .versions.mongodb_series }} multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-{{ .versions.mongodb_series }}.list
     apt_get update
     # Remove system-instaled mongo version
     apt_get remove mongodb-org mongodb-org-tools mongodb-server-core mongo-tools
-    apt_get install -y mongodb-org=4.4.5 mongodb-org-server=4.4.5 mongodb-org-shell=4.4.5 mongodb-org-mongos=4.4.5 mongodb-org-tools=4.4.5
+    apt_get install -y mongodb-org={{ .versions.mongodb }} mongodb-org-server={{ .versions.mongodb }} mongodb-org-shell={{ .versions.mongodb }} mongodb-org-mongos={{ .versions.mongodb }} mongodb-org-tools={{ .versions.mongodb }}
     echo "mongodb-org hold" | sudo dpkg --set-selections
     echo "mongodb-org-server hold" | sudo dpkg --set-selections
     echo "mongodb-org-shell hold" | sudo dpkg --set-selections
@@ -821,9 +821,9 @@ install_dbeaver() (
   {{- if (eq .chezmoi.os "darwin") }}
     brew install --cask dbeaver-community
   {{- else if (eq .chezmoi.os "linux") }}
-    wget --no-verbose https://github.com/dbeaver/dbeaver/releases/download/22.1.0/dbeaver-ce_22.1.0_amd64.deb
+    wget --no-verbose https://github.com/dbeaver/dbeaver/releases/download/{{ .versions.dbeaver }}/dbeaver-ce_{{ .versions.dbeaver }}_amd64.deb
     # Install the package
-    apt_get install ./dbeaver-ce_22.1.0_amd64.deb
+    apt_get install ./dbeaver-ce_{{ .versions.dbeaver }}_amd64.deb
   {{- end }}
 )
 optional_runner install_dbeaver
@@ -884,8 +884,8 @@ optional_runner install_one_password_cli
 install_pdftk() (
   set -e
   {{- if (eq .chezmoi.os "darwin") }}
-    wget --no-verbose https://www.pdflabs.com/tools/pdftk-the-pdf-toolkit/pdftk_server-2.02-mac_osx-10.11-setup.pkg
-    open -nW pdftk_server-2.02-mac_osx-10.11-setup.pkg
+    wget --no-verbose https://www.pdflabs.com/tools/pdftk-the-pdf-toolkit/pdftk_server-{{ .versions.pdftk }}-mac_osx-10.11-setup.pkg
+    open -nW pdftk_server-{{ .versions.pdftk }}-mac_osx-10.11-setup.pkg
   {{- else if (eq .chezmoi.os "linux") }}
     apt_get install pdftk
   {{- end }}
@@ -900,9 +900,9 @@ install_xournal() (
   set -e
   # Install required deps
   apt_get install libportaudio2 libportaudiocpp0 libzip5
-  wget --no-verbose https://github.com/xournalpp/xournalpp/releases/download/v1.1.1/xournalpp-1.1.1-Ubuntu-focal-x86_64.deb
+  wget --no-verbose https://github.com/xournalpp/xournalpp/releases/download/v{{ .versions.xournalpp }}/xournalpp-{{ .versions.xournalpp }}-Ubuntu-focal-x86_64.deb
   # Install the package
-  apt_get install ./xournalpp-1.1.1-Ubuntu-focal-x86_64.deb
+  apt_get install ./xournalpp-{{ .versions.xournalpp }}-Ubuntu-focal-x86_64.deb
 )
 runner install_xournal
 {{- end }}
@@ -915,7 +915,7 @@ install_signal() (
   {{- if .codespaces }}
     # Not on Codespaces
   {{- else if (eq .chezmoi.os "darwin") }}
-    install_dmg https://updates.signal.org/desktop/signal-desktop-mac-universal-5.47.0.dmg
+    install_dmg https://updates.signal.org/desktop/signal-desktop-mac-universal-{{ .versions.signal }}.dmg
   {{- else if (eq .chezmoi.os "linux") }}
     wget -qO- https://updates.signal.org/desktop/apt/keys.asc | gpg --dearmor > signal-desktop-keyring.gpg
     cat signal-desktop-keyring.gpg | sudo tee -a /usr/share/keyrings/signal-desktop-keyring.gpg > /dev/null
@@ -992,7 +992,7 @@ install_pico8() (
   export PASSWORD="$ITCH_PASSWORD"
 
   # Download the binary
-  npx --package=playwright@~1.21.0 --yes -c 'dir=$(dirname `which playwright`)/../..; cp scripts/install-pico8.js $dir; cd $dir; node install-pico8.js'
+  npx --package=playwright@~{{ .versions.playwright }} --yes -c 'dir=$(dirname `which playwright`)/../..; cp scripts/install-pico8.js $dir; cd $dir; node install-pico8.js'
 
   # Install it
   {{- if (eq .chezmoi.os "darwin") }}
@@ -1044,7 +1044,7 @@ runner install_alttab
 {{- if (eq .chezmoi.os "darwin") }}
 install_karabiner_elements() (
   set -e
-  install_dmg https://github.com/pqrs-org/Karabiner-Elements/releases/download/v14.4.0/Karabiner-Elements-14.4.0.dmg pkg
+  install_dmg https://github.com/pqrs-org/Karabiner-Elements/releases/download/v{{ .versions.karabiner }}/Karabiner-Elements-{{ .versions.karabiner }}.dmg pkg
 )
 runner install_karabiner_elements
 {{- end }}
@@ -1055,7 +1055,7 @@ runner install_karabiner_elements
 {{- if (eq .chezmoi.os "darwin") }}
 install_licecap() (
   set -e
-  install_dmg https://www.cockos.com/licecap/licecap132.dmg
+  install_dmg https://www.cockos.com/licecap/licecap{{ .versions.licecap }}.dmg
   # Set the default directory
   defaults write com.cockos.LICEcap.plist NSNavLastRootDirectory -string "~/Movies"
 )
@@ -1118,7 +1118,7 @@ SUBSYSTEM=="usb", ATTR{idVendor}=="feed", ATTR{idProduct}=="6060", GROUP="plugde
 EOF
 
     # Install Wally, the EZ / ZSA flashing tool
-    wget --no-verbose https://github.com/zsa/wally/releases/download/2.1.3-linux/wally
+    wget --no-verbose https://github.com/zsa/wally/releases/download/{{ .versions.wally }}-linux/wally
     sudo mv wally /usr/local/bin/wally
     sudo chmod a+x /usr/local/bin/wally
   {{- end }}
@@ -1135,10 +1135,10 @@ install_mkcert() (
     brew install nss
   {{- else if (eq .chezmoi.os "linux") }}
     apt_get install libnss3-tools
-    wget --no-verbose https://github.com/FiloSottile/mkcert/releases/download/v1.4.4/mkcert-v1.4.4-linux-amd64
-    sudo mv mkcert-v1.4.4-linux-amd64 /usr/local/bin/
-    sudo chmod a+x /usr/local/bin/mkcert-v1.4.4-linux-amd64
-    sudo ln -s /usr/local/bin/mkcert-v1.4.4-linux-amd64 /usr/local/bin/mkcert
+    wget --no-verbose https://github.com/FiloSottile/mkcert/releases/download/v{{ .versions.mkcert }}/mkcert-v{{ .versions.mkcert }}-linux-amd64
+    sudo mv mkcert-v{{ .versions.mkcert }}-linux-amd64 /usr/local/bin/
+    sudo chmod a+x /usr/local/bin/mkcert-v{{ .versions.mkcert }}-linux-amd64
+    sudo ln -s /usr/local/bin/mkcert-v{{ .versions.mkcert }}-linux-amd64 /usr/local/bin/mkcert
   {{- end }}
 )
 optional_runner install_mkcert
