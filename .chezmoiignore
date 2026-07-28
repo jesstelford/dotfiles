@@ -27,10 +27,6 @@ Library/
 # Codespaces only files
 {{- end }}
 
-{{- if not .spin }}
-# Spin only files
-{{- end }}
-
 {{- if not .islocalenv }}
 # Local-only files
 Library/
