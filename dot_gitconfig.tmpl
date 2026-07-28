@@ -8,6 +8,9 @@
 {{- end }}
 [rerere]
   enabled = true
+{{- /* Record the resolution as soon as it is staged, instead of waiting for the
+       next `git rerere` invocation to notice. */}}
+  autoUpdate = true
 [core]
   pager = delta
   editor = nvim
@@ -21,15 +24,48 @@
   file-style = omit
   zero-style = dim syntax
   whitespace-error-style = reverse red
+{{- /* n/N jump file-to-file in the pager rather than scrolling a screen at a
+       time, which is the whole point of paging a big diff. */}}
+  navigate = true
 [diff]
   colorMoved = dimmed_zebra
+{{- /* Myers optimises for a small diff; histogram optimises for a readable one.
+       It is what delta, difftastic and most review tools assume. */}}
+  algorithm = histogram
 [interactive]
   diffFilter = delta --color-only
-[color]
-  ui = true
-  diff = auto
-  status = auto
-  branch = auto
+{{- /* No [color] section: color.ui defaults to "auto" since git 1.8.4 (2013) and
+       color.diff/status/branch all inherit from it, so the block only restated
+       the defaults -- and color.ui = true was the deprecated spelling of auto. */}}
+[push]
+{{- /* `git push` on a new branch creates the upstream instead of failing with a
+       three-line hint telling you to re-run it with --set-upstream. */}}
+  autoSetupRemote = true
+[fetch]
+{{- /* Drop remote-tracking refs for branches that were deleted upstream. Without
+       this, `git branch -r` accumulates every merged PR branch forever. */}}
+  prune = true
+[rebase]
+{{- /* Rebasing a stack of dependent branches rewrites the whole stack rather
+       than leaving every branch below the top one pointing at stale commits.
+       This is exactly the workflow this repo's PR stack uses. */}}
+  updateRefs = true
+{{- /* Stash and restore a dirty tree around a rebase instead of refusing. */}}
+  autoStash = true
+[merge]
+  tool = nvim
+{{- /* zdiff3 shows the common ancestor in a conflict, like diff3, but first
+       hoists the lines both sides changed identically out of the conflict
+       region -- so the markers wrap only what actually disagrees. */}}
+  conflictstyle = zdiff3
+[column]
+{{- /* Multi-column output for `git branch`, `git tag`, `git status` untracked
+       lists etc., but only when writing to a terminal wide enough for it. */}}
+  ui = auto
+[branch]
+{{- /* `git branch` most-recent-first. Alphabetical is never the question being
+       asked of a branch list. */}}
+  sort = -committerdate
 [alias]
   lg = log --graph --pretty=format:'%Cred%h%Creset%C(yellow)%d%Creset %s %Cgreen(%cd) %C(bold blue)<%an>%Creset' --abbrev-commit --date=relative
   lgs = log --graph --pretty=format:'%Cred%h%Creset%C(yellow)%d%Creset %s %Cgreen(%cd) %C(bold blue)<%an>%Creset' --abbrev-commit --date=relative --stat
@@ -39,13 +75,20 @@
   co = checkout
   ci = commit
   unstage = reset HEAD
-  pr = pull-request
+{{- /* Was `pull-request`, a `hub` subcommand. hub is not installed, has not been
+       for years, and is not coming back -- gh is what is installed. */}}
+  pr = !gh pr create
   latest = for-each-ref --sort=-committerdate refs/ --format='%(HEAD) %(color:red)%(objectname:short)%(color:reset) %(color:yellow)(%(refname:short))%(color:reset) %(contents:subject) %(color:green)(%(committerdate:relative))%(color:reset) %(color:bold blue)<%(authorname)>%(color:reset)'
   ignored = !find . -not -path './.git/*' -not -path '**/node_modules/*' | git check-ignore -v --stdin 
+{{- if eq .chezmoi.os "darwin" }}
+{{- /* macOS-only: `open -a` is a macOS command and the path is a macOS bundle.
+       Unguarded, this shipped to Linux and Codespaces, where `git web--browse`
+       would run a browser named "brave" that does not exist there. */}}
 [web]
   browser = brave
 [browser "brave"]
   cmd = open -a "/Applications/Brave\\ Browser.app"
+{{- end }}
 [filter "lfs"]
   clean = git-lfs clean -- %f
   smudge = git-lfs smudge -- %f
@@ -54,9 +97,9 @@
 [pull]
   ff = only
 [init]
+{{- /* Kept: git still defaults to master, and still warns about it on every
+       `git init`. This is not yet redundant. */}}
   defaultBranch = main
-[merge]
-  tool = nvim
 [mergetool "nvim"]
   cmd = nvim -c "DiffviewOpen"
 [mergetool]
