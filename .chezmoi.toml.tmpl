@@ -10,29 +10,33 @@
 {{- /* When available, provide a better experience when interactive */}}
 {{- $islocalenv:= (and (not $codespaces) (not $ci) (not $spin)) }}
 
-{{- /* Set sourceDir to the --source CLI arg if present */}}
-sourceDir = "{{ .chezmoi.sourceDir }}"
-
 [data]
   islocalenv = {{ $islocalenv }}
   codespaces = {{ $codespaces }}
   spin = {{ $spin }}
   ci = {{ $ci }}
 {{- if $islocalenv }}
-{{- $gitemail := promptString "Enter your git email" }}
+{{- /* promptStringOnce reuses the answer already in the config, so re-running
+       `chezmoi init` to pick up a change to this template doesn't re-ask (and
+       an accidental empty Enter can't blank out an existing value) */}}
+{{- $gitemail := promptStringOnce . "gitemail" "Enter your git email" }}
   gitemail = {{ $gitemail | quote }}
-{{- $opemail := promptString "Enter your 1password email" }}
-  opemail = {{ $opemail | quote }}
-{{- $lockscreenemail := promptString "Enter email to display on lock screen" }}
+{{- $lockscreenemail := promptStringOnce . "lockscreenemail" "Enter email to display on lock screen" }}
   lockscreenemail = {{ $lockscreenemail | quote }}
 {{- end }}
- 
+
 [git]
 {{- if $islocalenv }}
 {{- /* When not in CI/a codespace, auto commit all the things */}}
   autoCommit = true
   autoPush = true
 {{- end }}
+{{- /* bat is installed by the setup script, i.e. *after* this config is
+       written, and never in CI/Codespaces. Only wire it up as the diff pager
+       when it's actually on $PATH, otherwise `chezmoi diff` dies with
+       `exec: "bat": executable file not found in $PATH` */}}
+{{- if lookPath "bat" }}
 
 [diff]
   pager = "bat"
+{{- end }}
