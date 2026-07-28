@@ -1,17 +1,10 @@
 return {
   { import = "lazyvim.plugins.extras.lang.typescript" },
 
-  { "sindrets/diffview.nvim" },
-
-  -- Disable bufferline and its hijacking of keys
-  {
-    "akinsho/bufferline.nvim",
-    enabled = false,
-    keys = {
-      { "<S-h>", false },
-      { "<S-l>", false },
-    },
-  },
+  -- Disable bufferline and its hijacking of <S-h> / <S-l>. A disabled plugin
+  -- registers no keys, so there is nothing left here to unmap; the two defaults
+  -- LazyVim sets itself are deleted in lua/config/keymaps.lua instead.
+  { "akinsho/bufferline.nvim", enabled = false },
 
   {
     "nvim-lspconfig",
@@ -37,12 +30,6 @@ return {
         -- 'enter' for enter to accept
         -- 'none' for no mappings
         preset = "super-tab",
-        -- TODO: Remove once https://github.com/LazyVim/LazyVim/pull/6183 is merged (Oct 2025?)
-        ["<Tab>"] = {
-          require("blink.cmp.keymap.presets").get("super-tab")["<Tab>"][1],
-          require("lazyvim.util.cmp").map({ "snippet_forward", "ai_accept" }),
-          "fallback",
-        },
       },
     },
   },
@@ -55,6 +42,7 @@ return {
   -- Use diffview for git merge conflicts
   {
     "sindrets/diffview.nvim",
+    cmd = { "DiffviewOpen", "DiffviewClose", "DiffviewFileHistory", "DiffviewToggleFiles", "DiffviewFocusFiles" },
     opts = {
       view = {
         merge_tool = {

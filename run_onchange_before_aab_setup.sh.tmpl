@@ -693,42 +693,26 @@ install_uv() (
 )
 runner install_uv
 
-# Diagnostic Languageserver (lsp for prettier, eslint, etc)
-install_diagnostic_lsp() (
-  set -e
-  npm install -g diagnostic-languageserver --silent
-)
-runner install_diagnostic_lsp
+# Language servers are Mason's job, not this script's: LazyVim drives Mason from
+# the extras enabled in dot_config/nvim/lazyvim.json, so anything installed here
+# is either a duplicate or an orphan. Only the servers Mason cannot reasonably
+# own are provisioned below.
 
+# html / css / json / eslint servers. Kept here rather than left to Mason
+# because they are also useful outside Neovim.
 install_vscode_lsp() (
   set -e
   npm install -g vscode-langservers-extracted --silent
 )
 runner install_vscode_lsp
 
-install_graphql_lsp() (
+# The TypeScript compiler itself, for `tsc` on the command line. NOT a language
+# server: LazyVim's typescript extra uses vtsls, installed by Mason.
+install_typescript() (
   set -e
-  npm install -g graphql-language-service-cli --silent
+  npm install -g typescript --silent
 )
-runner install_graphql_lsp
-
-install_tailwind_lsp() (
-  set -e
-  npm install -g @tailwindcss/language-server --silent
-)
-runner install_tailwind_lsp
-
-install_typescript_lsp() (
-  set -e
-  npm install -g typescript typescript-language-server --silent
-)
-runner install_typescript_lsp
-
-install_remark_lsp() (
-  set -e
-  npm install -g remark-language-server --silent
-)
-runner install_remark_lsp
+runner install_typescript
 
 install_lua_lsp() (
   set -e
