@@ -58,13 +58,13 @@ Library/
 .lexaloffle/
 {{- end }}
 
-{{- if not .codespaces }}
-# Codespaces only files
-{{- end }}
-
 {{- if not .islocalenv }}
 # Local-only files
 Library/
 .lexaloffle/
 .config/karabiner/karabiner.json
+# Ghostty is a GUI terminal emulator. Nothing installs it in Codespaces or CI --
+# those attach over an existing terminal -- so the config and its two themes are
+# dead weight there. `.config/alacritty/` used to be gated exactly like this.
+.config/ghostty/
 {{- end }}
