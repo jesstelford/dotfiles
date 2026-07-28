@@ -2,22 +2,37 @@
 
 ## Install
 
-```sh
-# Install chezmoi & dotfiles
-sh -c "$(curl -fsLS git.io/chezmoi)" -- init jesstelford
-
-# See what'll get run
-chezmoi -vn apply
-
-# Actually run it
-chezmoi -v apply
-```
-
-One liner:
+On a brand new machine, this is the only command you need:
 
 ```sh
-sh -c "$(curl -fsLS git.io/chezmoi)" -- init --apply jesstelford
+sh -c "$(curl -fsLS https://chezmoi.io/get)" -- init --apply jesstelford
 ```
+
+**`--apply` is the part that installs anything.** Without it, `init` clones this
+repo to `~/.local/share/chezmoi`, asks the three email questions, writes
+`~/.config/chezmoi/chezmoi.toml`, and exits 0 — having changed nothing in `$HOME`
+and having run no setup scripts. That looks like a silent failure, but it's
+`init` doing its whole job.
+
+The run is interactive. Expect:
+
+1. Three prompts for emails (git, 1Password, lock screen) — these get stored in
+   `~/.config/chezmoi/chezmoi.toml`.
+2. Your sudo password and a RETURN, for the Homebrew install.
+3. A `y`/`n` prompt for each optional setup step.
+
+Already ran `init` without `--apply`? Don't re-init — just run `chezmoi apply`.
+
+### Previewing before you apply
+
+```sh
+chezmoi -vn apply --no-pager   # see what'll get run
+chezmoi -v apply               # actually run it
+```
+
+`--no-pager` matters on a fresh machine: this config sets `bat` as the diff
+pager, but `bat` isn't installed until the first real `apply` runs the setup
+scripts.
 
 ## Workflow
 
