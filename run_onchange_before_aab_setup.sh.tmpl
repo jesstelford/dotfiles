@@ -619,8 +619,10 @@ install_lua_lsp() (
     wget --no-verbose https://github.com/LuaLS/lua-language-server/releases/download/{{ .versions.lua_language_server }}/lua-language-server-{{ .versions.lua_language_server }}-linux-x64.tar.gz
     sudo mkdir -p /usr/local/lib/lua-language-server
     sudo tar xzf lua-language-server-{{ .versions.lua_language_server }}-linux-x64.tar.gz -C /usr/local/lib/lua-language-server
+    # Only the entrypoint needs to be executable. Do NOT make the tree writable:
+    # /usr/local/bin/lua-language-server symlinks in here and Neovim auto-launches
+    # it for every .lua file, so a world-writable tree is a local code-exec hole.
     sudo chmod a+x /usr/local/lib/lua-language-server/bin/lua-language-server
-    sudo chmod a+w -R /usr/local/lib/lua-language-server
     sudo rm -f /usr/local/bin/lua-language-server
     sudo ln -s /usr/local/lib/lua-language-server/bin/lua-language-server /usr/local/bin/lua-language-server
   {{- end }}
@@ -753,7 +755,9 @@ install_one_password_desktop() (
     unzip 1Password.zip -d onepassword
     open -nW "onepassword/1Password Installer.app"
   {{- else if (eq .chezmoi.os "linux") }}
-    sudo snap install 1password --edge
+    # Stable channel deliberately: this is a password manager, --edge tracks
+    # upstream tip and is the least-reviewed build on offer.
+    sudo snap install 1password
   {{- end }}
 )
 optional_runner install_one_password_desktop
