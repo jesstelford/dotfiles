@@ -32,5 +32,4 @@ Library/
 Library/
 .lexaloffle/
 .config/karabiner/karabiner.json
-scripts/install-pico8.js
 {{- end }}
