@@ -595,13 +595,6 @@ install_uv() (
 )
 runner install_uv
 
-# vectorcode (Used by codecompanion AI LLM plugin in Neovim)
-install_vectorcode() (
-  set -e
-  uv tool install "vectorcode[lsp,mcp]"
-)
-optional_runner install_vectorcode
-
 # Diagnostic Languageserver (lsp for prettier, eslint, etc)
 install_diagnostic_lsp() (
   set -e
