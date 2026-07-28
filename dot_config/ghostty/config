@@ -33,10 +33,18 @@
 # # Just for example:
 # resize-overlay-duration = 4s 200ms
 
+# Night Owl, from ./themes/. Ghostty picks the variant matching the OS
+# appearance, so this follows macOS light/dark mode automatically.
+theme = dark:NightOwlDark,light:NightOwlLight
+
 # Setting to empty string resets the value, otherwise we're just appending fallbacks
 font-family = ""
-font-family = "Input Mono"
-font-style = "Light"
+# The Nerd Font variant, not plain "Input Mono": powerlevel10k runs in
+# nerdfont-complete mode (see .p10k.zsh) so the prompt needs the patched glyphs
+# in the primary face rather than relying on a Symbols Nerd Font fallback.
+font-family = "InputMono Nerd Font"
+font-style = "Extra Light"
+font-size = 18
 
 # Send Ctrl-Space+p (Previous tab/window in tmux)
 # See: https://arslan.io/2018/02/05/gpu-accelerated-terminal-alacritty/#make-alacritty-feel-like-iterm2
