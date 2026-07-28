@@ -861,11 +861,10 @@ install_one_password_desktop() (
 )
 optional_runner install_one_password_desktop
 
-# The 'op' CLI is separate from the desktop app, and it's what chezmoi reads
-# secrets with while *rendering* templates. That means it has to already exist
-# before a template calling onepassword* can render at all — installing it here
-# only helps the next `chezmoi apply`, not this one. See the PICO-8 block below,
-# which skips itself until this is in place.
+# The 'op' CLI is separate from the desktop app. Later steps (PICO-8) read
+# credentials out of 1Password with it, so it needs to exist before they run —
+# hence its position here, above them. Anything that needs it also installs it
+# on demand, so declining this step is safe.
 install_one_password_cli() (
   set -e
   {{- if (eq .chezmoi.os "darwin") }}
@@ -874,10 +873,8 @@ install_one_password_cli() (
     # The apt repo dance is documented upstream and changes often enough that
     # it's not worth freezing a copy of it here.
     echo "Install manually: https://developer.1password.com/docs/cli/get-started/"
-    return 0
+    exit 0
   {{- end }}
-  echo "Now run 'op signin', then re-run 'chezmoi apply' to pick up anything"
-  echo "that needs secrets at render time."
 )
 optional_runner install_one_password_cli
 {{- end }}
@@ -932,15 +929,6 @@ optional_runner install_signal
 {{- end }}
 
 {{- if .islocalenv }}
-{{- if not (lookPath "op") }}
-# PICO-8's itch.io credentials are read out of 1Password when this template is
-# rendered, so the 'op' CLI has to exist before chezmoi can even produce this
-# script. It can't be installed earlier in the same run. Skip until it's there.
-echo ""
-echo "⏭️  Skipping PICO-8: 1Password CLI ('op') not found."
-echo "   Install it (install_one_password_cli above), run 'op signin', then"
-echo "   re-run 'chezmoi apply'."
-{{- else }}
 # PICO-8
 install_pico8() (
   set -e
@@ -954,13 +942,57 @@ install_pico8() (
   {{- else if (eq .chezmoi.os "linux") }}
     {{- $pico8platform = "linux64" }}
   {{- end }}
-
-  # Get credentials out of 1password
-  {{- $itchCredentials := onepasswordDetailsFields "kz6tex4nh5fx7a2kvohdx6tt4e" }}
   {{- $pico8zip := "/tmp/pico-8.zip" }}
 
+  # Get credentials out of 1password.
+  #
+  # Deliberately fetched here at run time rather than with chezmoi's
+  # onepassword* template functions. Those run while chezmoi *renders* this
+  # script, which would mean a brand new machine couldn't apply at all until
+  # the 1Password CLI was installed and signed in — and the CLI is installed
+  # by this very script, so there was no way to bootstrap out of it.
+  ITCH_ITEM="kz6tex4nh5fx7a2kvohdx6tt4e"
+
+  # The CLI is installed by install_one_password_cli earlier in this run, but
+  # that step is optional and may have been declined — so install it on demand
+  # rather than making this a manual step in the middle of an automated setup.
+  if ! command -v op > /dev/null 2>&1; then
+    echo "1Password CLI not found, installing it first..."
+    install_one_password_cli
+  fi
+
+  if ! command -v op > /dev/null 2>&1; then
+    echo "Skipping PICO-8: the 1Password CLI ('op') still isn't on PATH, so the"
+    echo "itch.io credentials can't be read."
+    exit 0
+  fi
+
+  # A single fetch doubles as the signed-in check: if the session is locked or
+  # missing, 'op' fails here rather than part way through the download.
+  #
+  # Signing in is the one part that can't be automated — it needs the account
+  # password or biometrics — so prompt for it rather than bailing out.
+  if ! ITCH_USERNAME="$(op item get "$ITCH_ITEM" --fields label=username --reveal 2> /dev/null)"; then
+    echo "1Password is locked or not signed in. Signing in now..."
+    eval "$(op signin)" || true
+  fi
+
+  if ! ITCH_USERNAME="$(op item get "$ITCH_ITEM" --fields label=username --reveal 2> /dev/null)"; then
+    echo "Skipping PICO-8: couldn't read the itch.io credentials from 1Password."
+    echo "Run 'op signin' by hand, then re-run 'chezmoi apply'."
+    exit 0
+  fi
+  ITCH_PASSWORD="$(op item get "$ITCH_ITEM" --fields label=password --reveal)"
+
+  # Exported rather than inlined into the npx command so the password stays out
+  # of the process list, where 'ps' would show it to any other user.
+  export DEST_FILE={{ $pico8zip }}
+  export PLATFORM={{ $pico8platform }}
+  export USERNAME="$ITCH_USERNAME"
+  export PASSWORD="$ITCH_PASSWORD"
+
   # Download the binary
-  npx --package=playwright@~1.21.0 --yes -c 'dir=$(dirname `which playwright`)/../..; cp scripts/install-pico8.js $dir; cd $dir; DEST_FILE={{- $pico8zip }} USERNAME={{- $itchCredentials.username.value }} PASSWORD={{- $itchCredentials.password.value }} PLATFORM={{- $pico8platform }} node install-pico8.js'
+  npx --package=playwright@~1.21.0 --yes -c 'dir=$(dirname `which playwright`)/../..; cp scripts/install-pico8.js $dir; cd $dir; node install-pico8.js'
 
   # Install it
   {{- if (eq .chezmoi.os "darwin") }}
@@ -983,7 +1015,6 @@ EOF
   {{- end }}
 )
 optional_runner install_pico8
-{{- end }}
 {{- end }}
 
 {{- if .islocalenv }}
