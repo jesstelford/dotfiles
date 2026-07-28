@@ -23,9 +23,16 @@
 
 [git]
 {{- if $islocalenv }}
-{{- /* When not in CI/a codespace, auto commit all the things */}}
+{{- /*
+     This repo is PUBLIC. autoCommit is fine — a local commit is revocable, and
+     it keeps the source dir from silently drifting. autoPush is NOT: a bad
+     `chezmoi add` would publish before anyone could look at it, and a push to a
+     public repo cannot be retracted (force-pushing does not remove the objects;
+     GitHub keeps orphaned commits reachable by SHA through the API). Review the
+     auto-commit, then push it yourself with `chezmoi git -- push`.
+*/}}
   autoCommit = true
-  autoPush = true
+  autoPush = false
 {{- end }}
 {{- /* bat is installed by the setup script, i.e. *after* this config is
        written, and never in CI/Codespaces. Only wire it up as the diff pager

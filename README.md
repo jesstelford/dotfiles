@@ -38,10 +38,28 @@ scripts.
 
 ### Tell Chezmoi about changes
 
+**This repo is public.** Adding is deliberately one named file at a time, and
+publishing is a separate step.
+
 1. Edit the file (eg; `echo "echo 'hi'" >> ~/.zshrc`)
-2. Show diff of what's changed: `chezmoi diff --recursive --exclude scripts --reverse`
-3. Add the changes to chezmoi: `chezmoi add -p $(chezmoi diff --recursive --exclude scripts --reverse | lsdiff | cut -c2- | sed -e 's/^/~/' | tr '\n' ' ')`
-   - Automatically pushes the changes to this repo
+2. See what differs: `chezmoi diff --recursive --exclude scripts --reverse`
+3. Add each file you actually want published, **by name**: `chezmoi add ~/.zshrc`
+   - `autoCommit` is on, so this writes a local commit for you
+4. Read that commit before it leaves the machine: `chezmoi git -- log -1 -p`
+5. Publish it: `chezmoi git -- push`
+
+`autoPush` is deliberately **off**. A local commit is revocable; a push to a
+public repo is not — force-pushing does not remove the objects, GitHub keeps
+orphaned commits reachable by SHA through the API. So the push stays a separate,
+deliberate act.
+
+This section used to recommend a one-liner that piped the whole `chezmoi diff`
+through `lsdiff` into a single bulk `chezmoi add`. That's gone on purpose:
+adding a computed list you haven't read is the habit that publishes a credential
+in one command. `.chezmoiignore` carries a secrets deny-list (`.ssh`, `.aws`,
+`.netrc`, `*.pem`, …) as a second line of defence, but a deny-list only knows
+the names it was given. If something genuinely secret has to be managed, add it
+with `chezmoi add --encrypt`.
 
 ### Update machine with latest from chezmoi
 
