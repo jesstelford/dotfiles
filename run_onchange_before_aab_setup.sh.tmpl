@@ -860,6 +860,26 @@ install_one_password_desktop() (
   {{- end }}
 )
 optional_runner install_one_password_desktop
+
+# The 'op' CLI is separate from the desktop app, and it's what chezmoi reads
+# secrets with while *rendering* templates. That means it has to already exist
+# before a template calling onepassword* can render at all — installing it here
+# only helps the next `chezmoi apply`, not this one. See the PICO-8 block below,
+# which skips itself until this is in place.
+install_one_password_cli() (
+  set -e
+  {{- if (eq .chezmoi.os "darwin") }}
+    brew install 1password-cli
+  {{- else if (eq .chezmoi.os "linux") }}
+    # The apt repo dance is documented upstream and changes often enough that
+    # it's not worth freezing a copy of it here.
+    echo "Install manually: https://developer.1password.com/docs/cli/get-started/"
+    return 0
+  {{- end }}
+  echo "Now run 'op signin', then re-run 'chezmoi apply' to pick up anything"
+  echo "that needs secrets at render time."
+)
+optional_runner install_one_password_cli
 {{- end }}
 
 {{- if .islocalenv }}
@@ -912,6 +932,15 @@ optional_runner install_signal
 {{- end }}
 
 {{- if .islocalenv }}
+{{- if not (lookPath "op") }}
+# PICO-8's itch.io credentials are read out of 1Password when this template is
+# rendered, so the 'op' CLI has to exist before chezmoi can even produce this
+# script. It can't be installed earlier in the same run. Skip until it's there.
+echo ""
+echo "⏭️  Skipping PICO-8: 1Password CLI ('op') not found."
+echo "   Install it (install_one_password_cli above), run 'op signin', then"
+echo "   re-run 'chezmoi apply'."
+{{- else }}
 # PICO-8
 install_pico8() (
   set -e
@@ -954,6 +983,7 @@ EOF
   {{- end }}
 )
 optional_runner install_pico8
+{{- end }}
 {{- end }}
 
 {{- if .islocalenv }}
