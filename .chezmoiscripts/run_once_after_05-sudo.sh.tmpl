@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+{{- /* sudo ergonomics, deliberately numbered 05 so it runs BEFORE every script
+       that calls sudo (10-dev-deps onwards). One-time machine configuration,
+       hence run_once_.
+
+       Scope note: this does NOT widen sudo's credential caching. sudo caches
+       per-terminal by default and that is left exactly as it is — an
+       authentication in one terminal stays confined to that terminal. All this
+       does is make each prompt a fingerprint instead of a typed password. */}}
+
+{{ template "setup-helpers.sh.tmpl" . }}
+
+{{- if .islocalenv }}
+{{- if (eq .chezmoi.os "darwin") }}
+
+# Touch ID for sudo.
+#
+# /etc/pam.d/sudo already ends with `auth include sudo_local`, so macOS reads
+# /etc/pam.d/sudo_local if it exists. Apple ships it only as a .template with
+# the line commented out. Writing the real file is the supported way to enable
+# this: unlike editing /etc/pam.d/sudo directly, sudo_local survives OS updates.
+#
+# Moved here from 90-macos-defaults. There it ran last, so it could not help
+# any of the sudo prompts during the run that installed it; here it is in place
+# before the first script that needs sudo.
+enable_touchid_sudo() (
+  set -e
+
+  # No template means this macOS predates the sudo_local mechanism (14/Sonoma).
+  # Patching /etc/pam.d/sudo by hand instead would be silently reverted by the
+  # next OS update, so don't.
+  if [ ! -f /etc/pam.d/sudo_local.template ]; then
+    skip "Skipping Touch ID for sudo: this macOS has no sudo_local support."
+  fi
+
+  if [ -f /etc/pam.d/sudo_local ] && grep -qE '^[[:space:]]*auth.*pam_tid\.so' /etc/pam.d/sudo_local; then
+    echo "Touch ID for sudo is already enabled."
+  else
+    # `sufficient` is the important word: if Touch ID succeeds, sudo stops there
+    # and allows. If it fails, or the Mac has no Touch ID sensor at all, PAM
+    # falls through to the normal password prompt. So this can only ever ADD a
+    # way to authenticate — it cannot lock anyone out.
+    #
+    # Ownership and mode match the other files in /etc/pam.d (root:wheel, 444).
+    printf '%s\n' \
+      '# sudo_local: local config file which survives system update and is included for sudo' \
+      '# Managed by chezmoi.' \
+      'auth       sufficient     pam_tid.so' \
+      | sudo tee /etc/pam.d/sudo_local > /dev/null
+    sudo chown root:wheel /etc/pam.d/sudo_local
+    sudo chmod 444 /etc/pam.d/sudo_local
+    echo "Touch ID for sudo enabled."
+  fi
+)
+runner enable_touchid_sudo
+{{- end }}
+{{- end }}
+
+{{ template "setup-summary.sh.tmpl" . }}
