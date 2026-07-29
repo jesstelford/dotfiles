@@ -209,11 +209,20 @@ install_fonts() (
   # https://github.com/ryanoasis/nerd-fonts/issues/400#issuecomment-687229777
   # Prepare the output folder
   mkdir -p fonts/InputMono-NerdFont/
-  {{- if (eq .chezmoi.os "darwin") }}
-    # Required deps. See: https://github.com/FontCustom/fontcustom/issues/382
-    brew tap bramstein/webfonttools
-    brew install woff2 sfnt2woff eot-utils
-  {{- end }}
+  # NOTE: this used to `brew tap bramstein/webfonttools` and install
+  # woff2/sfnt2woff/eot-utils, citing a FontCustom issue. That was a
+  # copy-paste from an unrelated toolchain: nerd-fonts' font-patcher is a
+  # FontForge script and needs only fontforge (install_fontforge above). Those
+  # three are web-font converters (.woff/.eot) and nothing here produces web
+  # fonts — grep confirmed no other reference to any of them.
+  #
+  # Removing them also fixes a hard failure on every fresh machine. Homebrew
+  # now refuses formulae from untrusted third-party taps:
+  #   Error: Refusing to load formula bramstein/webfonttools/sfnt2woff from
+  #   untrusted tap. Run `brew trust ...` to trust it.
+  # which aborted install_fonts, and with it the whole apply. The alternative
+  # fix would have been to auto-`brew trust` a third-party tap on every machine
+  # we provision; dropping an unused dependency is strictly better.
 
   # Patch the fonts.
   #
