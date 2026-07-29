@@ -72,6 +72,33 @@ mkcert = "1.4.4"
 # checksummed even in principle.
 noto_emoji = "v2.051"
 
+# https://github.com/fontforge/fontforge — pinned to a commit rather than a tag,
+# because the newest tag is the broken one. 20251009's TTF writer emits a bogus
+# `hmtx` for monospaced fonts: hhea's numberOfHMetrics is 4 with a trailing
+# advance of 0, and per the OpenType spec every glyph from index 4 on inherits
+# that last advance. So every glyph ends up 0 wide. Nothing errors — the patched
+# font installs cleanly and then renders as one unreadable column in Ghostty,
+# which derives its grid cell width from that advance.
+#
+# aedb8f2e is upstream's fix ("tottf: Fix hmtx table (all widths zero) for
+# monospaced fonts", PR 5702) and already contains 9d119ca0 (PR 5698) that it
+# depends on.
+#
+# TODO: drop this pin, the fontforge-hmtxfix formula and its tap once a
+# fontforge release after 20251009 exists; install_fontforge goes back to plain
+# `brew install fontforge`. Keep verify_font_advances either way.
+#
+# No digest entry: a git revision is already a hash of the tree it names.
+fontforge_hmtxfix = "aedb8f2e95ddba99e8cb6446f082a356e2c2625b"
+
+# Minimum acceptable nerd-fonts versions, asserted at run time rather than
+# pinned, because the checkout deliberately tracks upstream. Both numbers are
+# read out of the `font-patcher` script itself (`script_version` and `version`):
+# the clone is shallow and carries no tags, so `git describe` has nothing to go
+# on — which is also why font-patcher's own version banner reports the fallback.
+font_patcher_min = "4.26.0"
+nerd_fonts_min = "3.4.0"
+
 # SHA-256 of every pinned download above. Per-arch where upstream publishes a
 # per-arch asset, so the script can `index .digests.<tool> $arch`.
 [digests]

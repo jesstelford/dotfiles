@@ -158,10 +158,50 @@ install_fontforge() (
     # The formula, not the `fontforge-app` cask: the formula puts `fontforge` on
     # PATH and is built against python, which is what `fontforge -script` needs.
     # It is also what nerd-fonts documents as the macOS prerequisite.
-    brew install fontforge
+    #
+    # Was: plain `brew install fontforge`. That is 20251009, whose TTF writer
+    # gives every glyph in a monospaced font a zero advance width, so the fonts
+    # patched below installed clean and rendered as a single unreadable column in
+    # Ghostty. See `fontforge_hmtxfix` in .chezmoidata.toml. Build the pinned fix
+    # commit instead, keg-only so it stays off PATH and only install_fonts
+    # reaches for it -- nothing else here wants a bespoke fontforge.
+    #
+    # The formula is written out from .chezmoitemplates rather than committed
+    # into a tap repo of its own: the tap is a Homebrew implementation detail on
+    # this machine, and Homebrew flatly refuses to load a formula from a bare
+    # path ("Homebrew requires formulae to be in a tap"). --no-git because
+    # nothing ever commits to it; it is a directory brew is willing to read.
+    #
+    # "dotfiles" is just the <user> half of Homebrew's <user>/<repo> tap naming.
+    # For a local tap it is an arbitrary directory name, never resolved against
+    # GitHub, so it says where the formula came from rather than who ran it.
+    #
+    # No `brew trust` needed, unlike the third-party tap the comment in
+    # install_fonts below is about: Homebrew auto-trusts a tap with no remote,
+    # and reports it as "Trusted formula dotfiles/pinned/fontforge-hmtxfix".
+    tap_owner=dotfiles
+    tap="$(brew --repository)/Library/Taps/$tap_owner/homebrew-pinned"
+    [ -d "$tap" ] || brew tap-new "$tap_owner/pinned" --no-git
+    mkdir -p "$tap/Formula"
+    cat > "$tap/Formula/fontforge-hmtxfix.rb" <<'FORMULA'
+{{ template "fontforge-hmtxfix.rb.tmpl" . }}
+FORMULA
+
+    # Only build when the installed keg is not already the pinned revision.
+    # `brew install` would work this out itself, but this is a from-source build
+    # of a large C project and the check is two cheap commands.
+    if ! brew list --versions fontforge-hmtxfix 2>/dev/null \
+        | grep -q '{{ .versions.fontforge_hmtxfix | substr 0 8 }}'; then
+      brew install --formula "$tap_owner/pinned/fontforge-hmtxfix"
+    fi
   {{- else if (eq .chezmoi.os "linux") }}
     # Ubuntu has shipped a current fontforge with python scripting since 22.04,
     # for both architectures, signed by the archive key. No download to rot.
+    #
+    # Not pinned past the hmtx bug the macOS branch above works around: the
+    # archive is still on 20230101, which predates it. If Ubuntu ever ships
+    # 20251009 itself, verify_font_advances in install_fonts is what will catch
+    # it -- deliberately, rather than by someone noticing their prompt looks odd.
     apt_get install fontforge
   {{- end }}
 )
@@ -188,6 +228,18 @@ install_fonts() (
   fi
   git sparse-checkout set --no-cone /src/glyphs /font-patcher
   sudo chmod a+x font-patcher
+
+  # The patcher's flags and output naming are not stable across major versions,
+  # and this checkout tracks upstream rather than a tag, so assert a floor for
+  # the two versions the invocation below assumes. Read out of the script itself:
+  # the clone is --depth 1 with no tags, so `git describe` finds nothing and
+  # font-patcher's own banner falls back to these same constants.
+  require_min_version "nerd-fonts font-patcher" \
+    "$(sed -n 's/^script_version = "\([^"]*\)".*/\1/p' font-patcher | head -1)" \
+    {{ .versions.font_patcher_min }}
+  require_min_version "nerd-fonts" \
+    "$(sed -n 's/^version = "\([^"]*\)".*/\1/p' font-patcher | head -1)" \
+    {{ .versions.nerd_fonts_min }}
 
   # Install some custom fonts
 
@@ -247,7 +299,23 @@ install_fonts() (
   # getconf, not nproc: `nproc` is GNU coreutils and macOS has no such command
   # (Homebrew's coreutils installs it as `gnproc`), so on macOS this expanded to
   # an empty string and `parallel -j` then took the next word as its argument.
-  find fonts/ -maxdepth 1 -name 'InputMono*.ttf' | parallel -j "$(getconf _NPROCESSORS_ONLN)" fontforge -script font-patcher --no-progressbars --careful --complete --makegroups 0 --outputdir fonts/InputMono-NerdFont {} \;
+  #
+  # The binary is resolved rather than taken from PATH because on macOS it is the
+  # keg-only pinned build from install_fontforge; `brew --prefix` on a keg-only
+  # formula is the documented way to find it.
+  {{- if (eq .chezmoi.os "darwin") }}
+    fontforge_bin="$(brew --prefix fontforge-hmtxfix)/bin/fontforge"
+  {{- else if (eq .chezmoi.os "linux") }}
+    fontforge_bin=fontforge
+  {{- end }}
+  find fonts/ -maxdepth 1 -name 'InputMono*.ttf' | parallel -j "$(getconf _NPROCESSORS_ONLN)" "$fontforge_bin" -script font-patcher --no-progressbars --careful --complete --makegroups 0 --outputdir fonts/InputMono-NerdFont {} \;
+
+  # Patching can succeed loudly and still produce unusable fonts -- every glyph
+  # zero-width -- so check before these get copied into the font directory. A
+  # broken font here is worth failing the apply over: it is not obvious from any
+  # error message, only from a terminal that has become unreadable, and by then
+  # the bad files are installed and cached by the OS.
+  verify_font_advances fonts/InputMono-NerdFont/*.ttf
 
   {{- if (eq .chezmoi.os "linux") }}
     {{- /*
