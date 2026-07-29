@@ -1,0 +1,91 @@
+{{- /*
+  Homebrew formula for a FontForge pinned past the 20251009 zero-advance `hmtx`
+  bug. Materialised into a local tap by install_fontforge in
+  run_onchange_after_40-desktop.sh.tmpl; it is not a file anyone edits in place.
+
+  Kept as a template rather than a heredoc inside that script so the Ruby stays
+  readable and the pinned revision comes from .chezmoidata.toml like every other
+  pin. See that file's `fontforge_hmtxfix` entry for what the bug is.
+
+  This is a trimmed copy of homebrew-core's fontforge.rb: same dependencies and
+  same cmake invocation, minus the bottle block (there is no bottle for a commit
+  we pinned ourselves), minus the GUI caveats, and keg-only so it cannot shadow
+  a normal `brew install fontforge`.
+*/ -}}
+class FontforgeHmtxfix < Formula
+  desc "FontForge pinned past the 20251009 zero-advance hmtx bug, for font patching"
+  homepage "https://fontforge.github.io"
+  url "https://github.com/fontforge/fontforge.git",
+      revision: "{{ .versions.fontforge_hmtxfix }}"
+  version "20251009-{{ .versions.fontforge_hmtxfix | substr 0 8 }}"
+  license "GPL-3.0-or-later"
+
+  keg_only "it is only used headlessly for font patching and should not shadow the fontforge formula"
+
+  depends_on "cmake" => :build
+  depends_on "gettext" => :build
+  depends_on "ninja" => :build
+  depends_on "pkgconf" => :build
+
+  depends_on "cairo"
+  depends_on "fontconfig"
+  depends_on "freetype"
+  depends_on "giflib"
+  depends_on "glib"
+  depends_on "jpeg-turbo"
+  depends_on "libpng"
+  depends_on "libspiro"
+  depends_on "libtiff"
+  depends_on "libtool"
+  depends_on "libuninameslist"
+  depends_on "pango"
+  depends_on "python@3.14"
+  depends_on "readline"
+  depends_on "woff2"
+
+  uses_from_macos "libxml2"
+
+  on_macos do
+    depends_on "brotli"
+    depends_on "gettext"
+  end
+
+  on_linux do
+    depends_on "zlib-ng-compat"
+  end
+
+  def python3
+    "python3.14"
+  end
+
+  def install
+    # PYHOOK_INSTALL_DIR is inside our own keg, not the shared site-packages
+    # homebrew-core uses: this formula is keg-only precisely so it cannot
+    # clobber a normal fontforge, and dropping a python module into the shared
+    # path would do exactly that.
+    args = %W[
+      -DENABLE_GUI=OFF
+      -DENABLE_FONTFORGE_EXTRAS=ON
+      -DPython3_EXECUTABLE=#{which(python3)}
+      -DPYHOOK_INSTALL_DIR=#{lib}/#{python3}/site-packages
+    ]
+
+    system "cmake", "-S", ".", "-B", "build", *args, *std_cmake_args
+
+    # po/CMakeLists.txt at this revision writes build/po/<lang>/LC_MESSAGES/
+    # FontForge.mo without creating that directory first — it only mkdirs the
+    # "full" msgmerge dir next to it — so msgfmt dies with ENOENT and takes the
+    # whole build with it. Release tarballs ship that tree pre-created, which is
+    # why only building from git hits this.
+    Dir["po/*.po"].each do |po|
+      (buildpath/"build/po"/File.basename(po, ".po")/"LC_MESSAGES").mkpath
+    end
+
+    system "cmake", "--build", "build"
+    system "cmake", "--install", "build"
+  end
+
+  test do
+    system bin/"fontforge", "-version"
+  end
+end

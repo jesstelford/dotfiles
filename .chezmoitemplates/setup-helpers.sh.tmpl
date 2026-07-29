@@ -209,6 +209,102 @@ verify_sha256() {
   fi
 }
 
+# Assert that a version we did not pin is at least some known-good minimum.
+#
+# For upstreams we deliberately track rather than pin -- where a pin would mean
+# never picking up fixes -- but which still have a floor below which our
+# invocation is wrong. Same failure mode as verify_sha256: non-zero aborts the
+# enclosing `( set -e ... )` step before anything is installed.
+#
+# `sort -V` rather than a hand-rolled field split: Apple's sort has supported -V
+# for years and GNU sort always has, and version comparison done by hand in
+# shell gets 4.9.0 vs 4.26.0 wrong (string order puts 4.9 last).
+#
+# Usage:
+# require_min_version "font-patcher" "$actual" {{ .versions.font_patcher_min }}
+require_min_version() {
+  local what="$1"
+  local actual="$2"
+  local minimum="$3"
+
+  if [ -z "$actual" ]; then
+    echo "❌ Could not determine the $what version (needed >= $minimum)."
+    echo "   The check itself is broken, which is not the same as the version"
+    echo "   being too old -- fix the check rather than removing it."
+    return 1
+  fi
+
+  # If the lowest of the two is not the minimum, then actual sorts below it.
+  # Equal versions leave `minimum` first, which passes.
+  if [ "$(printf '%s\n%s\n' "$minimum" "$actual" | sort -V | head -1)" != "$minimum" ]; then
+    echo "❌ $what is $actual, but this setup needs >= $minimum."
+    return 1
+  fi
+}
+
+# Assert that a font actually has non-zero advance widths.
+#
+# Guards against a silent, install-clean failure: a patched font whose glyphs are
+# all zero wide. hhea.numberOfHMetrics says how many glyphs carry an explicit
+# advance in `hmtx`, and per the OpenType spec every glyph from that index on
+# inherits the *last* explicit advance. So a font can name 11,000 glyphs, carry 4
+# advances, and have the 4th be 0 -- at which point essentially every glyph is 0
+# wide. Terminals size their grid cell from that advance, so Ghostty draws every
+# column on top of column 0. See the `fontforge_hmtxfix` note in
+# .chezmoidata.toml for the fontforge bug that produces exactly this.
+#
+# Parses the tables directly with the stdlib rather than adding a fontTools
+# dependency: this needs three integers out of a well-specified binary format,
+# and it has to be able to run before any pip/uv environment exists.
+#
+# Usage:
+# verify_font_advances fonts/InputMono-NerdFont/*.ttf
+verify_font_advances() {
+  if ! command -v python3 > /dev/null 2>&1; then
+    echo "❌ python3 not found; cannot verify font metrics."
+    return 1
+  fi
+
+  python3 - "$@" <<'PYTHON'
+import struct, sys
+
+def advance_of_last_metric(path):
+    with open(path, 'rb') as fh:
+        data = fh.read()
+    offsets = {}
+    for i in range(struct.unpack('>H', data[4:6])[0]):
+        rec = 12 + i * 16
+        tag = data[rec:rec + 4].decode('latin1')
+        offsets[tag] = struct.unpack('>I', data[rec + 8:rec + 12])[0]
+    num_glyphs = struct.unpack('>H', data[offsets['maxp'] + 4:offsets['maxp'] + 6])[0]
+    # numberOfHMetrics is the last field of hhea, at offset 34.
+    num_metrics = struct.unpack('>H', data[offsets['hhea'] + 34:offsets['hhea'] + 36])[0]
+    last = offsets['hmtx'] + (num_metrics - 1) * 4
+    return num_glyphs, num_metrics, struct.unpack('>H', data[last:last + 2])[0]
+
+bad = 0
+for path in sys.argv[1:]:
+    try:
+        num_glyphs, num_metrics, advance = advance_of_last_metric(path)
+    except Exception as exc:
+        print(f"❌ {path}: could not read font metrics: {exc}")
+        bad += 1
+        continue
+    # Only the trailing advance matters: it is the one every unlisted glyph
+    # inherits. A short hmtx is normal and fine as long as that advance is real.
+    if advance == 0 and num_glyphs > num_metrics:
+        print(f"❌ {path}: {num_glyphs - num_metrics} of {num_glyphs} glyphs "
+              f"inherit a zero advance width (numberOfHMetrics={num_metrics}).")
+        bad += 1
+
+if bad:
+    print(f"   {bad} font(s) would render as a single unreadable column.")
+    print("   Refusing to install them. This is the fontforge 20251009 hmtx bug:")
+    print("   check that font patching used the pinned fontforge, not brew's.")
+    sys.exit(1)
+PYTHON
+}
+
 {{- /* Use for doing different things on different machines
 
 {{- if not .islocalenv }}
