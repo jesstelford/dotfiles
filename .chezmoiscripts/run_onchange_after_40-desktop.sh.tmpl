@@ -69,7 +69,18 @@ runner install_brave
 # rust via rustup
 install_rust() (
   set -e
-  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+  # `sh -s -- <args>` passes the flags through to the piped installer.
+  #
+  # -y: take the default ("standard") profile without prompting. rustup is
+  # interactive by default and stops on its "1) Proceed with standard
+  # installation" menu, which stalls the whole apply on a question that only
+  # ever gets one answer here.
+  #
+  # --no-modify-path: chezmoi owns the shell rc files and dot_zshrc.tmpl already
+  # puts $HOME/.cargo/bin on PATH. Without this, rustup appends its own sourcing
+  # line to .zshrc/.profile, which chezmoi then overwrites on the next apply —
+  # so it is both duplicated and futile.
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path
   source $HOME/.cargo/env
 )
 runner install_rust

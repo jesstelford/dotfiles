@@ -276,6 +276,40 @@ verify_sha256() {
 if [ -x "$HOME/.fnm/fnm" ]; then
   eval "$("$HOME/.fnm/fnm" env)"
 fi
+
+# Ask for the sudo password ONCE per apply, then keep it alive.
+#
+# macOS expires the sudo timestamp after 5 minutes (timestamp_timeout). These
+# scripts call sudo around 67 times across nine files, with multi-minute
+# `brew install` runs in between, so the timestamp kept lapsing and the password
+# prompt came back every few steps.
+#
+# `sudo -v` prompts once up front; the background loop refreshes the timestamp
+# every 50s so it cannot expire mid-run; the EXIT trap kills that loop when this
+# script finishes so it cannot outlive the run that started it.
+#
+# chezmoi runs every script from the same terminal and sudo's timestamp is
+# per-TTY, so the timestamp is shared across scripts: only the FIRST script of
+# an apply actually prompts and the rest find it already valid. That is the
+# point — one password entry for the whole apply.
+#
+# Guarded on `sudo -v` succeeding: in CI and Codespaces sudo is passwordless
+# (succeeds silently, no prompt), and where sudo is absent or refuses, this
+# skips the keepalive entirely and individual sudo calls behave as they did
+# before rather than the script dying here.
+#
+# 90-macos-defaults used to carry its own copy of this loop with no trap, so it
+# outlived the function that started it and went on refreshing sudo for the rest
+# of the chezmoi run. This replaces it.
+if command -v sudo > /dev/null 2>&1 && sudo -v; then
+  while true; do
+    sudo -n true
+    sleep 50
+    kill -0 "$$" 2>/dev/null || exit
+  done 2>/dev/null &
+  sudo_keepalive_pid=$!
+  trap 'kill "$sudo_keepalive_pid" 2>/dev/null' EXIT
+fi
 {{- if (eq .chezmoi.os "darwin") }}
 
   # Install a .dmg file into the /Applications directory
