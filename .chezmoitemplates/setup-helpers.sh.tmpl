@@ -1,4 +1,4 @@
-{{- /* Shared preamble for every .chezmoiscripts/run_*_before_<NN>-*.sh setup
+{{- /* Shared preamble for every .chezmoiscripts/run_*_after_<NN>-*.sh setup
        script. Included with:
 
          {{ template "setup-helpers.sh.tmpl" . }}
@@ -256,6 +256,27 @@ verify_sha256() {
   else
     echo "❌ No brew in /opt/homebrew or /usr/local; every brew step below will fail."
   fi
+{{- end }}
+
+# Put node/npm on PATH, for exactly the same reason as the brew probe above.
+#
+# fnm installs node under its own prefix and exposes it only through `fnm env`,
+# which mutates PATH for the current process. The old single setup script did
+# this once at file scope and every later `npm install -g` inherited it. Once
+# the script was split into one process per domain, only 50-languages carried
+# that activation, so every npm step in 60-cli-tools and 70-dev-tools died with
+#   npm: command not found
+# even though node was installed perfectly well. Hence: here, in the fragment
+# every script includes.
+#
+# 50-languages still needs its OWN copy after `runner install_fnm`, because
+# this preamble is included at the TOP of each script -- on a fresh machine fnm
+# does not exist yet at that point, so this block correctly does nothing and
+# the activation has to happen again once install_fnm has run.
+if [ -x "$HOME/.fnm/fnm" ]; then
+  eval "$("$HOME/.fnm/fnm" env)"
+fi
+{{- if (eq .chezmoi.os "darwin") }}
 
   # Install a .dmg file into the /Applications directory
   # NOTE: This is running as a subshell '(' so we can use 'set -e' to bail
