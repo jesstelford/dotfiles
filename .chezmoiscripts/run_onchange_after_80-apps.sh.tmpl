@@ -333,6 +333,7 @@ runner install_karabiner_elements
 {{- if (eq .chezmoi.os "darwin") }}
 install_licecap() (
   set -e
+  skip_if_app_installed "LICEcap"
   install_dmg https://www.cockos.com/licecap/licecap{{ .versions.licecap }}.dmg {{ .digests.licecap }}
   # Set the default directory
   defaults write com.cockos.LICEcap.plist NSNavLastRootDirectory -string "~/Movies"
@@ -349,6 +350,7 @@ install_discord() (
     # Not on Codespaces
   {{- else if (eq .chezmoi.os "darwin") }}
     # Use the "latest" download endpoint so this doesn't pin a stale version
+    skip_if_app_current "Discord" "https://discord.com/api/download?platform=osx"
     install_dmg "https://discord.com/api/download?platform=osx"
   {{- else if (eq .chezmoi.os "linux") }}
     # Use the "latest" download endpoint so this doesn't pin a stale version
@@ -369,6 +371,7 @@ install_moonlander() (
     brew install libusb
 
     # Install Wally, the EZ / ZSA flashing tool
+    skip_if_app_current "Wally" https://configure.zsa.io/wally/osx
     install_dmg https://configure.zsa.io/wally/osx
   {{- else if (eq .chezmoi.os "linux") }}
     # So the flashing tool can write to the keyboard

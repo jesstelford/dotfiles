@@ -45,6 +45,7 @@
 install_brave() (
   set -e
   {{- if (eq .chezmoi.os "darwin") }}
+    skip_if_app_current "Brave Browser" https://referrals.brave.com/latest/Brave-Browser.dmg
     install_dmg https://referrals.brave.com/latest/Brave-Browser.dmg
   {{- else if (eq .chezmoi.os "linux") }}
     # see: https://brave.com/linux/
@@ -99,6 +100,7 @@ install_emoji_picker() (
   set -e
   {{- if (eq .chezmoi.os "darwin") }}
     # Rocket emoji picker
+    skip_if_app_current "Rocket" https://macrelease.matthewpalmer.net/Rocket.dmg
     install_dmg https://macrelease.matthewpalmer.net/Rocket.dmg
     # Set shortcut to "~"
     defaults write net.matthewpalmer.Rocket.plist "hot-key-b8-iaK-thyib-yoV-Kep-It" -string "~"
@@ -118,6 +120,7 @@ install_roam_research() (
   set -e
   {{- $roamversion := .versions.roam }}
   {{- if (eq .chezmoi.os "darwin") }}
+    skip_if_app_installed "Roam Research"
     install_dmg https://roam-electron-deploy.s3.us-east-2.amazonaws.com/Roam+Research-{{ $roamversion }}.dmg {{ .digests.roam_dmg }}
   {{- else if (eq .chezmoi.os "linux") }}
     {{- if ne $arch "amd64" }}
