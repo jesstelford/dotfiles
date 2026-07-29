@@ -33,9 +33,12 @@
 # # Just for example:
 # resize-overlay-duration = 4s 200ms
 
-# Night Owl, from ./themes/. Ghostty picks the variant matching the OS
-# appearance, so this follows macOS light/dark mode automatically.
-theme = dark:NightOwlDark,light:NightOwlLight
+# Night Owl, from ./themes/. Pinned to the dark variant rather than the
+# `dark:NightOwlDark,light:NightOwlLight` pair Ghostty switches on macOS
+# appearance: the terminal should be dark whatever the rest of the desktop is
+# doing, same as Terminal.app's fixed "Clear Dark" profile. NightOwlLight is
+# still in ./themes/, so restoring the pair is a one-line change.
+theme = NightOwlDark
 
 # Setting to empty string resets the value, otherwise we're just appending fallbacks
 font-family = ""
@@ -43,8 +46,15 @@ font-family = ""
 # nerdfont-complete mode (see .p10k.zsh) so the prompt needs the patched glyphs
 # in the primary face rather than relying on a Symbols Nerd Font fallback.
 font-family = "InputMono Nerd Font"
-font-style = "Extra Light"
-font-size = 18
+font-style = "Light"
+# Matched to Terminal.app's SF Mono at 12pt, which is the reference for "normal
+# size" here. Not simply 12: point size is a scale factor on the em square, and
+# how big text actually looks depends on the font's proportions within it. Input
+# Mono draws larger per point than SF Mono -- cap height 0.727em vs 0.705em, cell
+# width 0.636em vs 0.618em -- so equal point sizes are not equal sizes on screen.
+# 11.75 lands cap height and cell width within ~1% of Terminal; plain 12 is
+# ~3% larger. Raise this freely, it is only a starting point that matches.
+font-size = 11.75
 
 # Send Ctrl-Space+p (Previous tab/window in tmux)
 # See: https://arslan.io/2018/02/05/gpu-accelerated-terminal-alacritty/#make-alacritty-feel-like-iterm2
