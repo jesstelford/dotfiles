@@ -263,6 +263,30 @@ optional_runner install_pico8
 {{- end }}
 
 {{- if .islocalenv }}
+# Ghostty -- the terminal emulator.
+#
+# Ghostty became the canonical terminal when Alacritty was removed, but nothing
+# ever installed it: that change swapped the config (dot_config/ghostty/) and
+# the TERM value, and deleted install_alacritty, without adding a replacement
+# installer. Between those two commits a fresh machine got NO terminal at all.
+#
+# It also ships the xterm-ghostty terminfo that the nvim wrapper written by
+# 30-editors sets TERM to, so without Ghostty present that wrapper names a
+# terminfo entry the machine does not have.
+#
+# Linux has no official package (distro-specific or built from source, see
+# https://ghostty.org/docs/install/binary), so this stays macOS-only rather
+# than guessing at a package name that may not resolve.
+{{- if (eq .chezmoi.os "darwin") }}
+install_ghostty() (
+  set -e
+  brew install --cask ghostty
+)
+runner install_ghostty
+{{- end }}
+{{- end }}
+
+{{- if .islocalenv }}
 # Rectangle window manager for OSX
 {{- if (eq .chezmoi.os "darwin") }}
 install_rectangle() (
