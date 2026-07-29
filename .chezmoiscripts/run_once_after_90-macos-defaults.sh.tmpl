@@ -21,8 +21,11 @@ configure_macos() (
   # settings we're about to change
   osascript -e 'tell application "System Preferences" to quit'
 
-  # Keep-alive: update existing `sudo` time stamp until `.macos` has finished
-  while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
+  # The sudo keep-alive that used to live here is now in setup-helpers.sh.tmpl,
+  # so it covers every script rather than just this one — and it has an EXIT
+  # trap, which this copy lacked. `$$` inside the backgrounded subshell is the
+  # whole script's PID, not this function's, so the old loop kept refreshing
+  # sudo for the rest of the chezmoi run after configure_macos returned.
 
   # While applying any changes to SoftwareUpdate defaults, set software update to OFF to avoid any conflict with the defaults system cache. (Also close the System Preferences app)
   #
