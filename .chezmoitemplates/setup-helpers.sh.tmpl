@@ -324,6 +324,86 @@ fi
   # Karabiner-Elements, which is a Homebrew cask now. Dead branches in a
   # privileged installer are not worth keeping around on spec.
   #
+  # ---- macOS app install guards -------------------------------------------
+  #
+  # install_dmg is unconditional by nature: it downloads, mounts and
+  # `sudo cp -R`s over /Applications every time. The end state was right, so it
+  # looked idempotent, but every re-run pulled down hundreds of megabytes to
+  # arrive at what was already on disk. These two guards make a step a no-op
+  # when there is nothing to do. Call one before install_dmg.
+
+  # Version string of an installed app, or empty if it publishes none.
+  installed_app_version() {
+    defaults read "/Applications/$1.app/Contents/Info" CFBundleShortVersionString 2>/dev/null || true
+  }
+
+  # True when $1 is strictly newer than $2. `sort -V` is version-aware, so
+  # 0.0.22 sorts above 0.0.9 -- a plain string compare gets that backwards.
+  # macOS ships a sort that supports -V.
+  version_gt() {
+    [ "$1" != "$2" ] && [ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | tail -1)" = "$1" ]
+  }
+
+  # The version a rolling download URL currently resolves to, or empty when it
+  # cannot be known without downloading. A HEAD request follows the redirects
+  # and the version is read out of the final URL:
+  #   Discord -> https://stable.dl2.discordapp.net/apps/osx/0.0.402/Discord.dmg
+  #   Wally   -> ...&response-content-disposition=...filename=wally-osx-2.1.0.dmg
+  # Brave and Rocket serve an unversioned URL that does not redirect at all, so
+  # they yield nothing here; skip_if_app_current handles that.
+  remote_dmg_version() {
+    local effective
+    effective="$(curl -sIL -o /dev/null -w '%{url_effective}' --max-time 30 "$1" 2>/dev/null)" || return 0
+    printf '%s' "$effective" \
+      | grep -oE '[/-][0-9]+\.[0-9]+\.[0-9]+([/]|\.dmg)' \
+      | head -1 \
+      | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || true
+  }
+
+  # For apps whose version is PINNED in .chezmoidata.toml: once present, leave
+  # it alone -- neither upgrade nor downgrade. The pin decides what a fresh
+  # machine gets; it is not a statement that an existing install is wrong.
+  # This matters concretely: Roam is pinned at 0.0.14 with 0.0.22 on disk, so
+  # "correcting" the mismatch would downgrade on every single run.
+  #
+  # To deliberately move a pinned app, delete the .app and re-run.
+  #
+  # Usage: skip_if_app_installed "Roam Research"
+  skip_if_app_installed() {
+    local app="$1"
+    if [ -d "/Applications/${app}.app" ]; then
+      skip "${app} is installed and version-pinned; not upgrading or downgrading."
+    fi
+  }
+
+  # For apps fetched from a rolling "latest" URL: install when missing, upgrade
+  # when upstream is genuinely newer, otherwise do nothing. Never downgrades.
+  #
+  # When the remote version cannot be determined (Brave, Rocket) the safe answer
+  # is to leave the installed copy alone -- those apps self-update, which is
+  # precisely why upstream does not put a version in the URL.
+  #
+  # Usage: skip_if_app_current "Discord" "https://discord.com/api/download?platform=osx"
+  skip_if_app_current() {
+    local app="$1" url="$2" have want
+    [ -d "/Applications/${app}.app" ] || return 0
+
+    have="$(installed_app_version "$app")"
+    want="$(remote_dmg_version "$url")"
+
+    if [ -z "$want" ]; then
+      skip "${app} is installed; upstream serves no discoverable version, leaving it alone."
+    fi
+    if [ -z "$have" ]; then
+      skip "${app} is installed but publishes no version, leaving it alone."
+    fi
+    if version_gt "$want" "$have"; then
+      echo "${app} ${have} installed, ${want} available -- upgrading."
+      return 0
+    fi
+    skip "${app} ${have} is already current (upstream ${want})."
+  }
+
   # Usage:
   # install_dmg https://referrals.brave.com/latest/Brave-Browser.dmg
   # install_dmg https://example.com/pinned-1.2.3.dmg deadbeef...
