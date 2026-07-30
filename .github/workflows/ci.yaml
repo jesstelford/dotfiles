@@ -113,6 +113,25 @@ jobs:
       # .chezmoiignore is always a template to chezmoi despite not being named
       # .tmpl, so it is listed explicitly alongside the glob. -z / -d '' because
       # one managed path contains a space.
+      #
+      # .chezmoi.toml.tmpl and everything else need OPPOSITE flags, which is why
+      # this branches rather than passing one set to the whole loop:
+      #
+      #   --init executes stdin AS IF it were .chezmoi.toml.tmpl. That is what
+      #   defines promptStringOnce, so the config template cannot render without
+      #   it -- but it is a standalone mode that loads NO source state, so
+      #   .chezmoitemplates/ is never registered and .chezmoidata.toml is never
+      #   read. Every `{{ template "setup-helpers.sh.tmpl" . }}` is then "not
+      #   defined" and every `.versions` lookup is a missing map key.
+      #
+      #   --source is what registers them, and is required because
+      #   `chezmoi init --source` above does NOT persist sourceDir into the
+      #   generated config, so a bare `chezmoi` on a runner looks in
+      #   ~/.local/share/chezmoi, which does not exist there.
+      #
+      # Passing --init to everything is what kept this step red on all 233 runs
+      # in this repo's history. The loop exits on the first bad template, so it
+      # only ever reported 1 of the 15 that were actually failing.
       - name: Every template must parse and render
         run: |
           set -eu
@@ -120,10 +139,15 @@ jobs:
           git ls-files -z '*.tmpl' .chezmoiignore | while IFS= read -r -d '' t; do
             dest="$RUNNER_TEMP/rendered/${t%.tmpl}"
             mkdir -p "$(dirname "$dest")"
-            chezmoi execute-template --init --no-tty \
-              --promptString "Enter your git email=ci@example.com" \
-              --promptString "Enter your 1password email=ci@example.com" \
-              --promptString "Enter email to display on lock screen=ci@example.com" \
+            if [ "$t" = .chezmoi.toml.tmpl ]; then
+              set -- --init \
+                --promptString "Enter your git email=ci@example.com" \
+                --promptString "Enter your 1password email=ci@example.com" \
+                --promptString "Enter email to display on lock screen=ci@example.com"
+            else
+              set -- --source="$PWD"
+            fi
+            chezmoi execute-template --no-tty "$@" \
               < "$t" > "$dest" \
               || { echo "::error file=$t::template failed to render"; exit 1; }
           done
