@@ -312,6 +312,55 @@ jobs:
             echo "::error::a managed file differs from its target state after ./install.sh. Either a setup script wrote to a path chezmoi owns, or a managed file is volatile — either way the next apply will fight it."
             exit 1
           fi
+      # test-ubuntu only, and only because this is the job with slack: macOS is
+      # the critical path at ~147s while this one finishes in ~77s, so a second
+      # pass costs almost no wall clock. Doubling up the macOS or container jobs
+      # would push the whole workflow out for a check that is not OS-specific.
+      #
+      # A second ./install.sh on its own re-runs NOTHING: run_onchange_ scripts
+      # are keyed on a content hash and run_once_ scripts are recorded as done,
+      # so without clearing the state first this would only prove chezmoi can
+      # skip work, which was never in doubt. Dropping scriptState forces every
+      # setup script to execute again against a machine that is ALREADY
+      # provisioned -- the state a returning `chezmoi apply` actually meets, and
+      # the one no test has ever covered.
+      #
+      # This is the bug class 308bff1 fixed by hand: unguarded `ln -s`, `git
+      # clone` into an existing directory, `tee -a` re-appending a block it had
+      # already appended. Those fixes have been held in place by review alone.
+      #
+      # timeout, because the characteristic second-pass failure is an installer
+      # stopping to ask a question -- unzip offering to overwrite -- which hangs
+      # the job for six hours rather than failing it.
+      - name: Setup scripts must be safe to re-run
+        run: |
+          set -eu
+          CM="$HOME/.local/bin/chezmoi"
+          # Prove the clear will do something before depending on it. An empty
+          # scriptState would make this whole step a no-op that still reports
+          # green, and `delete-bucket` errors rather than no-ops when the bucket
+          # was never written.
+          before="$("$CM" state dump --source="$PWD" | jq '.scriptState | length')"
+          if [ "${before:-0}" -lt 1 ]; then
+            echo "::error::scriptState is empty after ./install.sh, so clearing it would prove nothing and this step would pass without re-running a single script."
+            exit 1
+          fi
+          echo "forcing re-run of $before recorded scripts"
+          "$CM" state delete-bucket --bucket=scriptState --source="$PWD"
+          timeout 600 ./install.sh
+
+      - name: A repeat run must still converge
+        run: |
+          set -eu
+          out="$("$HOME/.local/bin/chezmoi" status --source="$PWD" -x scripts)"
+          if [ -n "$out" ]; then
+            echo "$out"
+            echo "--- what changed ---"
+            "$HOME/.local/bin/chezmoi" diff --source="$PWD" -x scripts || true
+            echo "::error::the second ./install.sh left managed files modified. A setup step writes on every run rather than only when needed, so this machine never reaches a stable state."
+            exit 1
+          fi
+
       - name: chezmoi data
         run: '"$HOME/.local/bin/chezmoi" data'
 
