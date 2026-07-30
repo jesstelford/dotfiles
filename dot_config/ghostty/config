@@ -33,12 +33,27 @@
 # # Just for example:
 # resize-overlay-duration = 4s 200ms
 
-# Night Owl, from ./themes/. Pinned to the dark variant rather than the
-# `dark:NightOwlDark,light:NightOwlLight` pair Ghostty switches on macOS
-# appearance: the terminal should be dark whatever the rest of the desktop is
-# doing, same as Terminal.app's fixed "Clear Dark" profile. NightOwlLight is
-# still in ./themes/, so restoring the pair is a one-line change.
-theme = NightOwlDark
+# Arthur, one of Ghostty's built-in themes -- warm earth tones (tan, amber,
+# sage) with cool cornflower/steel accents on #1c1c1c. Dark-only, so it
+# satisfies by construction the constraint the previous NightOwlDark pinning
+# enforced by hand: the terminal stays dark whatever macOS appearance is doing,
+# same as Terminal.app's fixed "Clear Dark" profile. NightOwlDark/Light are
+# still in ./themes/, so switching back is a one-liner.
+#
+# Neovim is coupled to this: ../nvim/colors/arthur.lua derives its highlight
+# groups from Arthur's 16 ANSI colors so the editor and the terminal around it
+# agree. Changing the theme here without regenerating that file desyncs them.
+theme = Arthur
+
+# Derive palette indices 16-255 from the theme's base 16 instead of leaving them
+# at the fixed xterm cube, so 256-color apps sit in the same palette as
+# everything else. Off by default upstream because legacy programs hardcode the
+# xterm values; `harmonious` additionally reverses the ordering, which trips
+# anything assuming 16-231 runs darkest to lightest. Drop both if some TUI
+# suddenly renders unreadable. Any explicit `palette = N=#hex` still wins.
+# Both require Ghostty >= 1.3.0.
+palette-generate = true
+palette-harmonious = true
 
 # Setting to empty string resets the value, otherwise we're just appending fallbacks
 font-family = ""
