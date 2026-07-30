@@ -234,6 +234,15 @@ runner configure_alttab
 # script can give. Getting the app in front of the user at login is the part
 # that can be automated, and is all that was asked for.
 #
+# KeepingYouAwake needs an agent for a different reason: on macOS 13+ its
+# "Launch at Login" toggle calls SMAppService.mainAppService.register(), and that
+# registration lives in the SIP-protected Background Task Management store, not
+# in a plist `defaults` can reach. Its legacy
+# info.marcel-dierkes.KeepingYouAwake.LaunchAtLogin key is now read only by a
+# one-shot migration that clears it again, so writing it would be a bet on the
+# internals of a code path upstream is finished with. It is LSUIElement, so
+# `open -a` brings up the menu bar item and no window.
+#
 # Deliberately NOT gated on the install steps: install_emoji_picker and
 # install_karabiner both skip early when the app is already present, so a login
 # agent written inside them would never appear on a machine that already had the
@@ -241,13 +250,14 @@ runner configure_alttab
 #
 # AltTab is not here because configure_alttab above writes AltTab's own agent,
 # under AltTab's own label, byte-for-byte as AltTab writes it -- so AltTab's
-# "start at login" checkbox reflects reality. Rocket and Karabiner have no such
-# agent to imitate.
+# "start at login" checkbox reflects reality. The other three have no such agent
+# to imitate.
 configure_login_items() (
   set -e
   add_login_agent st.jes.login.rocket /Applications/Rocket.app
   add_login_agent st.jes.login.karabiner-elements /Applications/Karabiner-Elements.app
-  echo "Login agents written for Rocket and Karabiner-Elements."
+  add_login_agent st.jes.login.keepingyouawake /Applications/KeepingYouAwake.app
+  echo "Login agents written for Rocket, Karabiner-Elements and KeepingYouAwake."
 )
 runner configure_login_items
 {{- end }}
