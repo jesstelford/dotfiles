@@ -12,8 +12,38 @@ fix_zsh_permissions() (
   set -e
   # Fix permissions of zsh folders if necessary
   # See https://stackoverflow.com/a/22753363/473961
-  {{- /* xargs on MacOS will skip the command on empty input, but POSIX needs an extra flag */}}
-  /bin/zsh -i -c 'compaudit | xargs{{ if (eq .chezmoi.os "linux") }} --no-run-if-empty{{ end }} chmod g-w'
+  #
+  # Only chmod what we actually own. compaudit reports every insecure directory
+  # on fpath, and where zsh came from the package manager that includes
+  # root-owned system paths -- /usr/share/zsh and /usr/share/zsh/vendor-completions
+  # on the Ubuntu runner. chmod cannot touch those without sudo, so the old
+  # `compaudit | xargs chmod g-w` died with xargs' exit 123 and failed the whole
+  # provisioning run over directories that were never ours to fix. Report them
+  # and carry on: the ones we own are the ones our own scripts created, and they
+  # are the ones actually worth fixing.
+  #
+  # `autoload -Uz compaudit` rather than `zsh -i -c`: compaudit only needs to be
+  # autoloaded, and an interactive shell with no TTY writes "not interactive and
+  # can't open terminal" / "compinit: initialization aborted" to stderr before
+  # doing the same work anyway.
+  #
+  # Heredoc rather than a pipe so the loop runs in this shell and `skipped`
+  # survives it.
+  insecure="$(/bin/zsh -c 'autoload -Uz compaudit; compaudit' 2>/dev/null || true)"
+  [ -n "$insecure" ] || return 0
+  skipped=0
+  while IFS= read -r dir; do
+    { [ -n "$dir" ] && [ -e "$dir" ]; } || continue
+    if [ -O "$dir" ]; then
+      chmod g-w "$dir"
+    else
+      echo "  not ours, leaving alone: $dir"
+      skipped=1
+    fi
+  done <<EOF
+$insecure
+EOF
+  [ "$skipped" -eq 0 ] || echo "  (zsh may still warn about the above; they need root to change)"
 )
 runner fix_zsh_permissions
 
