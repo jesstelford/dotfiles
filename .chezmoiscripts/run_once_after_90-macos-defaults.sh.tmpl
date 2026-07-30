@@ -137,6 +137,105 @@ configure_macos() (
   # Software updates are turned back ON by the EXIT trap registered at the top.
 )
 runner configure_macos
+
+# AltTab: start at login, and set shortcut 1 plus the switcher's appearance.
+#
+# Start at login has no preference key -- AltTab's own binary references
+# LSSharedFileList and it writes a LaunchAgent when you tick the box in its UI.
+# So write that agent directly. Content is byte-for-byte what AltTab itself
+# writes, read off a machine where the box was ticked.
+#
+# The shortcut is the awkward part. AltTab stores it as a dict of
+#   { string = "<glyph>"; secureData = <NSKeyedArchiver blob> }
+# where the blob is an archived ShortcutRecorder SRShortcut carrying
+# modifierFlags and keyCode. A plain string will not do -- the archive is what
+# is actually read. The two blobs below were built by decoding the real archive
+# AltTab wrote, substituting the values, and confirming they re-decode to the
+# right SRShortcut:
+#
+#   holdShortcut        modifierFlags 262144 (control), keyCode 65535
+#                       65535 is SRKeyCodeNone, i.e. a modifier-only shortcut,
+#                       which is what "hold" means here.
+#   nextWindowShortcut  modifierFlags 0, keyCode 48 (tab)
+#
+# Together: hold Control, press Tab.
+#
+# appearanceStyle / appearanceSize are plain ints. The orderings are taken from
+# the enums in AltTab's binary, not guessed:
+#   appearanceStyle  0 thumbnails, 1 appIcons, 2 titles
+#   appearanceSize   0 small,      1 medium,   2 large
+configure_alttab() (
+  set -e
+
+  # AltTab has to be stopped first for the same reason Rectangle does: macOS
+  # caches preferences in cfprefsd and the app flushes its own copy over ours
+  # when it next exits.
+  killall AltTab 2>/dev/null || true
+
+  hold_shortcut=62706c6973743030d40102030405061d205924617263686976657258246f626a656374735424746f70582476657273696f6e5f100f4e534b657965644172636869766572a5070815161755246e756c6cd6090a0b0c0d0e0f10111213145624636c6173735a636861726163746572735f101b6368617261637465727349676e6f72696e674d6f64696669657273576b6579436f64655d6d6f646966696572466c6167735776657273696f6e80048000800080028003800011ffff1200040000d218191a1b5824636c61737365735a24636c6173736e616d65a21b1c5a535253686f7274637574584e534f626a656374d11e1f54726f6f74800112000186a008111b242932444a505d646f8d95a3abadafb1b3b5b7babfc4cdd8dbe6eff2f7f900000000000001010000000000000021000000000000000000000000000000fe
+  next_shortcut=62706c6973743030d40102030405061d205924617263686976657258246f626a656374735424746f70582476657273696f6e5f100f4e534b657965644172636869766572a5070815161755246e756c6cd6090a0b0c0d0e0f10111213145624636c6173735a636861726163746572735f101b6368617261637465727349676e6f72696e674d6f64696669657273576b6579436f64655d6d6f646966696572466c6167735776657273696f6e80048000800080028003800010301000d218191a1b5824636c61737365735a24636c6173736e616d65a21b1c5a535253686f7274637574584e534f626a656374d11e1f54726f6f74800112000186a008111b242932444a505d646f8d95a3abadafb1b3b5b7b9bbc0c9d4d7e2ebeef3f500000000000001010000000000000021000000000000000000000000000000fa
+
+  defaults write com.lwouis.alt-tab-macos holdShortcut \
+    "{ string = \"⌃\"; secureData = <$hold_shortcut>; }"
+  defaults write com.lwouis.alt-tab-macos nextWindowShortcut \
+    "{ string = \"⇥\"; secureData = <$next_shortcut>; }"
+
+  defaults write com.lwouis.alt-tab-macos appearanceStyle -int 0
+  defaults write com.lwouis.alt-tab-macos appearanceSize -int 1
+
+  # Start at login.
+  agent="$HOME/Library/LaunchAgents/com.lwouis.alt-tab-macos.plist"
+  mkdir -p "$HOME/Library/LaunchAgents"
+  cat > "$agent" <<'PLIST'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>AssociatedBundleIdentifiers</key>
+	<string>com.lwouis.alt-tab-macos</string>
+	<key>Label</key>
+	<string>com.lwouis.alt-tab-macos</string>
+	<key>LegacyTimers</key>
+	<true/>
+	<key>LimitLoadToSessionType</key>
+	<string>Aqua</string>
+	<key>ProcessType</key>
+	<string>Interactive</string>
+	<key>Program</key>
+	<string>/Applications/AltTab.app/Contents/MacOS/AltTab</string>
+	<key>RunAtLoad</key>
+	<true/>
+</dict>
+</plist>
+PLIST
+  plutil -lint "$agent" > /dev/null
+
+  # bootout first so a re-run replaces the definition rather than erroring with
+  # "service already loaded". Both are best-effort: the agent is picked up at
+  # the next login regardless.
+  launchctl bootout "gui/$(id -u)/com.lwouis.alt-tab-macos" 2>/dev/null || true
+  launchctl bootstrap "gui/$(id -u)" "$agent" 2>/dev/null || true
+
+  open -g -a AltTab 2>/dev/null || true
+)
+runner configure_alttab
+
+# Karabiner-Elements start at login.
+#
+# Not scriptable, and deliberately not faked. Karabiner registers its own
+# agents (org.pqrs.service.agent.*) once the app has been granted Input
+# Monitoring and its driver extension has been approved in System Settings --
+# approvals macOS does not allow a script to give. So: report the real state
+# instead of writing something that would not work.
+check_karabiner_login() (
+  set -e
+  if launchctl list 2>/dev/null | grep -q "org.pqrs.service.agent"; then
+    echo "Karabiner-Elements agents are registered; it already starts at login."
+  else
+    skip "Karabiner-Elements has not registered its login agents yet. Open it once and grant Input Monitoring plus the driver extension in System Settings; it registers them itself after that."
+  fi
+)
+runner check_karabiner_login
 {{- end }}
 {{- end }}
 
