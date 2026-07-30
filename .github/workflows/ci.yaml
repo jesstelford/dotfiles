@@ -334,20 +334,32 @@ jobs:
       # the job for six hours rather than failing it.
       - name: Setup scripts must be safe to re-run
         run: |
-          set -eu
+          set -euo pipefail
           CM="$HOME/.local/bin/chezmoi"
-          # Prove the clear will do something before depending on it. An empty
-          # scriptState would make this whole step a no-op that still reports
-          # green, and `delete-bucket` errors rather than no-ops when the bucket
-          # was never written.
-          before="$("$CM" state dump --source="$PWD" | jq '.scriptState | length')"
-          if [ "${before:-0}" -lt 1 ]; then
-            echo "::error::scriptState is empty after ./install.sh, so clearing it would prove nothing and this step would pass without re-running a single script."
+          # BOTH buckets. run_once_ state lives in scriptState, but
+          # run_onchange_ state lives in entryState keyed by target path, and
+          # this repo is 9 run_onchange_ to 3 run_once_ -- so clearing
+          # scriptState alone re-runs the minority and skips every script that
+          # installs anything. The first version of this check did exactly that
+          # and passed while testing almost nothing.
+          #
+          # `|| true` is safe here only because of the assertion below: if a
+          # clear silently fails, the step fails on the evidence rather than
+          # sailing through green.
+          "$CM" state delete-bucket --bucket=scriptState --source="$PWD" || true
+          "$CM" state delete-bucket --bucket=entryState --source="$PWD" || true
+          timeout 600 ./install.sh 2>&1 | tee "$RUNNER_TEMP/rerun.log"
+          # Assert the re-run actually happened, rather than trusting the clear
+          # to have targeted the right bucket. `runner` prints "Running <step>..."
+          # per step, so a real second pass produces a couple of dozen; a
+          # no-op produces none. This is the guard that catches a future
+          # chezmoi changing where it keeps script state.
+          ran="$(grep -cE '^Running [a-z_]+\.\.\.' "$RUNNER_TEMP/rerun.log" || true)"
+          if [ "${ran:-0}" -lt 10 ]; then
+            echo "::error::the repeat run executed only ${ran:-0} setup steps, so the state clear did not force a re-run and this step is not testing repeat-safety."
             exit 1
           fi
-          echo "forcing re-run of $before recorded scripts"
-          "$CM" state delete-bucket --bucket=scriptState --source="$PWD"
-          timeout 600 ./install.sh
+          echo "re-ran $ran setup steps against an already-provisioned machine"
 
       - name: A repeat run must still converge
         run: |
