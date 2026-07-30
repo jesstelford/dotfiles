@@ -304,6 +304,11 @@ jobs:
           out="$("$HOME/.local/bin/chezmoi" status --source="$PWD" -x scripts)"
           if [ -n "$out" ]; then
             echo "$out"
+            # "something drifted" is not actionable on its own -- the whole
+            # question is WHAT was written and by which installer, and the
+            # runner is gone by the time anyone reads this.
+            echo "--- what changed ---"
+            "$HOME/.local/bin/chezmoi" diff --source="$PWD" -x scripts || true
             echo "::error::a managed file differs from its target state after ./install.sh. Either a setup script wrote to a path chezmoi owns, or a managed file is volatile — either way the next apply will fight it."
             exit 1
           fi
@@ -336,6 +341,11 @@ jobs:
           out="$("$HOME/.local/bin/chezmoi" status --source="$PWD" -x scripts)"
           if [ -n "$out" ]; then
             echo "$out"
+            # "something drifted" is not actionable on its own -- the whole
+            # question is WHAT was written and by which installer, and the
+            # runner is gone by the time anyone reads this.
+            echo "--- what changed ---"
+            "$HOME/.local/bin/chezmoi" diff --source="$PWD" -x scripts || true
             echo "::error::a managed file differs from its target state after ./install.sh. Either a setup script wrote to a path chezmoi owns, or a managed file is volatile — either way the next apply will fight it."
             exit 1
           fi
@@ -364,6 +374,11 @@ jobs:
           out="$("$HOME/.local/bin/chezmoi" status --source="$PWD" -x scripts)"
           if [ -n "$out" ]; then
             echo "$out"
+            # "something drifted" is not actionable on its own -- the whole
+            # question is WHAT was written and by which installer, and the
+            # runner is gone by the time anyone reads this.
+            echo "--- what changed ---"
+            "$HOME/.local/bin/chezmoi" diff --source="$PWD" -x scripts || true
             echo "::error::a managed file differs from its target state after ./install.sh. Either a setup script wrote to a path chezmoi owns, or a managed file is volatile — either way the next apply will fight it."
             exit 1
           fi
