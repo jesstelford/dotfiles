@@ -130,12 +130,18 @@ jobs:
       #   ~/.local/share/chezmoi, which does not exist there.
       #
       # Passing --init to everything is what kept this step red on all 233 runs
-      # in this repo's history. The loop exits on the first bad template, so it
-      # only ever reported 1 of the 15 that were actually failing.
+      # in this repo's history.
+      #
+      # Failures are collected rather than exited on. When that bug was found,
+      # 15 of 23 templates were failing and this step reported exactly one,
+      # because it stopped at the first -- which sent the investigation after a
+      # single missing partial rather than the flag that broke all 15. The loop
+      # body runs in a pipeline subshell, so the tally goes to a file.
       - name: Every template must parse and render
         run: |
           set -eu
           mkdir -p "$RUNNER_TEMP/rendered"
+          : > "$RUNNER_TEMP/render-failures"
           git ls-files -z '*.tmpl' .chezmoiignore | while IFS= read -r -d '' t; do
             dest="$RUNNER_TEMP/rendered/${t%.tmpl}"
             mkdir -p "$(dirname "$dest")"
@@ -149,8 +155,15 @@ jobs:
             fi
             chezmoi execute-template --no-tty "$@" \
               < "$t" > "$dest" \
-              || { echo "::error file=$t::template failed to render"; exit 1; }
+              || { echo "::error file=$t::template failed to render"; echo "$t" >> "$RUNNER_TEMP/render-failures"; }
           done
+          if [ -s "$RUNNER_TEMP/render-failures" ]; then
+            failed="$(wc -l < "$RUNNER_TEMP/render-failures" | tr -d ' ')"
+            total="$(git ls-files '*.tmpl' .chezmoiignore | wc -l | tr -d ' ')"
+            echo "::error::$failed of $total templates failed to render:"
+            sed 's/^/  /' "$RUNNER_TEMP/render-failures"
+            exit 1
+          fi
 
       # THE check. A Go template does not interpolate inside a Go string
       # literal, so `{{ $x := "{{ .chezmoi.os }}" }}` passes the braces straight
@@ -184,11 +197,42 @@ jobs:
             echo "::error::found no rendered setup scripts to syntax-check. The search path is wrong, so this job would pass without checking anything."
             exit 1
           fi
+          : > "$RUNNER_TEMP/syntax-failures"
           echo "$scripts" | while IFS= read -r f; do
-            bash -n "$f" || { echo "::error file=${f#$RUNNER_TEMP/rendered/}.tmpl::rendered script is not valid bash"; exit 1; }
+            bash -n "$f" || { echo "::error file=${f#$RUNNER_TEMP/rendered/}.tmpl::rendered script is not valid bash"; echo "$f" >> "$RUNNER_TEMP/syntax-failures"; }
           done
+          if [ -s "$RUNNER_TEMP/syntax-failures" ]; then
+            echo "::error::$(wc -l < "$RUNNER_TEMP/syntax-failures" | tr -d ' ') rendered scripts are not valid bash (see above)"
+            exit 1
+          fi
           echo "syntax-checked:"
           echo "$scripts"
+
+      # git reads this file for every command it runs, so a malformed one does
+      # not degrade anything gracefully -- it takes out git itself, including
+      # the git that would let you fix it. The render gate already produces the
+      # file and until now checked nothing about it beyond the `{{` grep, which
+      # cannot see an unterminated quote or a broken section header. git is
+      # always present, so this costs nothing to run.
+      - name: Rendered gitconfig must parse
+        run: |
+          set -eu
+          git config --file "$RUNNER_TEMP/rendered/dot_gitconfig" --list > /dev/null
+
+      # This repo is public and a leaked credential cannot be unpublished:
+      # GitHub keeps orphaned commits reachable by SHA long after a force-push.
+      # .chezmoiignore carries a deny-list for exactly this, and this turns the
+      # comment above that list into something that fails when it stops being
+      # true. Matches the managed SET, so it fires on `chezmoi add`-ing a
+      # sensitive path even before anything lands in a commit.
+      - name: No secret path may be managed
+        run: |
+          set -eu
+          if chezmoi managed --source="$PWD" \
+             | grep -nE '^(\.ssh|\.aws|\.gnupg|\.docker|\.config/(gh|op))(/|$)|^\.(netrc|npmrc|pypirc)$|\.(pem|key)$'; then
+            echo "::error::a path on the .chezmoiignore secrets deny-list is in the managed set (see above). This repo is public — do not push this."
+            exit 1
+          fi
 
   # ---------------------------------------------------------------------------
   # The install jobs.
@@ -209,6 +253,34 @@ jobs:
   # CI and takes the same `islocalenv = false` path as `test-ubuntu`. The two
   # local shapes are only ever covered by the render gate above, never by a
   # real apply.
+  #
+  # Each job runs two checks after ./install.sh. They are repeated rather than
+  # shared because Actions does not support YAML anchors.
+  #
+  #   "Installed tooling must actually run" — every install step reports ✅ on
+  #   the basis that its own commands exited 0; none check the result is
+  #   usable. nvim is reached through a wrapper this repo writes, and when that
+  #   wrapper pointed at a path that did not exist, nvim was unrunnable on every
+  #   platform and $EDITOR silently fell back to vi. The `{{` grep only caught
+  #   that because braces happened to leak — a merely WRONG interpolated path
+  #   goes straight through it. git-lfs is here because the managed .gitconfig
+  #   declares `required = true`, which is a hard failure and not a warning:
+  #   without the binary, every clone of an LFS repo dies. The declaration and
+  #   the installer live in different files and nothing checked they agree.
+  #   zsh -n covers the one deployed file that breaks every future shell if it
+  #   is malformed; the gate cannot do it, because zsh is not on the
+  #   ubuntu-latest image until install_zsh puts it there.
+  #
+  #   node/npm/go are deliberately NOT checked: they reach PATH via `fnm env`
+  #   and the deployed .zshrc, neither of which a plain Actions bash step
+  #   sources, so checking them here would fail for the wrong reason.
+  #
+  #   "Provisioning must converge" — a setup script writing to a path chezmoi
+  #   manages leaves the machine in a state the next apply undoes, silently and
+  #   forever. Two commits already reason carefully about exactly this
+  #   (git-lfs's ~/.gitconfig block, the volatile-file handling) and nothing
+  #   tested that reasoning. -x scripts because run_after_fzf-binary.sh is a
+  #   plain run_after_ script and is pending on every apply by design.
   # ---------------------------------------------------------------------------
   test-ubuntu:
     needs: templates
@@ -218,6 +290,23 @@ jobs:
         with:
           persist-credentials: false
       - run: ./install.sh
+      - name: Installed tooling must actually run
+        run: |
+          set -eu
+          nvim --version | head -1
+          zsh --version
+          git lfs version
+          zsh -n "$HOME/.zshrc"
+          zsh -n "$HOME/.zsh_aliases"
+      - name: Provisioning must converge
+        run: |
+          set -eu
+          out="$("$HOME/.local/bin/chezmoi" status --source="$PWD" -x scripts)"
+          if [ -n "$out" ]; then
+            echo "$out"
+            echo "::error::a managed file differs from its target state after ./install.sh. Either a setup script wrote to a path chezmoi owns, or a managed file is volatile — either way the next apply will fight it."
+            exit 1
+          fi
       - name: chezmoi data
         run: '"$HOME/.local/bin/chezmoi" data'
 
@@ -233,6 +322,23 @@ jobs:
         with:
           persist-credentials: false
       - run: ./install.sh
+      - name: Installed tooling must actually run
+        run: |
+          set -eu
+          nvim --version | head -1
+          zsh --version
+          git lfs version
+          zsh -n "$HOME/.zshrc"
+          zsh -n "$HOME/.zsh_aliases"
+      - name: Provisioning must converge
+        run: |
+          set -eu
+          out="$("$HOME/.local/bin/chezmoi" status --source="$PWD" -x scripts)"
+          if [ -n "$out" ]; then
+            echo "$out"
+            echo "::error::a managed file differs from its target state after ./install.sh. Either a setup script wrote to a path chezmoi owns, or a managed file is volatile — either way the next apply will fight it."
+            exit 1
+          fi
       - name: chezmoi data
         run: '"$HOME/.local/bin/chezmoi" data'
 
@@ -244,5 +350,22 @@ jobs:
         with:
           persist-credentials: false
       - run: ./install.sh
+      - name: Installed tooling must actually run
+        run: |
+          set -eu
+          nvim --version | head -1
+          zsh --version
+          git lfs version
+          zsh -n "$HOME/.zshrc"
+          zsh -n "$HOME/.zsh_aliases"
+      - name: Provisioning must converge
+        run: |
+          set -eu
+          out="$("$HOME/.local/bin/chezmoi" status --source="$PWD" -x scripts)"
+          if [ -n "$out" ]; then
+            echo "$out"
+            echo "::error::a managed file differs from its target state after ./install.sh. Either a setup script wrote to a path chezmoi owns, or a managed file is volatile — either way the next apply will fight it."
+            exit 1
+          fi
       - name: chezmoi data
         run: '"$HOME/.local/bin/chezmoi" data'
