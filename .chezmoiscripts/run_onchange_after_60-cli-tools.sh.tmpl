@@ -129,7 +129,21 @@ install_uv() (
   {{- if (eq .chezmoi.os "darwin") }}
     brew install uv
   {{- else if (eq .chezmoi.os "linux") }}
-    curl -LsSf https://astral.sh/uv/install.sh | sh
+    {{- /* UV_NO_MODIFY_PATH, for the same reason install_rust passes
+           --no-modify-path: chezmoi owns the shell rc files, and
+           dot_zshrc.tmpl already puts $HOME/.local/bin on PATH. Without it the
+           installer writes ~/.local/bin/env and appends a line sourcing it to
+           .zshrc, which chezmoi reverts on the next apply -- so the line is
+           both redundant and futile, and the machine never converges.
+
+           It only appends when the install dir is not ALREADY on PATH (see
+           `in *:$_install_dir:*) NO_MODIFY_PATH=1` in install.sh), which is why
+           this never appeared on the GitHub runner, where ~/.local/bin is on
+           PATH, and showed up only in the devcontainer, where it is not.
+
+           UV_NO_MODIFY_PATH rather than the older --no-modify-path flag: the
+           installer deprecated that flag in favour of this variable. */}}
+    curl -LsSf https://astral.sh/uv/install.sh | UV_NO_MODIFY_PATH=1 sh
   {{- end }}
 )
 runner install_uv
