@@ -220,22 +220,36 @@ PLIST
 )
 runner configure_alttab
 
-# Karabiner-Elements start at login.
+# Launch Rocket and Karabiner-Elements at login.
 #
-# Not scriptable, and deliberately not faked. Karabiner registers its own
-# agents (org.pqrs.service.agent.*) once the app has been granted Input
-# Monitoring and its driver extension has been approved in System Settings --
-# approvals macOS does not allow a script to give. So: report the real state
-# instead of writing something that would not work.
-check_karabiner_login() (
+# Rocket has a `launch-at-login` preference, set in install_emoji_picker, and it
+# turns out that is NOT enough: Rocket writes no LaunchAgent and registers no
+# login item, so on a fresh machine it had to be started by hand despite the key
+# reading true. Rectangle's own `launchOnLogin` key does work, which is why that
+# one is left alone.
+#
+# Karabiner-Elements only needs its app launched. It registers its own
+# org.pqrs.service.agent.* services itself, once it has been opened and granted
+# Input Monitoring plus the driver extension in System Settings -- approvals no
+# script can give. Getting the app in front of the user at login is the part
+# that can be automated, and is all that was asked for.
+#
+# Deliberately NOT gated on the install steps: install_emoji_picker and
+# install_karabiner both skip early when the app is already present, so a login
+# agent written inside them would never appear on a machine that already had the
+# app. This runs unconditionally instead.
+#
+# AltTab is not here because configure_alttab above writes AltTab's own agent,
+# under AltTab's own label, byte-for-byte as AltTab writes it -- so AltTab's
+# "start at login" checkbox reflects reality. Rocket and Karabiner have no such
+# agent to imitate.
+configure_login_items() (
   set -e
-  if launchctl list 2>/dev/null | grep -q "org.pqrs.service.agent"; then
-    echo "Karabiner-Elements agents are registered; it already starts at login."
-  else
-    skip "Karabiner-Elements has not registered its login agents yet. Open it once and grant Input Monitoring plus the driver extension in System Settings; it registers them itself after that."
-  fi
+  add_login_agent st.jes.login.rocket /Applications/Rocket.app
+  add_login_agent st.jes.login.karabiner-elements /Applications/Karabiner-Elements.app
+  echo "Login agents written for Rocket and Karabiner-Elements."
 )
-runner check_karabiner_login
+runner configure_login_items
 {{- end }}
 {{- end }}
 

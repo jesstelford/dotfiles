@@ -104,6 +104,12 @@ install_emoji_picker() (
     install_dmg https://macrelease.matthewpalmer.net/Rocket.dmg
     # Set shortcut to "~"
     defaults write net.matthewpalmer.Rocket.plist "hot-key-b8-iaK-thyib-yoV-Kep-It" -string "~"
+    # Sets Rocket's own checkbox so its UI agrees, but this key is NOT what makes
+    # it launch: Rocket writes no LaunchAgent and registers no login item, so on
+    # a fresh machine it still had to be started by hand. The agent that actually
+    # does it is written by configure_login_items in 90-macos-defaults, which is
+    # deliberately outside this step -- this one skips early when Rocket is
+    # already installed, so anything in here never runs on an existing machine.
     defaults write net.matthewpalmer.Rocket.plist "launch-at-login" -bool true
   {{- else if (eq .chezmoi.os "linux") }}
     # Emote emoji picker
