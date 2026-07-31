@@ -71,6 +71,15 @@ font-style = "Light"
 # ~3% larger. Raise this freely, it is only a starting point that matches.
 font-size = 11.75
 
+# Loosen the line spacing. This is a delta on the font's natural line height,
+# not an absolute -- 10% adds 10%. The glyph stays centred in the taller cell
+# and powerline glyphs stretch with it, so the p10k prompt and tmux status line
+# stay flush; the cursor does not, it tracks the font, so add
+# adjust-cursor-height if it starts looking stubby. Applies to every row in the
+# window uniformly, since a terminal grid has one cell height -- it is not
+# something an individual program can opt into.
+adjust-cell-height = 10%
+
 # Send Ctrl-Space+p (Previous tab/window in tmux)
 # See: https://arslan.io/2018/02/05/gpu-accelerated-terminal-alacritty/#make-alacritty-feel-like-iterm2
 keybind = command+option+left=text:\x00\x70
