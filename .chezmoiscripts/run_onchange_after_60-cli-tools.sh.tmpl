@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-{{- /* Command-line tools: tmux, cmux, Claude Code, bat, eza, fd, delta, uv,
-       and the handful of language servers/formatters that are useful outside
-       Neovim (the rest are Mason's job). */}}
+{{- /* Command-line tools: tmux, cmux, Claude Code, ant, bat, eza, fd, delta,
+       uv, and the handful of language servers/formatters that are useful
+       outside Neovim (the rest are Mason's job). */}}
 {{- /*
   Architecture spellings. .chezmoi.arch is Go's GOARCH — "amd64" or "arm64" on
   every machine this repo targets — and upstreams spell it four different ways:
@@ -67,6 +67,94 @@ install_claude_code() (
   curl -fsSL https://claude.ai/install.sh | bash
 )
 runner install_claude_code
+
+# ant (Anthropic's CLI for the Claude platform)
+#
+# Deliberately unpinned on both platforms, so there is no .chezmoidata.toml
+# entry: this is a client for a hosted API that moves underneath it, where an
+# old version is a liability rather than a stable known-good. Same call as Go in
+# 70-dev-tools, and for the same reason.
+install_ant() (
+  set -e
+  {{- if (eq .chezmoi.os "darwin") }}
+    # A cask rather than a formula, and one that ships its own completions:
+    # brew symlinks the tarball's completions/ant.zsh into
+    # $HOMEBREW_PREFIX/share/zsh/site-functions as _ant, and `brew shellenv`
+    # already puts that directory on fpath (see the note in .zshrc). So there is
+    # nothing for this branch to generate, unlike the Linux one below.
+    #
+    # `brew trust` first, because Homebrew now requires trust for third-party
+    # taps and, depending on its version, either quietly ignores an untrusted
+    # one or hard-errors with "Refusing to load ... from untrusted tap" -- the
+    # wall that used to abort install_fonts on every fresh machine (see the NOTE
+    # in 40-desktop). Without this the cask installs on the machine that trusted
+    # it by hand and on no other.
+    #
+    # Scoped to this one cask rather than `brew trust anthropics/tap`, which
+    # would silently extend to anything else that lands in that tap later. It is
+    # idempotent, exits 0 when already trusted, and does not need the tap tapped.
+    brew trust --cask anthropics/tap/ant
+    brew install anthropics/tap/ant
+  {{- else if (eq .chezmoi.os "linux") }}
+    use_temp_dir
+
+    # Resolve the latest release WITHOUT api.github.com: /releases/latest is a
+    # 302 to /releases/tag/vX.Y.Z, and the API is rate limited to 60 requests an
+    # hour per IP for unauthenticated callers -- a budget a shared CI runner has
+    # usually already spent on someone else's job.
+    #
+    # `sed -n .../p` rather than a suffix strip: when the redirect does not
+    # happen, curl reports the URL it was given, and a strip that finds no match
+    # yields that whole URL as the "version". This yields nothing instead, which
+    # the check below can see.
+    ant_url="$(curl -fsSLI -o /dev/null -w '%{url_effective}' https://github.com/anthropics/anthropic-cli/releases/latest)"
+    ant_version="$(printf '%s' "$ant_url" | sed -n 's#.*/releases/tag/v##p')"
+    if [ -z "$ant_version" ]; then
+      echo "❌ Could not resolve the latest ant release."
+      echo "   /releases/latest resolved to: $ant_url"
+      exit 1
+    fi
+
+    # Nothing to do when the installed copy is already that release. Not merely
+    # tidy: without this, every apply re-downloads 23MB to arrive at the bytes
+    # already on disk. `ant --version` prints "ant version X.Y.Z".
+    if [ "$(ant --version 2>/dev/null | awk '{ print $NF }')" = "$ant_version" ]; then
+      skip "ant $ant_version is already the latest release."
+    fi
+
+    ant_base="https://github.com/anthropics/anthropic-cli/releases/download/v${ant_version}"
+    ant_tarball="ant_${ant_version}_linux_{{ $arch }}.tar.gz"
+
+    # Unpinned, so its digest cannot be pinned either. Upstream publishes a
+    # checksums file per release, so fetch that alongside the tarball and check
+    # against it -- the same trade, with the same limits, as install_golang:
+    # both come from github.com over the same TLS trust root, so this defends
+    # against a corrupted or substituted mirror response, not against a
+    # compromised GitHub.
+    wget --no-verbose "${ant_base}/${ant_tarball}"
+    wget --no-verbose -O ant_checksums.txt "${ant_base}/ant_${ant_version}_checksums.txt"
+    ant_sha256="$(awk -v want="$ant_tarball" '$2 == want { print $1 }' ant_checksums.txt)"
+    if [ -z "$ant_sha256" ]; then
+      echo "❌ No published SHA-256 for ${ant_tarball}; refusing to install it unverified."
+      exit 1
+    fi
+    verify_sha256 "./${ant_tarball}" "$ant_sha256"
+
+    # The tarball carries the binary at its root, alongside completions/ and
+    # man/. `install` rather than `cp`: it unlinks and recreates, so replacing a
+    # copy of ant that is currently running cannot corrupt the running process.
+    tar xzf "$ant_tarball"
+    sudo install -m 755 ant /usr/local/bin/ant
+
+    # zsh completion, taken out of the tarball rather than generated by
+    # `ant @completion zsh` -- that would mean executing a binary downloaded
+    # seconds ago to produce a file already sitting next to it. ~/.zsh/completion
+    # is on fpath (see .zshrc); this is the same thing install_fnm does for _fnm.
+    mkdir -p "$HOME/.zsh/completion"
+    cp completions/ant.zsh "$HOME/.zsh/completion/_ant"
+  {{- end }}
+)
+runner install_ant
 
 # bat
 install_bat() (
