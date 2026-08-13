@@ -408,6 +408,68 @@ if command -v sudo > /dev/null 2>&1 && sudo -v; then
 fi
 {{- if (eq .chezmoi.os "darwin") }}
 
+  # Make a GUI app launch at login by writing a LaunchAgent.
+  #
+  # macOS has three ways an app can be a login item, and only one of them can be
+  # written by a script:
+  #   1. the app's own preference key -- works only where the app actually acts
+  #      on it. Rectangle's `launchOnLogin` does.
+  #   2. a real login item registered through SMAppService / LSSharedFileList --
+  #      only the app itself can register one of these.
+  #   3. a LaunchAgent in ~/Library/LaunchAgents -- anyone can write it.
+  #
+  # Rocket has a `launch-at-login` preference and setting it is NOT sufficient:
+  # it writes no LaunchAgent and registers nothing, so on a fresh machine Rocket
+  # had to be started by hand even with the key set to true. Hence this helper
+  # for the apps whose own key does not carry.
+  #
+  # `open -a <bundle>` rather than the executable inside Contents/MacOS: it
+  # launches the app the way Finder would, and avoids hardcoding a path inside
+  # the bundle that upstream is free to rename. The job is deliberately
+  # one-shot -- `open` exits as soon as the app is running, which is what
+  # RunAtLoad wants -- and there is deliberately no KeepAlive, so quitting the
+  # app during a session keeps it quit.
+  #
+  # The label is namespaced so it can never collide with an agent the app itself
+  # writes. If both end up present, the duplicate launch is a no-op: `open -a`
+  # on an already-running app just activates it.
+  #
+  # Usage:
+  # add_login_agent st.jes.login.rocket /Applications/Rocket.app
+  add_login_agent() {
+    local label="$1" app="$2"
+    local agent="$HOME/Library/LaunchAgents/${label}.plist"
+
+    mkdir -p "$HOME/Library/LaunchAgents"
+    cat > "$agent" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>${label}</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/usr/bin/open</string>
+		<string>-a</string>
+		<string>${app}</string>
+	</array>
+	<key>LimitLoadToSessionType</key>
+	<string>Aqua</string>
+	<key>RunAtLoad</key>
+	<true/>
+</dict>
+</plist>
+PLIST
+    plutil -lint "$agent" > /dev/null
+
+    # bootout first so a re-run replaces the definition rather than failing with
+    # "service already loaded". Both calls are best-effort: launchd reads the
+    # agent at the next login regardless of whether it loads cleanly now.
+    launchctl bootout "gui/$(id -u)/${label}" 2>/dev/null || true
+    launchctl bootstrap "gui/$(id -u)" "$agent" 2>/dev/null || true
+  }
+
   # Install a .dmg file into the /Applications directory
   # NOTE: This is running as a subshell '(' so we can use 'set -e' to bail
   # immediately from the function if anything errors.
