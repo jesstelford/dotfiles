@@ -71,9 +71,26 @@ Do not ask questions and do not wait for input; there is no one to answer.
 1. Read the transcript: \`tuple transcription show $CALL\`
 2. Compose a title under 80 characters, specific to what was actually discussed
    (not \"Call with <name>\").
-3. Compose a summary covering: decisions reached and the reasoning behind them,
-   open threads, and concrete next steps with owners. Prefer specifics — numbers,
-   names, systems — over generalities. Omit small talk.
+3. Compose a summary using exactly these sections, omitting any that would be
+   empty rather than padding them:
+
+     ## Summary
+     2-4 bullets on the main outcome.
+
+     ## Decisions
+     Concrete decisions, with the reasoning behind them.
+
+     ## Action items
+     Owners named wherever the transcript states them.
+
+     ## Open questions
+     Unresolved threads and follow-ups.
+
+     ## Notable context
+     Only what would help recall the call later.
+
+   Prefer specifics — numbers, names, systems — over generalities. Omit small
+   talk. If the transcript is too sparse to summarise, say so plainly.
 4. Persist both, exactly these two commands:
      tuple transcription set-title $CALL \"<title>\"
      tuple transcription set-summary $CALL \"<summary>\"
