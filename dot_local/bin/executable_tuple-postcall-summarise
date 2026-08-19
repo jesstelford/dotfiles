@@ -109,5 +109,28 @@ printf '%s' "$PROMPT" | timeout "$TIMEOUT" "$CLAUDE" -p \
     && log "summary saved for $CALL" \
     || log "claude did not complete for $CALL (continuing anyway)"
 
+# Wait for the summary to actually be readable before re-indexing. claude exits
+# as soon as it has issued set-summary, but the value is not necessarily visible
+# to the next `transcription list` yet — and tuple-qmd-summaries only rewrites a
+# file when the content changed, so exporting a beat too early leaves the call
+# in the index as "Untitled call / summarised: false" until the next 5-minute
+# sync repairs it. Poll briefly instead of sleeping a fixed amount.
+i=0
+while [ "$i" -lt 15 ]; do
+    if "$TUPLE" transcription list --format json 2>/dev/null \
+        | /usr/bin/python3 -c "import json,sys
+try:
+    sys.exit(0 if any(c.get('call_id','').startswith('$CALL') and (c.get('summary') or '').strip()
+                      for c in json.load(sys.stdin)) else 1)
+except Exception:
+    sys.exit(1)" 2>/dev/null; then
+        [ "$i" -gt 0 ] && log "summary visible after ${i}s"
+        break
+    fi
+    i=$((i + 1))
+    sleep 1
+done
+[ "$i" -eq 15 ] && log "summary still not visible after 15s; the 5-minute sync will repair it"
+
 refresh_qmd
 exit 0
