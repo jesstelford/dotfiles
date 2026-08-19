@@ -66,5 +66,25 @@ load_qmd_sync_agent() (
 )
 runner load_qmd_sync_agent
 
+# Tuple triggers fire the post-call summariser. Enabling them registers a
+# Background Item via SMAppService, which only the app itself can do — the state
+# lives in /var/db/com.apple.backgroundtaskmanagement (root-only, SIP-protected),
+# so there is no `defaults write` that turns this on. Detect and report instead.
+check_tuple_triggers() (
+  set -e
+  [ -d "{{ .chezmoi.homeDir }}/.tuple/triggers" ] || exit 0
+  if launchctl print "gui/$(id -u)/app.tuple.app.triggers" >/dev/null 2>&1; then
+    exit 0
+  fi
+  skip "Tuple Triggers are OFF — the post-call summariser will not fire.
+     Turn them on in Tuple → Settings → Triggers (registers a Background Item).
+     Verify with:
+       launchctl print gui/\$(id -u)/app.tuple.app.triggers >/dev/null 2>&1 \\
+         && echo ON || echo OFF"
+)
+runner check_tuple_triggers
+
 {{- end }}
 {{- end }}
+
+{{ template "setup-summary.sh.tmpl" . }}
