@@ -1,7 +1,0 @@
-{
-  "name": "qmd-summarise",
-  "description": "When Tuple finishes transcribing a call, have Claude write its title and summary back onto the call, then refresh the qmd search index.",
-  "category": "Call Summary",
-  "platforms": ["macos"],
-  "language": "bash"
-}
