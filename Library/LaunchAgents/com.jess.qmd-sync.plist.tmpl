@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.jess.qmd-sync</string>
+
+  <!-- launchd starts with a bare PATH. qmd's shebang is `#!/usr/bin/env node`, so a
+       node dir must be on PATH or the job dies with "env: node: not found".
+       ~/.fnm/aliases/default is fnm's own stable pointer, re-aimed by `fnm default <v>`,
+       so this survives uninstalling any single node version. -->
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/Users/jess/.local/bin:/Users/jess/.fnm/aliases/default/bin:/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
+
+  <!-- qmd itself lives in ~/.local/bin (npm --prefix ~/.local), outside any node
+       version dir, alongside claude/discuss/logseq. -->
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/sh</string>
+    <string>-c</string>
+    <string>/Users/jess/.local/bin/qmd update &amp;&amp; /Users/jess/.local/bin/qmd embed</string>
+  </array>
+
+  <!-- Poll: catches in-place edits to existing journal/page files. -->
+  <key>StartInterval</key>
+  <integer>300</integer>
+
+  <!-- Fire immediately when a page/journal is added, renamed or removed. -->
+  <key>WatchPaths</key>
+  <array>
+    <string>/Users/jess/Logseq/graphs/Demo/mirror/markdown/journals</string>
+    <string>/Users/jess/Logseq/graphs/Demo/mirror/markdown/pages</string>
+  </array>
+
+  <!-- Coalesce bursts of edits into one re-index. -->
+  <key>ThrottleInterval</key>
+  <integer>60</integer>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>StandardOutPath</key>
+  <string>/Users/jess/.cache/qmd/sync.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/jess/.cache/qmd/sync.log</string>
+</dict>
+</plist>
