@@ -12,7 +12,7 @@
   <key>EnvironmentVariables</key>
   <dict>
     <key>PATH</key>
-    <string>/Users/jess/.local/bin:/Users/jess/.fnm/aliases/default/bin:/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    <string>{{ .chezmoi.homeDir }}/.local/bin:{{ .chezmoi.homeDir }}/.fnm/aliases/default/bin:/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
   </dict>
 
   <!-- qmd itself lives in ~/.local/bin (npm --prefix ~/.local), outside any node
@@ -21,7 +21,7 @@
   <array>
     <string>/bin/sh</string>
     <string>-c</string>
-    <string>/Users/jess/.local/bin/qmd update &amp;&amp; /Users/jess/.local/bin/qmd embed</string>
+    <string>{{ .chezmoi.homeDir }}/.local/bin/qmd update &amp;&amp; {{ .chezmoi.homeDir }}/.local/bin/qmd embed</string>
   </array>
 
   <!-- Poll: catches in-place edits to existing journal/page files. -->
@@ -31,8 +31,8 @@
   <!-- Fire immediately when a page/journal is added, renamed or removed. -->
   <key>WatchPaths</key>
   <array>
-    <string>/Users/jess/Logseq/graphs/Demo/mirror/markdown/journals</string>
-    <string>/Users/jess/Logseq/graphs/Demo/mirror/markdown/pages</string>
+    <string>{{ .chezmoi.homeDir }}/Logseq/graphs/Demo/mirror/markdown/journals</string>
+    <string>{{ .chezmoi.homeDir }}/Logseq/graphs/Demo/mirror/markdown/pages</string>
   </array>
 
   <!-- Coalesce bursts of edits into one re-index. -->
@@ -43,8 +43,8 @@
   <true/>
 
   <key>StandardOutPath</key>
-  <string>/Users/jess/.cache/qmd/sync.log</string>
+  <string>{{ .chezmoi.homeDir }}/.cache/qmd/sync.log</string>
   <key>StandardErrorPath</key>
-  <string>/Users/jess/.cache/qmd/sync.log</string>
+  <string>{{ .chezmoi.homeDir }}/.cache/qmd/sync.log</string>
 </dict>
 </plist>
