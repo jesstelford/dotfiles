@@ -1,0 +1,16 @@
+#!/bin/sh
+# Tuple trigger: fires when a call ends.
+#
+# Detaches immediately — summarising runs Claude over the transcript and can
+# take minutes, and Tuple should not be held open waiting for it. Output goes
+# to ~/.cache/qmd/postcall.log.
+PATH="$HOME/.local/bin:/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+export PATH
+
+LOG="$HOME/.cache/qmd/postcall.log"
+mkdir -p "$(dirname "$LOG")"
+
+nohup "$HOME/.local/bin/tuple-postcall-summarise" "${TUPLE_TRIGGER_CALL_ID:-}" \
+  >>"$LOG" 2>&1 &
+
+exit 0
