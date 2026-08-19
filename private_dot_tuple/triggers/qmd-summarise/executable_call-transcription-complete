@@ -1,5 +1,10 @@
 #!/bin/sh
-# Tuple trigger: fires when a call ends.
+# Tuple trigger: fires once Tuple has finished transcribing a call.
+#
+# Deliberately NOT call-ended: that fires while transcription is still being
+# written, so the transcript would be partial or empty. Transcription events
+# carry no call-specific env vars, so TUPLE_TRIGGER_CALL_ID is normally unset
+# here and tuple-postcall-summarise falls back to the newest stored call.
 #
 # Detaches immediately — summarising runs Claude over the transcript and can
 # take minutes, and Tuple should not be held open waiting for it. Output goes
