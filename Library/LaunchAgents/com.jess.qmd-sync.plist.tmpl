@@ -28,11 +28,29 @@
   <key>StartInterval</key>
   <integer>300</integer>
 
-  <!-- Fire immediately when a page/journal is added, renamed or removed. -->
+  <!-- Fire immediately when a page/journal is added, renamed or removed.
+
+       Graph roots are discovered the same way as in
+       .chezmoiscripts/run_onchange_after_75-qmd-search.sh.tmpl — keep the two in
+       step. The logic is repeated rather than shared because a chezmoi template
+       emits text, and these two consumers need different wrappers (plist
+       <string> elements here, a shell array there).
+
+       WatchPaths is only a latency optimisation: it is evaluated at
+       `chezmoi apply` time, so a graph created afterwards is not watched until
+       the next apply. The 300s StartInterval above still picks it up. -->
+{{- $roots := (glob (joinPath .chezmoi.homeDir "Logseq/graphs/*/mirror/markdown")) }}
+{{- if hasKey . "logseq_graph_roots" }}
+{{-   range .logseq_graph_roots }}
+{{-     $roots = append $roots (. | replace "~" $.chezmoi.homeDir) }}
+{{-   end }}
+{{- end }}
   <key>WatchPaths</key>
   <array>
-    <string>{{ .chezmoi.homeDir }}/Logseq/graphs/Demo/mirror/markdown/journals</string>
-    <string>{{ .chezmoi.homeDir }}/Logseq/graphs/Demo/mirror/markdown/pages</string>
+{{- range $roots }}
+    <string>{{ . }}/journals</string>
+    <string>{{ . }}/pages</string>
+{{- end }}
   </array>
 
   <!-- Coalesce bursts of edits into one re-index. -->
