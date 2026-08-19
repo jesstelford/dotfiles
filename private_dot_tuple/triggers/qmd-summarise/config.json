@@ -1,0 +1,6 @@
+{
+  "name": "qmd-summarise",
+  "description": "When a call ends, have Claude write its title and summary, then refresh the qmd search index.",
+  "version": "1",
+  "enabled": true
+}
