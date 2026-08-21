@@ -34,6 +34,10 @@
 **/*.key
 
 # Common files to ignore
+# AGENTS.md and README.md document this repo, so they belong to the repo rather
+# than to $HOME -- without this chezmoi would write them both into the home
+# directory.
+AGENTS.md
 README.md
 scripts/
 
