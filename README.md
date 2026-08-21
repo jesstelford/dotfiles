@@ -34,6 +34,144 @@ chezmoi -v apply               # actually run it
 pager, but `bat` isn't installed until the first real `apply` runs the setup
 scripts.
 
+## What gets installed
+
+A full `chezmoi apply` provisions everything below. Two things narrow that list
+on any given machine:
+
+- **Platform** — anything tagged *(macOS)* or *(Linux)* is only installed there.
+- **`.islocalenv`** — every GUI app, and most of the desktop tooling around it,
+  is gated on being a real desktop, so Codespaces and CI get the CLI half only.
+
+Steps tagged *(optional)* are the ones the run stops to ask `y`/`n` about.
+Declining any of them is safe.
+
+### Bootstrap
+
+- [chezmoi](https://www.chezmoi.io/) — installs itself, via the one-liner above
+- [Homebrew](https://brew.sh/) *(macOS)*
+
+### Shell
+
+- [zsh](https://www.zsh.org/) — and set as the login shell
+- [powerlevel10k](https://github.com/romkatv/powerlevel10k) — prompt theme
+- [zsh-autosuggestions](https://github.com/zsh-users/zsh-autosuggestions)
+- [zsh-syntax-highlighting](https://github.com/zsh-users/zsh-syntax-highlighting)
+- [fzf](https://junegunn.github.io/fzf/) — brew on macOS, a vendored checkout
+  plus a downloaded binary everywhere else
+- [tmux](https://tmux.github.io/)
+- [cmux](https://www.cmux.dev/) *(macOS)* — terminal built around coding agents
+
+### Git
+
+- [git](https://git-scm.com/) — latest, from the `git-core` PPA on Linux
+- [git-absorb](https://github.com/tummychow/git-absorb)
+- [Git LFS](https://git-lfs.com/) — not optional; `.gitconfig` declares
+  `required = true`, so git hard-fails on an LFS clone without it
+- [delta](https://dandavison.github.io/delta/) — diff pager
+- [GitHub CLI](https://cli.github.com/), plus the
+  [gh-dash](https://github.com/dlvhdr/gh-dash) extension
+
+### Command line
+
+- [ripgrep](https://github.com/BurntSushi/ripgrep)
+- [fd](https://github.com/sharkdp/fd)
+- [bat](https://github.com/sharkdp/bat)
+- [eza](https://eza.rocks/) — the `ls` alias uses it, and falls back to system
+  `ls` when it is absent
+- [wget](https://www.gnu.org/software/wget/)
+- [GNU parallel](https://savannah.gnu.org/projects/parallel/)
+- [patchutils](https://cyberelk.net/tim/software/patchutils/) — for `lsdiff`
+- [coreutils](https://www.gnu.org/software/coreutils/),
+  [findutils](https://www.gnu.org/software/findutils/) and
+  [tree](https://oldmanprogrammer.net/source.php?dir=projects/tree) *(macOS)*
+
+### Editor
+
+- [Neovim](https://neovim.io/) — the pinned release, plus a
+  `/usr/local/bin/nvim` shim that pins `TERM` for tmux
+- [neovim](https://github.com/neovim/node-client) npm package — for LazyVim
+
+### Languages and runtimes
+
+- [fnm](https://github.com/Schniz/fnm) and [Node.js](https://nodejs.org/)
+- [Yarn](https://yarnpkg.com/) *(optional)*
+- [TypeScript](https://www.typescriptlang.org/) — `tsc` on the command line;
+  the language server is Mason's job
+- [Go](https://go.dev/) — deliberately unpinned
+- [Rust](https://rustup.rs/), via rustup
+- [uv](https://docs.astral.sh/uv/) — Python
+
+### Language servers and formatters
+
+Only the ones useful outside Neovim. Mason owns the rest, driven by the extras
+in `dot_config/nvim/lazyvim.json`.
+
+- [lua-language-server](https://luals.github.io)
+- [vscode-langservers-extracted](https://github.com/hrsh7th/vscode-langservers-extracted)
+  — html, css, json, eslint
+- [prettierd](https://github.com/fsouza/prettierd)
+
+### Agents and search
+
+- [Claude Code](https://claude.com/claude-code)
+- [ant](https://github.com/anthropics/anthropic-cli) — CLI for the Claude
+  platform
+- [qmd](https://github.com/tobi/qmd) *(macOS)* — on-device search over the
+  Logseq mirror and Tuple call summaries, kept fresh by a launchd agent
+
+### Databases
+
+- [MongoDB](https://www.mongodb.com/) *(Linux, optional)*
+- [DBeaver](https://dbeaver.io/) *(optional)*
+
+### Apps
+
+- [Ghostty](https://ghostty.org/) *(macOS)* — the terminal, and where the
+  `xterm-ghostty` terminfo the `nvim` shim names comes from
+- [Brave](https://brave.com/)
+- [1Password](https://1password.com/) *(optional)* and the
+  [1Password CLI](https://developer.1password.com/docs/cli/) *(optional)*
+- [Signal](https://signal.org/) *(optional)*
+- [Discord](https://discord.com/) *(optional)*
+- [Roam Research](https://roamresearch.com/) *(optional)*
+- [Rectangle](https://rectangleapp.com/) *(macOS)* — window manager
+- [AltTab](https://alt-tab.app/) *(macOS)* — window switcher
+- [Karabiner-Elements](https://karabiner-elements.pqrs.org/) *(macOS)* — key
+  remapping
+- [KeyCastr](https://github.com/keycastr/keycastr) *(macOS)* — keypress
+  visualiser
+- [LICEcap](https://www.cockos.com/licecap/) *(macOS)* — screen capture to GIF
+- [Rocket](https://matthewpalmer.net/rocket/) *(macOS)* /
+  [Emote](https://github.com/tom-james-watson/Emote) *(Linux)* — emoji picker
+- [Xournal++](https://xournalpp.github.io/) *(Linux)* — PDF annotation and
+  handwritten notes
+- [pdftk](https://gitlab.com/pdftk-java/pdftk) *(optional)*
+- [PICO-8](https://www.lexaloffle.com/pico-8.php) *(optional)* — pulled from
+  itch.io with credentials read out of 1Password by `op`
+- [Wally](https://www.zsa.io/wally) *(optional)* — flashing tool for the ZSA
+  Moonlander, plus the udev rules it needs on Linux
+- [mkcert](https://github.com/FiloSottile/mkcert) *(optional)* — localhost TLS
+
+### Fonts
+
+- [FontForge](https://fontforge.org/) — headless only, to run the patcher below
+- [Nerd Fonts](https://www.nerdfonts.com/) `font-patcher`, sparse-checked-out to
+  `~/dev/nerd-fonts`
+- [Input Mono](https://input.djr.com/), patched into a Nerd Font for
+  powerlevel10k
+- [Lato](https://fonts.google.com/specimen/Lato) and
+  [Open Sans](https://fonts.google.com/specimen/Open+Sans) — for the Roam theme
+- [Noto Color Emoji](https://github.com/googlefonts/noto-emoji) *(Linux)*
+
+### Supporting packages
+
+Installed because something above needs them, not for their own sake:
+[nss](https://firefox-source-docs.mozilla.org/security/nss/index.html) (macOS) /
+`libnss3-tools` (Linux) for mkcert, [libusb](https://libusb.info/) for Wally,
+`libfuse2` for the Neovim AppImage, and `curl`, `gnupg`, `lsb-release`,
+`software-properties-common`, `unzip` and `apt-transport-https` on Linux.
+
 ## Workflow
 
 ### Tell Chezmoi about changes
