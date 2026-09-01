@@ -1,0 +1,131 @@
+#!/usr/bin/env python3
+"""One-time OAuth for the Meet notes exporter.
+
+Opens a browser, catches the redirect on a loopback port, and stores the refresh
+token. Run once; after this the exporter refreshes access tokens on its own with
+no browser and no session, which is what lets it run from launchd.
+
+    meet-notes-auth            authorize (or re-authorize)
+    meet-notes-auth --check    report whether the stored token still works
+"""
+import http.server
+import json
+import os
+import secrets
+import socket
+import sys
+import threading
+import urllib.parse
+import urllib.request
+import webbrowser
+
+CFG = os.path.expanduser("~/.config/meet-notes")
+CLIENT = os.path.join(CFG, "client_secret.json")
+TOKEN = os.path.join(CFG, "token.json")
+SCOPE = "https://www.googleapis.com/auth/drive.readonly"
+
+
+def client():
+    with open(CLIENT) as fh:
+        return json.load(fh)["installed"]
+
+
+def post(url, data):
+    body = urllib.parse.urlencode(data).encode()
+    req = urllib.request.Request(url, data=body,
+                                 headers={"Content-Type": "application/x-www-form-urlencoded"})
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        return json.load(resp)
+
+
+def save(tok):
+    old = {}
+    if os.path.exists(TOKEN):
+        try:
+            with open(TOKEN) as fh:
+                old = json.load(fh)
+        except (OSError, ValueError):
+            pass
+    # A refresh response omits refresh_token; keep the one we already hold.
+    if "refresh_token" not in tok and "refresh_token" in old:
+        tok["refresh_token"] = old["refresh_token"]
+    fd = os.open(TOKEN, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as fh:
+        json.dump(tok, fh)
+
+
+def access_token():
+    """Refresh and return an access token. Raises if re-authorization is needed."""
+    with open(TOKEN) as fh:
+        tok = json.load(fh)
+    c = client()
+    fresh = post(c["token_uri"], {
+        "client_id": c["client_id"], "client_secret": c["client_secret"],
+        "refresh_token": tok["refresh_token"], "grant_type": "refresh_token",
+    })
+    save(fresh)
+    return fresh["access_token"]
+
+
+def authorize():
+    c = client()
+    with socket.socket() as s:          # let the OS pick a free port
+        s.bind(("127.0.0.1", 0))
+        port = s.getsockname()[1]
+    redirect = f"http://localhost:{port}"
+    state = secrets.token_urlsafe(16)
+    got = {}
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            got.update({k: v[0] for k, v in q.items()})
+            ok = "code" in got and got.get("state") == state
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(b"<h2>Authorized. You can close this tab.</h2>" if ok
+                             else b"<h2>Authorization failed.</h2>")
+            threading.Thread(target=self.server.shutdown, daemon=True).start()
+
+        def log_message(self, *a):      # keep the terminal clean
+            pass
+
+    url = c["auth_uri"] + "?" + urllib.parse.urlencode({
+        "client_id": c["client_id"], "redirect_uri": redirect,
+        "response_type": "code", "scope": SCOPE, "state": state,
+        # offline + consent are what actually mint a refresh token; without them
+        # Google returns only an access token and unattended running is impossible.
+        "access_type": "offline", "prompt": "consent",
+    })
+    server = http.server.HTTPServer(("127.0.0.1", port), Handler)
+    print(f"Opening your browser to authorize (listening on {redirect}) ...")
+    print(f"If it does not open, visit:\n\n{url}\n")
+    webbrowser.open(url)
+    server.serve_forever()
+
+    if got.get("state") != state:
+        sys.exit("state mismatch - aborting rather than trusting the response")
+    if "code" not in got:
+        sys.exit(f"no authorization code returned: {got.get('error', 'unknown error')}")
+
+    tok = post(c["token_uri"], {
+        "code": got["code"], "client_id": c["client_id"],
+        "client_secret": c["client_secret"], "redirect_uri": redirect,
+        "grant_type": "authorization_code",
+    })
+    if "refresh_token" not in tok:
+        sys.exit("Google returned no refresh token; unattended sync would not work.")
+    save(tok)
+    print(f"Refresh token stored at {TOKEN} (0600).")
+
+
+if __name__ == "__main__":
+    if "--check" in sys.argv:
+        try:
+            access_token()
+            print("ok: stored token refreshed successfully")
+        except Exception as exc:
+            sys.exit(f"needs re-authorization: {exc}")
+    else:
+        authorize()

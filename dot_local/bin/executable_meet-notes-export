@@ -1,0 +1,200 @@
+#!/usr/bin/env python3
+"""Export Gemini meeting notes from Google Drive as markdown for qmd to index.
+
+Gemini writes one Doc per meeting, titled
+
+    <Meeting> - <YYYY/MM/DD HH:MM TZ> - Notes by Gemini
+
+containing a notes section and then the full transcript. Only the notes are
+exported: on a 52-minute meeting the notes were 9.6 KB of a 906 KB document, and
+a verbatim transcript is mostly filler and cross-talk. The Doc stays one click
+away via the link in each file's frontmatter.
+
+Additive: writes new notes, updates changed ones, never deletes. The output
+directory may hold other markdown, and nothing here is worth risking that for.
+
+    meet-notes-export            export recent meetings
+    meet-notes-export --status   report last success and token health
+"""
+import json
+import os
+import re
+import sys
+import urllib.error
+import urllib.parse
+import urllib.request
+from datetime import datetime, timezone
+
+CFG = os.path.expanduser("~/.config/meet-notes")
+CLIENT = os.path.join(CFG, "client_secret.json")
+TOKEN = os.path.join(CFG, "token.json")
+STAMP = os.path.join(CFG, "last-success")
+OUT = os.environ.get(
+    "MEET_NOTES_OUT",
+    os.path.join(os.environ.get("XDG_DATA_HOME", os.path.expanduser("~/.local/share")),
+                 "meet-summaries"))
+# How many of the most recent notes docs to look at. Meetings arrive one at a
+# time, so a small window is plenty; nothing is ever pruned, and an unchanged
+# doc is not rewritten. Raise it (or set -1) to reach further back once.
+LIMIT = int(os.environ.get("MEET_NOTES_LIMIT", "10"))
+
+TRANSCRIPT_MARKERS = ("# **\U0001F4D6 Transcript**", "\U0001F4D6 Transcript")
+SURVEY = "Take a short survey"
+TITLE_SPLIT = re.compile(r"\s+[–—-]\s+")
+# Gemini cites the transcript inline as ([00:46:04](#00:46:04)). The anchor points
+# into the transcript, which is not exported, so the link is dead here — keep the
+# timestamp, drop the markup so it does not clutter search snippets.
+CITATION = re.compile(r"\(\[(\d{2}:\d{2}:\d{2})\]\(#[^)]*\)\)")
+
+
+def notify(title, message):
+    """Surface a problem where it will actually be seen.
+
+    This runs unattended from launchd, so a log line is not enough — the whole
+    point is to notice that syncing has stopped. Best effort; never fatal.
+    """
+    try:
+        import subprocess
+        subprocess.run(
+            ["osascript", "-e",
+             f'display notification {json.dumps(message)} with title {json.dumps(title)}'],
+            capture_output=True, timeout=10)
+    except Exception:
+        pass
+
+
+def die_auth(detail):
+    notify("Meet notes sync stopped",
+           "Google authorization expired. Run: meet-notes-auth")
+    print(f"meet-notes-export: authorization failed ({detail}).", file=sys.stderr)
+    print("meet-notes-export: re-authorize with `meet-notes-auth`.", file=sys.stderr)
+    sys.exit(1)
+
+
+def access_token():
+    try:
+        client = json.load(open(CLIENT))["installed"]
+        tok = json.load(open(TOKEN))
+    except (OSError, ValueError, KeyError) as exc:
+        die_auth(f"credentials unreadable: {exc}")
+    body = urllib.parse.urlencode({
+        "client_id": client["client_id"], "client_secret": client["client_secret"],
+        "refresh_token": tok["refresh_token"], "grant_type": "refresh_token"}).encode()
+    req = urllib.request.Request(client["token_uri"], data=body,
+            headers={"Content-Type": "application/x-www-form-urlencoded"})
+    try:
+        fresh = json.load(urllib.request.urlopen(req, timeout=30))
+    except urllib.error.HTTPError as exc:
+        die_auth(f"HTTP {exc.code} refreshing token")
+    except Exception as exc:
+        # Network trouble is not an auth problem — stay quiet and try again later.
+        print(f"meet-notes-export: could not reach Google ({exc}); leaving exports as they are",
+              file=sys.stderr)
+        sys.exit(0)
+    return fresh["access_token"]
+
+
+def api(url, tok, raw=False):
+    req = urllib.request.Request(url, headers={"Authorization": f"Bearer {tok}"})
+    with urllib.request.urlopen(req, timeout=60) as resp:
+        return resp.read() if raw else json.load(resp)
+
+
+def list_notes(tok):
+    params = {
+        "q": ("name contains 'Notes by Gemini' and "
+              "mimeType='application/vnd.google-apps.document' and trashed=false"),
+        "fields": "files(id,name,createdTime,modifiedTime,webViewLink)",
+        "orderBy": "createdTime desc",
+        "supportsAllDrives": "true", "includeItemsFromAllDrives": "true",
+        "pageSize": str(LIMIT if LIMIT > 0 else 100),
+    }
+    files = api("https://www.googleapis.com/drive/v3/files?" + urllib.parse.urlencode(params), tok)
+    return files.get("files", [])
+
+
+def meeting_title(name):
+    """"<Meeting> - <date time TZ> - Notes by Gemini" -> "<Meeting>"."""
+    parts = TITLE_SPLIT.split(name)
+    return " - ".join(parts[:-2]).strip() if len(parts) >= 3 else name.strip()
+
+
+def render(meta, notes):
+    title = meeting_title(meta["name"])
+    created = meta.get("createdTime", "")
+    people = re.findall(r"\[([^\]]+)\]\(mailto:", notes)
+    front = {
+        "doc_id": meta["id"], "title": title,
+        "created": created, "modified": meta.get("modifiedTime", ""),
+        "attendees": ", ".join(dict.fromkeys(people)) or None,
+        "url": meta.get("webViewLink", ""), "source": "meet",
+    }
+    out = ["---"]
+    out += [f"{k}: {json.dumps(v)}" for k, v in front.items() if v]
+    out += ["---", "", f"# {title}", ""]
+    if created:
+        out += [f"**When:** {created[:16].replace('T', ' ')} UTC", ""]
+    out += [notes.strip(), "", "## Transcript", "",
+            "Not indexed - open the Doc:", "", f"    {meta.get('webViewLink','')}", ""]
+    return "\n".join(out)
+
+
+def main():
+    tok = access_token()
+    try:
+        os.makedirs(OUT, exist_ok=True)
+    except OSError as exc:
+        sys.exit(f"meet-notes-export: cannot create {OUT} ({exc})")
+
+    written = skipped = 0
+    for meta in list_notes(tok):
+        try:
+            body = api(f"https://www.googleapis.com/drive/v3/files/{meta['id']}/export?"
+                       + urllib.parse.urlencode({"mimeType": "text/markdown"}), tok, raw=True)
+            body = body.decode("utf-8", "replace")
+        except Exception as exc:
+            print(f"meet-notes-export: could not export {meta['name'][:50]} ({exc})", file=sys.stderr)
+            continue
+
+        # Keep only the notes half.
+        for marker in TRANSCRIPT_MARKERS:
+            cut = body.find(marker)
+            if cut > 0:
+                body = body[:cut]
+                break
+        # Drop Google's feedback footer.
+        cut = body.find(SURVEY)
+        if cut > 0:
+            body = body[:body.rfind("\n", 0, cut)]
+        body = CITATION.sub(r"(\1)", body)
+
+        day = (meta.get("createdTime") or "undated")[:10]
+        path = os.path.join(OUT, f"{day}@{meta['id']}.md")
+        content = render(meta, body)
+        try:
+            with open(path) as fh:
+                if fh.read() == content:
+                    skipped += 1
+                    continue
+        except OSError:
+            pass
+        with open(path, "w") as fh:
+            fh.write(content)
+        written += 1
+
+    with open(STAMP, "w") as fh:
+        fh.write(datetime.now(timezone.utc).isoformat())
+    print(f"meet-notes-export: {written} written, {skipped} unchanged -> {OUT}")
+
+
+if __name__ == "__main__":
+    if "--status" in sys.argv:
+        stamp = open(STAMP).read().strip() if os.path.exists(STAMP) else "never"
+        print(f"last success: {stamp}")
+        try:
+            access_token()
+            print("token: ok")
+        except SystemExit:
+            raise
+    else:
+        main()
