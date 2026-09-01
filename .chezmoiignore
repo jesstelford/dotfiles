@@ -26,6 +26,8 @@
 .docker/config.json
 .config/gh
 .config/gh/**
+.config/meet-notes
+.config/meet-notes/**
 .config/op
 .config/op/**
 *.pem
