@@ -4,11 +4,18 @@
 Summaries only, deliberately. A raw transcript is mostly filler and cross-talk,
 and it captures whatever personal conversation happened around the work; the
 summary is the part worth searching. Full transcripts stay one command away with
-`tuple transcription show <call-id>`.
+`tuple capture show <call-id>`.
 
-Invoked by call-transcription-complete, and again by qmd itself before every
+Invoked by call-capture-complete, and again by qmd itself before every
 re-index (registered as the collection's update command), so the export is
 always current without anything being scheduled.
+
+This has always rendered its own markdown from `tuple ... list --format json`,
+never delegated to the CLI's own transcript/capture export command — so the
+Tuple 3.3 change from a directory of per-call files (`transcription export
+<dir> --format md`) to one combined artifact (`capture export <file> --as
+markdown`) does not affect this script's output shape at all. It still writes
+one markdown file per call to OUT, keyed by call_id.
 
 This runs from qmd's update hook, so it must never fail: `qmd update` refreshes
 every collection, and a Tuple problem must not stop the others from indexing.
@@ -72,16 +79,16 @@ def render(call):
         out += ["## Summary", "", summary, ""]
     else:
         out += [f"_No summary recorded yet._ Add one with "
-                f"`tuple transcription set-summary {cid} \"...\"`;", "it is indexed on the next sync.", ""]
+                f"`tuple call edit {cid} --summary \"...\"`;", "it is indexed on the next sync.", ""]
     out += ["## Full transcript", "", "Not indexed - retrieve on demand with:", "",
-            f"    tuple transcription show {cid}", ""]
+            f"    tuple capture show {cid}", ""]
     return "\n".join(out)
 
 
 def main():
     try:
         proc = subprocess.run(
-            [TUPLE, "transcription", "list", "--format", "json"],
+            [TUPLE, "capture", "list", "--format", "json"],
             capture_output=True, text=True, timeout=30,
         )
     except FileNotFoundError:
