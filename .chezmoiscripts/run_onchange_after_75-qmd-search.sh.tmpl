@@ -23,6 +23,8 @@
 QMD="{{ .chezmoi.homeDir }}/.local/bin/qmd"
 TUPLE_SUMMARIES="{{ .chezmoi.homeDir }}/.local/share/tuple-summaries"
 TUPLE_EXPORTER="{{ .chezmoi.homeDir }}/.tuple/triggers/call-summary-qmd/export-summaries"
+MEET_SUMMARIES="{{ .chezmoi.homeDir }}/.local/share/meet-summaries"
+MEET_EXPORTER="{{ .chezmoi.homeDir }}/.local/bin/meet-notes-export"
 
 {{- /* Logseq graph roots.
 
@@ -116,6 +118,18 @@ register_qmd_collections() (
   # also syncs the Logseq collections.
   "$QMD" collection update-cmd tuple \
     "'$TUPLE_EXPORTER' || true"
+
+  # Gemini meeting notes from Google Drive. The exporter needs a one-off
+  # `meet-notes-auth` to mint a refresh token — it cannot be provisioned from
+  # here because it needs a browser — so only register the collection once that
+  # has happened. Until then the directory would just stay empty.
+  if [ -x "$MEET_EXPORTER" ] && [ -f "{{ .chezmoi.homeDir }}/.config/meet-notes/token.json" ]; then
+    mkdir -p "$MEET_SUMMARIES"
+    if ! printf '%s' "$existing" | grep -q '^meet '; then
+      "$QMD" collection add "$MEET_SUMMARIES" --name meet
+    fi
+    "$QMD" collection update-cmd meet "'$MEET_EXPORTER' || true"
+  fi
 )
 runner register_qmd_collections
 
