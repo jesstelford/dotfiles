@@ -329,6 +329,24 @@ runner install_karabiner_elements
 {{- end }}
 
 {{- if .islocalenv }}
+# KeepingYouAwake -- menu bar toggle that holds off display/idle sleep
+{{- if (eq .chezmoi.os "darwin") }}
+install_keepingyouawake() (
+  set -e
+  # No skip_if_app_* guard: those exist for the hand-rolled install_dmg path,
+  # which has no record of what it put in /Applications. Homebrew keeps its own
+  # Caskroom receipt and is a no-op on an already-installed cask.
+  #
+  # The cask is marked auto_updates, so brew deliberately leaves upgrades to the
+  # app -- KeepingYouAwake ships Sparkle and updates itself. That is why it is
+  # absent from .chezmoidata.toml: there is no version here for us to pin.
+  brew install --cask keepingyouawake
+)
+runner install_keepingyouawake
+{{- end }}
+{{- end }}
+
+{{- if .islocalenv }}
 # LICEcap screenshot utility
 {{- if (eq .chezmoi.os "darwin") }}
 install_licecap() (
