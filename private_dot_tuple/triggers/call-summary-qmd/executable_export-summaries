@@ -97,7 +97,11 @@ def render(call):
             f"**When:** {when}", f"**With:** {people}", ""]
     if summary:
         out += ["## Summary", "", summary, ""]
-    out += ["## Full transcript", "", "Not indexed - retrieve on demand with:", "",
+    # Local to these dotfiles, not upstream: tuple-transcripts-export writes the
+    # transcript under the same filename.
+    day = start.strftime("%Y-%m-%d") if start else "undated"
+    out += ["## Full transcript", "", f"Indexed verbatim as qmd://tuple-transcripts/{day}@{cid}.md,",
+            "or retrieve on demand with:", "",
             f"    tuple capture show {cid} --exclude events,content", ""]
     return "\n".join(out)
 

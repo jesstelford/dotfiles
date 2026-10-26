@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-{{- /* qmd: on-device search over the Logseq notes mirror and Tuple call
-       summaries. Installs the CLI, registers the two collections, and loads
-       the launchd agent that keeps the index fresh.
+{{- /* qmd: on-device search over the Logseq notes mirror, and Tuple call and
+       Google Meet summaries plus their full transcripts. Installs the CLI,
+       registers the collections, and loads the launchd agent that keeps the
+       index fresh.
 
        Ordered after 70-dev-tools (needs node) and before 80-apps.
 
@@ -23,7 +24,10 @@
 QMD="{{ .chezmoi.homeDir }}/.local/bin/qmd"
 TUPLE_SUMMARIES="{{ .chezmoi.homeDir }}/.local/share/tuple-summaries"
 TUPLE_EXPORTER="{{ .chezmoi.homeDir }}/.tuple/triggers/call-summary-qmd/export-summaries"
+TUPLE_TRANSCRIPTS="{{ .chezmoi.homeDir }}/.local/share/tuple-transcripts"
+TUPLE_TRANSCRIPTS_EXPORTER="{{ .chezmoi.homeDir }}/.local/bin/tuple-transcripts-export"
 MEET_SUMMARIES="{{ .chezmoi.homeDir }}/.local/share/meet-summaries"
+MEET_TRANSCRIPTS="{{ .chezmoi.homeDir }}/.local/share/meet-transcripts"
 MEET_EXPORTER="{{ .chezmoi.homeDir }}/.local/bin/meet-notes-export"
 
 {{- /* Logseq graph roots.
@@ -121,6 +125,25 @@ register_qmd_collections() (
   "$QMD" collection update-cmd tuple \
     ": tuple-call-summary-qmd; TUPLE_QMD_OUT=$(printf '%q' "$TUPLE_SUMMARIES") $(printf '%q' "$TUPLE_EXPORTER") || true"
 
+  # Summaries and full transcripts are separate collections because they rank
+  # differently: summaries win "what did we decide", transcripts "who said
+  # exactly what". A pair shares a filename and each file links to the other.
+  # Each transcripts collection is registered after its summaries, so `qmd
+  # update` (which goes in registration order) exports and indexes the summary
+  # first. Contexts are returned with every hit, so an agent always knows which
+  # half it is reading, and that transcripts must stay on this machine.
+  local_only="LOCAL-ONLY: verbatim, including personal conversation. Never copy any of it into Slack, Linear, GitHub or any other shared space."
+  mkdir -p "$TUPLE_TRANSCRIPTS"
+  if ! printf '%s' "$existing" | grep -q '^tuple-transcripts '; then
+    "$QMD" collection add "$TUPLE_TRANSCRIPTS" --name tuple-transcripts
+  fi
+  "$QMD" collection update-cmd tuple-transcripts \
+    "TUPLE_TRANSCRIPTS_OUT=$(printf '%q' "$TUPLE_TRANSCRIPTS") $(printf '%q' "$TUPLE_TRANSCRIPTS_EXPORTER") || true"
+  "$QMD" context add qmd://tuple/ \
+    "Tuple call summaries, one file per call. The full transcript is the same-named file in qmd://tuple-transcripts/."
+  "$QMD" context add qmd://tuple-transcripts/ \
+    "Full Tuple call transcripts, one file per call, one '[HH:MM:SS] Speaker: text' line per utterance. $local_only The call's summary is the same-named file in qmd://tuple/."
+
   # Gemini meeting notes from Google Drive. The exporter needs a one-off
   # `meet-notes-auth` to mint a refresh token — it cannot be provisioned from
   # here because it needs a browser — so only register the collection once that
@@ -131,6 +154,15 @@ register_qmd_collections() (
       "$QMD" collection add "$MEET_SUMMARIES" --name meet
     fi
     "$QMD" collection update-cmd meet "'$MEET_EXPORTER' || true"
+    # Written by the same exporter as meet, so it needs no update command.
+    mkdir -p "$MEET_TRANSCRIPTS"
+    if ! printf '%s' "$existing" | grep -q '^meet-transcripts '; then
+      "$QMD" collection add "$MEET_TRANSCRIPTS" --name meet-transcripts
+    fi
+    "$QMD" context add qmd://meet/ \
+      "Google Meet notes by Gemini, one file per meeting. A '(00:05:47, transcript L123)' citation is line 123 of the same-named file in qmd://meet-transcripts/."
+    "$QMD" context add qmd://meet-transcripts/ \
+      "Full Google Meet transcripts, one file per meeting, under '### HH:MM:SS' headings. $local_only The meeting's notes are the same-named file in qmd://meet/."
   fi
 )
 runner register_qmd_collections
