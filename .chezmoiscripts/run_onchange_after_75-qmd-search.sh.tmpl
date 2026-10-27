@@ -115,9 +115,11 @@ register_qmd_collections() (
     "$QMD" collection add "$TUPLE_SUMMARIES" --name tuple
   fi
   # `|| true` so a missing or broken Tuple can never abort `qmd update`, which
-  # also syncs the Logseq collections.
+  # also syncs the Logseq collections. Byte-for-byte the command the trigger
+  # itself registers (its `: tuple-call-summary-qmd;` ownership marker included),
+  # so the two never rewrite each other's update command.
   "$QMD" collection update-cmd tuple \
-    "'$TUPLE_EXPORTER' || true"
+    ": tuple-call-summary-qmd; TUPLE_QMD_OUT=$(printf '%q' "$TUPLE_SUMMARIES") $(printf '%q' "$TUPLE_EXPORTER") || true"
 
   # Gemini meeting notes from Google Drive. The exporter needs a one-off
   # `meet-notes-auth` to mint a refresh token — it cannot be provisioned from
