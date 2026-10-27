@@ -1,0 +1,144 @@
+#!/usr/bin/env python3
+"""Export full Tuple call transcripts as markdown for qmd to index.
+
+The call-summary-qmd trigger exports each call's summary to qmd://tuple/. This
+writes the verbatim transcript beside it, under the same filename, to
+qmd://tuple-transcripts/. Summaries rank best for "what did we decide",
+transcripts for "who said exactly what", and each file links to the other.
+
+Transcripts are local-only: they carry whatever personal conversation happened
+around the work, and must never be copied anywhere shared.
+
+Kept out of the trigger's own export-summaries so the trigger stays a verbatim
+copy of the one published at tupleapp/community-triggers. Registered as the
+tuple-transcripts collection's update command, so `qmd update` keeps it current.
+
+Additive, like the summaries: writes new transcripts, rewrites one only when the
+call's metadata or segment count changed (re-reading an unchanged call costs a
+`tuple capture show`), and never deletes. Each run covers the most recent
+TUPLE_TRANSCRIPTS_LIMIT calls; run once with -1 to backfill.
+
+This runs from qmd's update hook, so it must never fail: every failure path
+leaves existing output untouched and exits 0.
+"""
+import json
+import os
+import re
+import subprocess
+import sys
+from datetime import datetime
+
+OUT = os.environ.get(
+    "TUPLE_TRANSCRIPTS_OUT",
+    os.path.join(
+        os.environ.get("XDG_DATA_HOME", os.path.expanduser("~/.local/share")),
+        "tuple-transcripts",
+    ),
+)
+TUPLE = os.environ.get("TUPLE_BIN", "tuple")
+LIMIT = os.environ.get("TUPLE_TRANSCRIPTS_LIMIT", "10")
+
+# `--timestamps clock` prints `[09:02:56.991+11:00] Speaker: text`; the
+# milliseconds and offset are noise in a search snippet.
+CLOCK = re.compile(r"^\[(\d{2}:\d{2}:\d{2})\.\d+[+-]\d{2}:\d{2}\]", re.M)
+
+
+def bail(msg):
+    print(f"tuple-transcripts-export: {msg}; leaving existing exports untouched", file=sys.stderr)
+    sys.exit(0)
+
+
+def run_tuple(*args):
+    proc = subprocess.run([TUPLE, *args], capture_output=True, text=True, timeout=60)
+    if proc.returncode != 0:
+        raise RuntimeError(f"tuple {args[0]} {args[1]} exited {proc.returncode}")
+    return proc.stdout
+
+
+def local(ts):
+    if not ts:
+        return None
+    try:
+        return datetime.fromisoformat(ts.replace("Z", "+00:00")).astimezone()
+    except ValueError:
+        return None
+
+
+def header(call, name):
+    """Everything but the transcript lines, from `capture list` alone."""
+    cid = call["call_id"]
+    title = (call.get("title") or "").strip()
+    start = local(call.get("started_at"))
+    when = start.strftime("%Y-%m-%d %H:%M") if start else "unknown"
+    # export-summaries only exports calls with a title or summary.
+    summary = f"qmd://tuple/{name}" if title or (call.get("summary") or "").strip() else None
+    front = {
+        "call_id": cid,
+        "title": title or None,
+        "started_at": call.get("started_at"),
+        "ended_at": call.get("ended_at"),
+        "participants": ", ".join(p.get("full_name", "") for p in call.get("participants") or []) or None,
+        "segments": call.get("segments", 0),
+        "source": "tuple-transcript",
+        "summary": summary,
+    }
+    out = ["---"]
+    out += [f"{k}: {json.dumps(v)}" for k, v in front.items() if v is not None]
+    out += ["---", "", f"# Transcript: {title or f'Untitled call - {when}'}", ""]
+    if summary:
+        out += [f"Call summary: {summary}", ""]
+    out += [""]
+    return "\n".join(out)
+
+
+def main():
+    try:
+        calls = json.loads(run_tuple("capture", "list", "--format", "json", "--limit", LIMIT) or "[]")
+        if not isinstance(calls, list):
+            raise ValueError("expected a JSON array")
+    except FileNotFoundError:
+        bail(f"{TUPLE!r} not found on PATH")
+    except Exception as exc:
+        bail(f"could not list calls ({exc})")
+
+    try:
+        os.makedirs(OUT, exist_ok=True)
+    except OSError as exc:
+        bail(f"cannot create {OUT} ({exc})")
+
+    wanted = written = 0
+    for call in calls:
+        if not isinstance(call, dict) or not call.get("call_id") or not call.get("segments"):
+            continue
+        start = local(call.get("started_at"))
+        name = f"{start.strftime('%Y-%m-%d') if start else 'undated'}@{call['call_id']}.md"
+        path = os.path.join(OUT, name)
+        head = header(call, name)
+        wanted += 1
+        try:
+            with open(path) as handle:
+                if handle.read(len(head)) == head:
+                    continue
+        except OSError:
+            pass
+        try:
+            lines = run_tuple("capture", "show", call["call_id"], "--exclude", "events,content",
+                          "--timestamps", "clock")
+        except Exception as exc:
+            print(f"tuple-transcripts-export: skipped {name} ({exc})", file=sys.stderr)
+            continue
+        try:
+            with open(path, "w") as handle:
+                handle.write(head + CLOCK.sub(r"[\1]", lines.strip()) + "\n")
+            written += 1
+        except OSError as exc:
+            print(f"tuple-transcripts-export: could not write {name} ({exc})", file=sys.stderr)
+
+    print(f"tuple-transcripts-export: {wanted} calls ({written} written) -> {OUT}")
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception as exc:  # never break `qmd update`
+        bail(f"unexpected error ({exc.__class__.__name__}: {exc})")

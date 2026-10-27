@@ -118,7 +118,8 @@ in `dot_config/nvim/lazyvim.json`.
 - [ant](https://github.com/anthropics/anthropic-cli) — CLI for the Claude
   platform
 - [qmd](https://github.com/tobi/qmd) *(macOS)* — on-device search over the
-  Logseq mirror and Tuple call summaries, kept fresh by a launchd agent
+  Logseq mirror, Tuple call and Google Meet summaries, and the full transcripts
+  of both (local-only), kept fresh by a launchd agent
 
 ### Databases
 

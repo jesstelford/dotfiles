@@ -5,13 +5,23 @@ Gemini writes one Doc per meeting, titled
 
     <Meeting> - <YYYY/MM/DD HH:MM TZ> - Notes by Gemini
 
-containing a notes section and then the full transcript. Only the notes are
-exported: on a 52-minute meeting the notes were 9.6 KB of a 906 KB document, and
-a verbatim transcript is mostly filler and cross-talk. The Doc stays one click
-away via the link in each file's frontmatter.
+containing a notes section and then the full transcript. Each half is written
+to its own directory, under the same filename, for its own qmd collection:
 
-Additive: writes new notes, updates changed ones, never deletes. The output
-directory may hold other markdown, and nothing here is worth risking that for.
+    MEET_NOTES_OUT        ~/.local/share/meet-summaries     -> qmd://meet/
+    MEET_TRANSCRIPTS_OUT  ~/.local/share/meet-transcripts   -> qmd://meet-transcripts/
+
+Kept apart because they answer different questions: the notes rank best for
+"what did we decide", the verbatim transcript for "who said exactly what". Each
+file links to its counterpart, and the notes' inline transcript citations become
+line references, `(00:05:47, transcript L123)`, so `qmd get <path>:123` lands on
+the quote.
+
+Transcripts are local-only: they carry whatever personal conversation happened
+around the work, and must never be copied anywhere shared.
+
+Additive: writes new files, updates changed ones, never deletes. The output
+directories may hold other markdown, and nothing here is worth risking that for.
 
     meet-notes-export            export recent meetings
     meet-notes-export --status   report last success and token health
@@ -29,10 +39,9 @@ CFG = os.path.expanduser("~/.config/meet-notes")
 CLIENT = os.path.join(CFG, "client_secret.json")
 TOKEN = os.path.join(CFG, "token.json")
 STAMP = os.path.join(CFG, "last-success")
-OUT = os.environ.get(
-    "MEET_NOTES_OUT",
-    os.path.join(os.environ.get("XDG_DATA_HOME", os.path.expanduser("~/.local/share")),
-                 "meet-summaries"))
+DATA = os.environ.get("XDG_DATA_HOME", os.path.expanduser("~/.local/share"))
+OUT = os.environ.get("MEET_NOTES_OUT", os.path.join(DATA, "meet-summaries"))
+TRANSCRIPTS_OUT = os.environ.get("MEET_TRANSCRIPTS_OUT", os.path.join(DATA, "meet-transcripts"))
 # How many of the most recent notes docs to look at. Meetings arrive one at a
 # time, so a small window is plenty; nothing is ever pruned, and an unchanged
 # doc is not rewritten. Raise it (or set -1) to reach further back once.
@@ -41,10 +50,14 @@ LIMIT = int(os.environ.get("MEET_NOTES_LIMIT", "10"))
 TRANSCRIPT_MARKERS = ("# **\U0001F4D6 Transcript**", "\U0001F4D6 Transcript")
 SURVEY = "Take a short survey"
 TITLE_SPLIT = re.compile(r"\s+[–—-]\s+")
-# Gemini cites the transcript inline as ([00:46:04](#00:46:04)). The anchor points
-# into the transcript, which is not exported, so the link is dead here — keep the
-# timestamp, drop the markup so it does not clutter search snippets.
+# Gemini cites the transcript inline as ([00:46:04](#00:46:04)), an anchor on the
+# transcript's `### **00:46:04** {#00:46:04}` heading. The two halves are separate
+# files here, so the anchor becomes a line number in the transcript file.
 CITATION = re.compile(r"\(\[(\d{2}:\d{2}:\d{2})\]\(#[^)]*\)\)")
+TIMESTAMP_HEADING = re.compile(r"^### \*\*(\d{2}:\d{2}:\d{2})\*\*(?: \{#[^}]*\})?[ \t]*$", re.M)
+# The Doc's inline images are defined after the transcript as base64 data URIs.
+IMAGE_DEF = re.compile(r"^\[image\d+\]: <data:[^\n]*\n?", re.M)
+PLAIN_HEADING = re.compile(r"### (\d{2}:\d{2}:\d{2})")
 
 
 def notify(title, message):
@@ -119,32 +132,67 @@ def meeting_title(name):
     return " - ".join(parts[:-2]).strip() if len(parts) >= 3 else name.strip()
 
 
-def render(meta, notes):
-    title = meeting_title(meta["name"])
-    created = meta.get("createdTime", "")
+def frontmatter(meta, notes, **extra):
     people = re.findall(r"\[([^\]]+)\]\(mailto:", notes)
     front = {
-        "doc_id": meta["id"], "title": title,
-        "created": created, "modified": meta.get("modifiedTime", ""),
+        "doc_id": meta["id"], "title": meeting_title(meta["name"]),
+        "created": meta.get("createdTime", ""), "modified": meta.get("modifiedTime", ""),
         "attendees": ", ".join(dict.fromkeys(people)) or None,
-        "url": meta.get("webViewLink", ""), "source": "meet",
+        "url": meta.get("webViewLink", ""), **extra,
     }
-    out = ["---"]
-    out += [f"{k}: {json.dumps(v)}" for k, v in front.items() if v]
-    out += ["---", "", f"# {title}", ""]
+    return ["---"] + [f"{k}: {json.dumps(v)}" for k, v in front.items() if v] + ["---", ""]
+
+
+def render(meta, notes, transcript_uri):
+    title = meeting_title(meta["name"])
+    created = meta.get("createdTime", "")
+    out = frontmatter(meta, notes, source="meet", transcript=transcript_uri)
+    out += [f"# {title}", ""]
     if created:
         out += [f"**When:** {created[:16].replace('T', ' ')} UTC", ""]
-    out += [notes.strip(), "", "## Transcript", "",
-            "Not indexed - open the Doc:", "", f"    {meta.get('webViewLink','')}", ""]
+    out += [notes.strip(), "", "## Transcript", ""]
+    if transcript_uri:
+        out += [f"Indexed verbatim as {transcript_uri}; the `transcript L<n>` citations above",
+                "are its line numbers. The Doc:", ""]
+    else:
+        out += ["No transcript in this meeting's Doc:", ""]
+    out += [f"    {meta.get('webViewLink','')}", ""]
     return "\n".join(out)
+
+
+def render_transcript(meta, notes, transcript, summary_uri):
+    """The transcript half as its own file, plus the line of each timestamp heading."""
+    out = frontmatter(meta, notes, source="meet-transcript", summary=summary_uri)
+    out += [f"# Transcript: {meeting_title(meta['name'])}", "",
+            f"Meeting notes: {summary_uri}", "", transcript.strip(), ""]
+    body = "\n".join(out)
+    lines = {}
+    for n, line in enumerate(body.splitlines(), 1):
+        m = PLAIN_HEADING.fullmatch(line)
+        if m:
+            lines.setdefault(m.group(1), n)
+    return body, lines
+
+
+def write_if_changed(path, content):
+    try:
+        with open(path) as fh:
+            if fh.read() == content:
+                return False
+    except OSError:
+        pass
+    with open(path, "w") as fh:
+        fh.write(content)
+    return True
 
 
 def main():
     tok = access_token()
-    try:
-        os.makedirs(OUT, exist_ok=True)
-    except OSError as exc:
-        sys.exit(f"meet-notes-export: cannot create {OUT} ({exc})")
+    for d in (OUT, TRANSCRIPTS_OUT):
+        try:
+            os.makedirs(d, exist_ok=True)
+        except OSError as exc:
+            sys.exit(f"meet-notes-export: cannot create {d} ({exc})")
 
     written = skipped = 0
     for meta in list_notes(tok):
@@ -156,35 +204,43 @@ def main():
             print(f"meet-notes-export: could not export {meta['name'][:50]} ({exc})", file=sys.stderr)
             continue
 
-        # Keep only the notes half.
+        # Split into the notes half and the transcript half.
+        transcript = ""
         for marker in TRANSCRIPT_MARKERS:
             cut = body.find(marker)
             if cut > 0:
-                body = body[:cut]
+                body, transcript = body[:cut], body[cut + len(marker):]
                 break
         # Drop Google's feedback footer.
         cut = body.find(SURVEY)
         if cut > 0:
             body = body[:body.rfind("\n", 0, cut)]
-        body = CITATION.sub(r"(\1)", body)
+        transcript = TIMESTAMP_HEADING.sub(r"### \1", IMAGE_DEF.sub("", transcript))
 
-        day = (meta.get("createdTime") or "undated")[:10]
-        path = os.path.join(OUT, f"{day}@{meta['id']}.md")
-        content = render(meta, body)
-        try:
-            with open(path) as fh:
-                if fh.read() == content:
-                    skipped += 1
-                    continue
-        except OSError:
-            pass
-        with open(path, "w") as fh:
-            fh.write(content)
-        written += 1
+        name = f"{(meta.get('createdTime') or 'undated')[:10]}@{meta['id']}.md"
+        summary_uri = f"qmd://meet/{name}"
+        transcript_uri, lines = None, {}
+        if transcript.strip():
+            transcript_uri = f"qmd://meet-transcripts/{name}"
+            tbody, lines = render_transcript(meta, body, transcript, summary_uri)
+            if write_if_changed(os.path.join(TRANSCRIPTS_OUT, name), tbody):
+                written += 1
+            else:
+                skipped += 1
+
+        def cite(m):
+            line = lines.get(m.group(1))
+            return f"({m.group(1)}, transcript L{line})" if line else f"({m.group(1)})"
+
+        if write_if_changed(os.path.join(OUT, name),
+                            render(meta, CITATION.sub(cite, body), transcript_uri)):
+            written += 1
+        else:
+            skipped += 1
 
     with open(STAMP, "w") as fh:
         fh.write(datetime.now(timezone.utc).isoformat())
-    print(f"meet-notes-export: {written} written, {skipped} unchanged -> {OUT}")
+    print(f"meet-notes-export: {written} written, {skipped} unchanged -> {OUT}, {TRANSCRIPTS_OUT}")
 
 
 if __name__ == "__main__":
