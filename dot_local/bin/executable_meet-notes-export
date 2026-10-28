@@ -5,8 +5,10 @@ Gemini writes one Doc per meeting, titled
 
     <Meeting> - <YYYY/MM/DD HH:MM TZ> - Notes by Gemini
 
-containing a notes section and then the full transcript. Each half is written
-to its own directory, under the same filename, for its own qmd collection:
+containing a notes section and then the full transcript — older Docs inline,
+newer ones in a second "Transcript" tab of the same Doc, which the Drive export
+leaves out, so that tab is fetched on its own. Each half is written to its own
+directory, under the same filename, for its own qmd collection:
 
     MEET_NOTES_OUT        ~/.local/share/meet-summaries     -> qmd://meet/
     MEET_TRANSCRIPTS_OUT  ~/.local/share/meet-transcripts   -> qmd://meet-transcripts/
@@ -58,6 +60,9 @@ TIMESTAMP_HEADING = re.compile(r"^### \*\*(\d{2}:\d{2}:\d{2})\*\*(?: \{#[^}]*\})
 # The Doc's inline images are defined after the transcript as base64 data URIs.
 IMAGE_DEF = re.compile(r"^\[image\d+\]: <data:[^\n]*\n?", re.M)
 PLAIN_HEADING = re.compile(r"### (\d{2}:\d{2}:\d{2})")
+# Newer Docs keep the transcript in its own tab, linked from the notes as
+# [Transcript](https://docs.google.com/document/d/<id>/edit?...&tab=t.<tab>).
+TRANSCRIPT_TAB = re.compile(r"\[Transcript\]\(https://docs\.google\.com/document/d/([\w-]+)/[^)]*?[?&]tab=(t\.[\w-]+)")
 
 
 def notify(title, message):
@@ -174,6 +179,27 @@ def render_transcript(meta, notes, transcript, summary_uri):
     return body, lines
 
 
+def transcript_tab(meta, notes, tok):
+    """The transcript tab's markdown, for Docs that keep it out of the first tab.
+
+    Drive's files.export only returns the first tab, and the Docs API (which can
+    read tabs) is not enabled for this OAuth client; docs.google.com's own export
+    takes a tab and accepts the same drive.readonly token.
+    """
+    for doc_id, tab in TRANSCRIPT_TAB.findall(notes):
+        if doc_id != meta["id"]:
+            continue
+        try:
+            text = api(f"https://docs.google.com/document/d/{doc_id}/export?"
+                       + urllib.parse.urlencode({"format": "md", "tab": tab}), tok, raw=True)
+        except Exception as exc:
+            print(f"meet-notes-export: could not export transcript of {meta['name'][:50]} ({exc})",
+                  file=sys.stderr)
+            return ""
+        return text.decode("utf-8", "replace")
+    return ""
+
+
 def write_if_changed(path, content):
     try:
         with open(path) as fh:
@@ -215,6 +241,8 @@ def main():
         cut = body.find(SURVEY)
         if cut > 0:
             body = body[:body.rfind("\n", 0, cut)]
+        if not transcript.strip():
+            transcript = transcript_tab(meta, body, tok)
         transcript = TIMESTAMP_HEADING.sub(r"### \1", IMAGE_DEF.sub("", transcript))
 
         name = f"{(meta.get('createdTime') or 'undated')[:10]}@{meta['id']}.md"
